@@ -1,0 +1,38 @@
+<!-- src/diary/templates/workshop.html -->
+{% extends "base.html" %}
+{% block nav_workshop %}active{% endblock %}
+{% block content %}
+<h1>Prompt 设置</h1>
+<textarea id="prompt-draft" style="width:100%;min-height:280px;padding:10px;font-family:var(--font-mono)">{{ active_prompt }}</textarea>
+
+<p>Test run 用哪篇日记预览：
+  <select id="test-entry">
+    {% for e in entries %}<option value="{{ e.id }}">{{ e.title }}</option>{% endfor %}
+  </select>
+  <button id="run-test">Test Run</button>
+</p>
+<div class="ai-card" id="preview-stream" style="display:none"></div>
+
+<button id="apply-btn">应用</button>
+<button id="apply-all-btn">应用并对全部历史日记+报告重新生成</button>
+
+<script src="/static/app.js"></script>
+<script>
+document.getElementById("run-test").addEventListener("click", () => {
+  const target = document.getElementById("preview-stream");
+  target.style.display = "block";
+  target.textContent = "";
+  streamInto("/workshop/test-run", {
+    draft_prompt: document.getElementById("prompt-draft").value,
+    entry_id: parseInt(document.getElementById("test-entry").value, 10),
+  }, target);
+});
+document.getElementById("apply-btn").addEventListener("click", async () => {
+  await fetch("/workshop/apply", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({draft_prompt: document.getElementById("prompt-draft").value}),
+  });
+  location.reload();
+});
+</script>
+{% endblock %}
