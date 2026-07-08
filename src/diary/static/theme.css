@@ -1,0 +1,42 @@
+/* src/diary/static/theme.css — gruvbox dark, see technical design §5.1 for the full rationale */
+:root{
+  --gb-bg0-hard:#1d2021; --gb-bg0:#282828; --gb-bg1:#3c3836; --gb-bg2:#504945;
+  --gb-fg0:#fbf1c7; --gb-fg1:#ebdbb2; --gb-fg4:#a89984; --gb-gray:#928374;
+  --gb-red:#fb4934; --gb-green:#b8bb26; --gb-yellow:#fabd2f;
+  --gb-blue:#83a598; --gb-aqua:#8ec07c;
+
+  --canvas:var(--gb-bg0-hard);
+  --base:var(--gb-bg0);
+  --card:var(--gb-bg1);
+  --border:var(--gb-bg2);
+  --ink:var(--gb-fg1);
+  --ink-strong:var(--gb-fg0);
+  --muted:var(--gb-fg4);
+  --faint:var(--gb-gray);
+  --accent:var(--gb-aqua);
+  --ok:var(--gb-green);
+  --warn:var(--gb-yellow);
+  --danger:var(--gb-red);
+  --link:var(--gb-blue);
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-read: Georgia, "Songti SC", "Noto Serif CJK SC", STSong, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--base); color: var(--ink); font-family: var(--font-ui); }
+a { color: var(--link); }
+.nav { display: flex; gap: 4px; padding: 12px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: 14px; }
+.nav a:hover, .nav a.active { color: var(--ink-strong); background: var(--card); }
+main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
+.entry-row { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.entry-date { color: var(--muted); font-family: var(--font-mono); font-size: 12px; width: 90px; flex-shrink: 0; }
+.entry-title { font-family: var(--font-read); font-size: 16px; margin: 0 0 4px; }
+.entry-title a { color: var(--ink-strong); text-decoration: none; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; height: fit-content; }
+.badge.done { background: var(--card); color: var(--accent); border: 1px solid var(--accent); }
+.badge.pending { background: var(--card); color: var(--faint); }
+.diary-text { font-family: var(--font-read); font-size: 17px; line-height: 1.8; max-width: 38em; }
+.ai-card { background: var(--card); border-left: 3px solid var(--accent); border-radius: 6px; padding: 16px 20px; margin: 16px 0; }
+.ai-label { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-bottom: 8px; }
