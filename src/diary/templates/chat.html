@@ -1,0 +1,25 @@
+<!-- src/diary/templates/chat.html -->
+{% extends "base.html" %}
+{% block nav_chat %}active{% endblock %}
+{% block content %}
+<h1>跟AI聊聊</h1>
+<div id="chat-thread">
+  {% for msg in history %}
+  <p><strong>{{ "我" if msg.role == "user" else "AI" }}：</strong>{{ msg.content }}</p>
+  {% endfor %}
+</div>
+<div id="chat-stream" class="ai-card" style="display:none"></div>
+<input type="text" id="chat-input" placeholder="问点什么…">
+<button id="chat-send">发送</button>
+<script src="/static/app.js"></script>
+<script>
+document.getElementById("chat-send").addEventListener("click", () => {
+  const input = document.getElementById("chat-input");
+  const target = document.getElementById("chat-stream");
+  target.style.display = "block";
+  target.textContent = "";
+  streamInto("/chat/message", {message: input.value}, target, () => location.reload());
+  input.value = "";
+});
+</script>
+{% endblock %}
