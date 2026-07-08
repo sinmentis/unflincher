@@ -25,4 +25,23 @@ document.getElementById("run-commentary").addEventListener("click", () => {
   streamInto("/entry/{{ entry.id }}/commentary", null, target, () => location.reload());
 });
 </script>
+
+<div id="chat-thread">
+  {% for msg in chat_history %}
+  <p><strong>{{ "我" if msg.role == "user" else "AI" }}：</strong>{{ msg.content }}</p>
+  {% endfor %}
+</div>
+<div id="chat-stream" class="ai-card" style="display:none"></div>
+<input type="text" id="chat-input" placeholder="回复 AI 人生导师…">
+<button id="chat-send">发送</button>
+<script>
+document.getElementById("chat-send").addEventListener("click", () => {
+  const input = document.getElementById("chat-input");
+  const target = document.getElementById("chat-stream");
+  target.style.display = "block";
+  target.textContent = "";
+  streamInto("/entry/{{ entry.id }}/chat", {message: input.value}, target, () => location.reload());
+  input.value = "";
+});
+</script>
 {% endblock %}
