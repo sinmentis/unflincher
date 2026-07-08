@@ -1,0 +1,10 @@
+# Personal data — never commit real diary content or derived databases.
+*.xlsx
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets
+.env
+*.key
