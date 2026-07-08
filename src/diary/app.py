@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from diary.config import load_settings
 from diary.db import get_connection, init_schema
+from diary.llm import ensure_default_persona_prompt
 from diary.routes import entry, timeline
 
 
@@ -17,6 +18,7 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         conn = get_connection(settings.db_path)
         init_schema(conn)
+        ensure_default_persona_prompt(conn)
         app.state.db = conn
         yield
         conn.close()

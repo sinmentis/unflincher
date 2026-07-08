@@ -13,4 +13,16 @@
 {% else %}
 <p class="entry-date">还没有锐评。</p>
 {% endif %}
+
+<div class="ai-card" id="commentary-stream" style="display:none"></div>
+<button id="run-commentary" class="badge done" style="cursor:pointer;border:none">AI 锐评</button>
+<script src="/static/app.js"></script>
+<script>
+document.getElementById("run-commentary").addEventListener("click", () => {
+  const target = document.getElementById("commentary-stream");
+  target.style.display = "block";
+  target.textContent = "";
+  streamInto("/entry/{{ entry.id }}/commentary", null, target, () => location.reload());
+});
+</script>
 {% endblock %}
