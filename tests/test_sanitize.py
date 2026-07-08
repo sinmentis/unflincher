@@ -1,4 +1,4 @@
-from diary.sanitize import render_ai_markdown, sanitize_diary_html
+from diary.sanitize import plain_text_to_safe_html, render_ai_markdown, sanitize_diary_html
 
 
 def test_sanitize_strips_script_tags():
@@ -55,3 +55,10 @@ def test_render_ai_markdown_renders_basic_formatting():
     out = render_ai_markdown("**bold** and *italic*")
     assert "<strong>bold</strong>" in out
     assert "<em>italic</em>" in out
+
+
+def test_plain_text_to_safe_html_escapes_and_wraps_paragraphs():
+    out = plain_text_to_safe_html("第一段\n\n第二段 <script>alert(1)</script>")
+    assert out.count("<p>") == 2
+    assert "<script>" not in out
+    assert "&lt;script&gt;" in out

@@ -5,6 +5,8 @@
   AI output is untrusted input regardless of who "asked" for it — never trust it just because
   a model produced it.
 """
+from html import escape
+
 import nh3
 from markdown_it import MarkdownIt
 
@@ -46,3 +48,10 @@ def render_ai_markdown(text: str) -> str:
         url_schemes=_URL_SCHEMES,
         link_rel="noopener noreferrer nofollow",
     )
+
+
+def plain_text_to_safe_html(text: str) -> str:
+    """User-typed new entries are plain text, but content_html is rendered with `| safe`
+    everywhere — so it must be escaped and wrapped, never stored verbatim."""
+    paragraphs = [p for p in text.split("\n\n") if p.strip()]
+    return "".join(f"<p>{escape(p).replace(chr(10), '<br>')}</p>" for p in paragraphs)

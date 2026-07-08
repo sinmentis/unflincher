@@ -1,0 +1,12 @@
+<!-- src/diary/templates/new_entry.html -->
+{% extends "base.html" %}
+{% block nav_new %}active{% endblock %}
+{% block content %}
+<h1>写新日记</h1>
+<p class="entry-date">保存后不会自动点评，可在时间线里手动触发。</p>
+<form method="post" action="/new">
+  <p><input type="text" name="title" placeholder="标题" style="width:100%;padding:8px" required></p>
+  <p><textarea name="content" placeholder="今天想写点什么……" style="width:100%;min-height:220px;padding:8px" required></textarea></p>
+  <button type="submit">保存日记</button>
+</form>
+{% endblock %}
