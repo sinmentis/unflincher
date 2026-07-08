@@ -1,0 +1,23 @@
+<!-- src/diary/templates/report.html -->
+{% extends "base.html" %}
+{% block nav_report %}active{% endblock %}
+{% block content %}
+<h1>综合人生报告</h1>
+{% if report_html %}
+<p class="entry-date">覆盖 {{ covered_count }} 篇 · {{ covered_from }} ~ {{ covered_to }}</p>
+<div class="ai-card">{{ report_html | safe }}</div>
+{% else %}
+<p class="entry-date">还没有生成过综合报告。</p>
+{% endif %}
+<div class="ai-card" id="report-stream" style="display:none"></div>
+<button id="run-report" class="badge done" style="cursor:pointer;border:none">生成/重新生成报告</button>
+<script src="/static/app.js"></script>
+<script>
+document.getElementById("run-report").addEventListener("click", () => {
+  const target = document.getElementById("report-stream");
+  target.style.display = "block";
+  target.textContent = "";
+  streamInto("/report/generate", null, target, () => location.reload());
+});
+</script>
+{% endblock %}

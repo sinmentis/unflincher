@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from diary.config import load_settings
 from diary.db import get_connection, init_schema
 from diary.llm import ensure_default_persona_prompt
-from diary.routes import entry, timeline
+from diary.routes import entry, report, timeline
 
 
 def create_app() -> FastAPI:
@@ -27,6 +27,7 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory="src/diary/static"), name="static")
     app.include_router(timeline.router)
     app.include_router(entry.router)
+    app.include_router(report.router)
 
     @app.get("/healthz")
     async def healthz():
