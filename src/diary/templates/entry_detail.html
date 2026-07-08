@@ -1,0 +1,16 @@
+<!-- src/diary/templates/entry_detail.html -->
+{% extends "base.html" %}
+{% block title %}{{ entry.title }}{% endblock %}
+{% block content %}
+<h1>{{ entry.title }}</h1>
+<div class="diary-text">{{ entry.content_html | safe }}</div>
+
+{% if commentary_html %}
+<div class="ai-card">
+  <div class="ai-label">AI 人生导师锐评</div>
+  {{ commentary_html | safe }}
+</div>
+{% else %}
+<p class="entry-date">还没有锐评。</p>
+{% endif %}
+{% endblock %}
