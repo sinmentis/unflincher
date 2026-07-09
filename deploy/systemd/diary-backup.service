@@ -1,0 +1,8 @@
+# deploy/systemd/diary-backup.service
+[Unit]
+Description=diary nightly SQLite backup
+After=diary.service
+Wants=diary.service
+[Service]
+Type=oneshot
+ExecStart=%h/work/website/diary/deploy/scripts/diary-backup.sh
