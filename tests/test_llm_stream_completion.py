@@ -160,3 +160,26 @@ async def test_client_stopped_when_error_raises_midstream(monkeypatch):
     # Cleanup still runs even though the SessionErrorData path raised mid-stream.
     assert record["stopped"] is True
     assert record["unsubscribed"] is True
+
+
+async def test_stall_timeout_raises_and_cleans_up(monkeypatch):
+    # Simulate a wedged/crashed CLI subprocess: a delta arrives, then the stream goes silent
+    # forever with NO idle/error event (the SDK's on_close just marks the client disconnected, it
+    # does not synthesize a SessionErrorData). Without a stall timeout this would hang indefinitely.
+    # The lone delta also proves the timer resets on progress: the SUT yields it, loops back, and
+    # only then times out waiting for the next event.
+    FakeClient, record = _make_fake_copilot([
+        AssistantMessageDeltaData(delta_content="partial", message_id="m1"),
+    ])
+    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    # Inject a tiny stall timeout so the suite doesn't wait the real 120s (matches this codebase's
+    # monkeypatch-heavy test style; stream_completion reads the module constant at runtime).
+    monkeypatch.setattr("diary.llm._STALL_TIMEOUT_SECONDS", 0.02)
+
+    # Timeout-specific error, distinct from the "session error" message, and it arrives fast.
+    with pytest.raises(RuntimeError, match="stall") as excinfo:
+        await _collect()
+    assert "session error" not in str(excinfo.value)
+    # The new timeout path runs the SAME finally cleanup as the SessionErrorData path above.
+    assert record["stopped"] is True
+    assert record["unsubscribed"] is True
