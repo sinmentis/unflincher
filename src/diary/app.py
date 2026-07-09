@@ -36,7 +36,9 @@ def create_app() -> FastAPI:
                 (running_job["prompt_version_id"],),
             ).fetchone()
             worker = BatchWorker(conn, settings.batch_concurrency)
-            asyncio.create_task(
+            # Hold a strong reference on app.state so the task can't be GC'd mid-run (RUF006);
+            # it also gives tests a handle to await the relaunched worker deterministically.
+            app.state.recovery_task = asyncio.create_task(
                 worker.run_job(
                     running_job["id"], prompt["body_text"], settings.llm_model
                 )
