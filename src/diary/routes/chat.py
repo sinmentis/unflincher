@@ -8,6 +8,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
 from diary.db import get_active_prompt
+from diary.sanitize import render_ai_markdown
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/diary/templates")
@@ -19,6 +20,16 @@ async def chat_page(request: Request):
     history = db.execute(
         "SELECT role, content FROM chat_message WHERE thread_kind='general' ORDER BY id"
     ).fetchall()
+    # AI replies are markdown (the model writes **bold**/paragraphs); user turns are plain typed
+    # text and must stay through Jinja2's default auto-escaping, not the markdown pipeline.
+    history = [
+        {
+            "role": m["role"],
+            "content": m["content"],
+            "content_html": render_ai_markdown(m["content"]) if m["role"] == "assistant" else None,
+        }
+        for m in history
+    ]
     return templates.TemplateResponse(request, "chat.html", {"history": history})
 
 

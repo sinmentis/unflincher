@@ -28,6 +28,16 @@ async def entry_detail(request: Request, entry_id: int):
         "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
         (entry_id,),
     ).fetchall()
+    # AI replies are markdown (the model writes **bold**/paragraphs); user turns are plain typed
+    # text and must stay through Jinja2's default auto-escaping, not the markdown pipeline.
+    chat_history = [
+        {
+            "role": m["role"],
+            "content": m["content"],
+            "content_html": render_ai_markdown(m["content"]) if m["role"] == "assistant" else None,
+        }
+        for m in chat_history
+    ]
     versions = list_commentary_versions(db, entry_id)
 
     return templates.TemplateResponse(
@@ -57,6 +67,14 @@ async def view_commentary_version(request: Request, entry_id: int, commentary_id
         "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
         (entry_id,),
     ).fetchall()
+    chat_history = [
+        {
+            "role": m["role"],
+            "content": m["content"],
+            "content_html": render_ai_markdown(m["content"]) if m["role"] == "assistant" else None,
+        }
+        for m in chat_history
+    ]
     versions = list_commentary_versions(db, entry_id)
 
     return templates.TemplateResponse(

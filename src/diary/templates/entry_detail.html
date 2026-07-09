@@ -38,7 +38,7 @@ document.getElementById("run-commentary").addEventListener("click", () => {
 
 <div id="chat-thread">
   {% for msg in chat_history %}
-  <p><strong>{{ "我" if msg.role == "user" else "AI" }}：</strong>{{ msg.content }}</p>
+  <div class="chat-msg"><strong>{{ "我" if msg.role == "user" else "AI" }}：</strong>{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
   {% endfor %}
 </div>
 <div id="chat-stream" class="ai-card" style="display:none" aria-live="polite"></div>

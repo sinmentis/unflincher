@@ -158,9 +158,34 @@ def test_entry_chat_persists_user_and_assistant_messages(client, monkeypatch):
     assert rows[1]["content"] == "那就先走一步"
 
 
+def test_entry_detail_renders_assistant_chat_markdown_but_not_user_text(client):
+    # Same regression as the general chat page (tests/test_routes_chat.py): assistant replies
+    # are markdown, user turns are plain typed text and must not be run through the markdown
+    # pipeline.
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, entry_id, role, content) VALUES ('entry', ?, 'user', ?)",
+        (entry_id, "1*2*3 是我写的"),
+    )
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, entry_id, role, content) VALUES ('entry', ?, 'assistant', ?)",
+        (entry_id, "**这是重点**"),
+    )
+
+    response = client.get(f"/entry/{entry_id}")
+
+    assert response.status_code == 200
+    assert "<strong>这是重点</strong>" in response.text
+    assert "**这是重点**" not in response.text
+    assert "1*2*3" in response.text
+
+
 def test_entry_chat_uses_latest_ok_commentary_not_a_specific_version(client, monkeypatch):
     captured = {}
-
     async def fake_chat_reply(entry_context, commentary_text, history, user_message, persona_text, model):
         captured["commentary_text"] = commentary_text
         yield "ok"

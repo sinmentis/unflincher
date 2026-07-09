@@ -11,6 +11,30 @@ def test_general_chat_page_shows_empty_state(client):
     assert response.status_code == 200
 
 
+def test_general_chat_page_renders_assistant_markdown_but_not_user_text(client):
+    # Regression test: assistant replies are markdown (the model writes **bold**), but were
+    # previously inserted into the template as raw text (`{{ msg.content }}`), so the literal
+    # asterisks showed up in the page instead of real <strong> emphasis. User-typed text must
+    # stay literal — it's plain text, not markdown, and rendering it as markdown would be wrong
+    # (e.g. a user writing "1*2*3" is not asking for italics).
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, role, content) VALUES ('general', 'user', ?)",
+        ("我用了 1*2*3 这种写法",),
+    )
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, role, content) VALUES ('general', 'assistant', ?)",
+        ("**这是重点**\n\n第二段。",),
+    )
+
+    response = client.get("/chat")
+
+    assert response.status_code == 200
+    assert "<strong>这是重点</strong>" in response.text
+    assert "**这是重点**" not in response.text
+    assert "1*2*3" in response.text
+
+
 def test_general_chat_persists_and_replies(client, monkeypatch):
     monkeypatch.setattr(llm_module, "general_chat_reply", _fake_general_tokens)
     db = client.app.state.db
