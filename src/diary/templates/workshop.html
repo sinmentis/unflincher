@@ -3,25 +3,36 @@
 {% block nav_workshop %}active{% endblock %}
 {% block content %}
 <h1>Prompt 设置</h1>
-<textarea id="prompt-draft" aria-label="Persona prompt 内容" style="width:100%;min-height:280px;padding:10px;font-family:var(--font-mono)">{{ active_prompt }}</textarea>
 
-<p><label for="model-select">生成用的模型：</label>
-  <select id="model-select" aria-label="生成用的模型">
-    {% for mid, mname in models %}<option value="{{ mid }}"{% if mid == active_model %} selected{% endif %}>{{ mname }}</option>{% endfor %}
-  </select>
-</p>
+<section class="ws-section">
+  <div class="ai-label">人设 Prompt</div>
+  <textarea id="prompt-draft" aria-label="Persona prompt 内容" style="width:100%;min-height:280px;padding:10px;font-family:var(--font-mono)">{{ active_prompt }}</textarea>
 
-<p><label for="test-entry">Test run 用哪篇日记预览：</label>
-  <select id="test-entry">
-    {% for e in entries %}<option value="{{ e.id }}">{{ e.title }}</option>{% endfor %}
-  </select>
-  <button id="run-test">Test Run</button>
-</p>
-<div class="ai-card" id="preview-stream" style="display:none" aria-live="polite"></div>
+  <p><label for="model-select">生成用的模型：</label>
+    <select id="model-select" aria-label="生成用的模型">
+      {% for mid, mname in models %}<option value="{{ mid }}"{% if mid == active_model %} selected{% endif %}>{{ mname }}</option>{% endfor %}
+    </select>
+  </p>
+</section>
 
-<button id="apply-btn" class="btn-primary">应用</button>
-<button id="apply-all-btn" class="btn-danger">应用并对全部历史日记+报告重新生成</button>
-<div id="regen-progress-holder"></div>
+<section class="ws-section">
+  <div class="ai-label">Test Run 预览 · 不会保存</div>
+  <p><label for="test-entry">挑一篇日记试试上面这版草稿：</label>
+    <select id="test-entry">
+      {% for e in entries %}<option value="{{ e.id }}">{{ e.title }}</option>{% endfor %}
+    </select>
+    <button id="run-test">Test Run</button>
+  </p>
+  <div class="ai-card" id="preview-stream" style="display:none" aria-live="polite"></div>
+</section>
+
+<section class="ws-section">
+  <div class="ai-label">保存 / 批量重新生成</div>
+  <p class="entry-date">"应用"只保存这版 prompt 和模型；"应用并对全部历史日记+报告重新生成"会用它重新点评全部日记，成本和耗时高得多。</p>
+  <button id="apply-btn" class="btn-primary">应用</button>
+  <button id="apply-all-btn" class="btn-danger">应用并对全部历史日记+报告重新生成</button>
+  <div id="regen-progress-holder"></div>
+</section>
 
 <script src="/static/app.js"></script>
 <script>

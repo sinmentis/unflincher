@@ -43,6 +43,10 @@ main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
 .ai-card { background: var(--card); border-left: 3px solid var(--accent); border-radius: var(--radius-md); padding: 18px 22px; margin: 18px 0; line-height: 1.8; }
 .ai-label { font-family: var(--font-mono); font-size: 13px; color: var(--accent); margin-bottom: 10px; letter-spacing: .02em; }
 .chat-msg { line-height: 1.8; margin: 16px 0; }
+/* Groups the workshop page (persona editor / test-run preview / save+regen-all) into clearly
+   separated steps -- previously every control sat in one undifferentiated column. A quiet
+   hairline (the same --border used elsewhere for dividers) is enough; no new visual language. */
+.ws-section + .ws-section { margin-top: 32px; padding-top: 32px; border-top: 1px solid var(--border); }
 
 /* ============================================================================
    Form controls, buttons, focus & streaming feedback — gruvbox dark

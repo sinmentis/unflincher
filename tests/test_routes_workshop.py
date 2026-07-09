@@ -53,6 +53,41 @@ def test_test_run_streams_but_writes_nothing_to_db(client, monkeypatch):
     assert after_commentary == before_commentary
 
 
+async def _fake_markdown_tokens(*args, **kwargs):
+    # Split across chunks the way a real streamed response would be -- the bold marker's closing
+    # ** lands in a later token than its opening **, so this also proves the fix accumulates the
+    # FULL text before rendering, rather than trying to markdown-render token-by-token.
+    for t in ["**重点", "在这里**\n\n第二段。"]:
+        yield t
+
+
+def test_test_run_done_event_carries_rendered_markdown_html(client, monkeypatch):
+    # Regression test: the workshop preview never reloads the page (unlike entry commentary/chat,
+    # general chat, and the report page, which all call location.reload() and get a fresh
+    # server-rendered pass) -- so if this route's `done` event doesn't hand back real HTML, the
+    # preview is stuck showing raw markdown source (literal `**`) forever, and per the client-side
+    # bug this fix also closes, it visually collapses once streaming ends because nothing ever
+    # gives it real paragraph markup to replace the plain-text/pre-wrap rendering.
+    monkeypatch.setattr(llm_module, "generate_commentary", _fake_markdown_tokens)
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+
+    response = client.post(
+        "/workshop/test-run",
+        json={"draft_prompt": "草稿", "entry_id": entry_ids[0]},
+    )
+
+    assert response.status_code == 200
+    # The `done` event's JSON payload must contain sanitized HTML with the bold/paragraph markup
+    # rendered -- not the literal `**` markdown source. (The raw `**重点` DOES legitimately appear
+    # earlier in the SSE body -- that's the individual streamed `token` events, unrendered by
+    # design while still in flight. Only the final `done` frame's payload is asserted here.)
+    done_frame = response.text.split("event: done\n", 1)[1]
+    assert "<strong>重点在这里</strong>" in done_frame
+    assert "<p>第二段。</p>" in done_frame
+    assert "**重点" not in done_frame
+
+
 def test_test_run_uses_full_corpus_same_as_real_generation(client, monkeypatch):
     captured = {}
 

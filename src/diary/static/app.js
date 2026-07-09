@@ -54,7 +54,27 @@ async function streamInto(url, body, targetEl, onDone) {
       const {ev, data} = parseSseFrame(frame);
       if (ev === "token") targetEl.textContent += data;
       else if (ev === "error") targetEl.insertAdjacentHTML("beforeend", '<span class="stream-err">生成中断</span>');
-      else if (ev === "done") onDone?.(data);
+      else if (ev === "done") {
+        // Persisted surfaces (entry commentary/chat, general chat, report) call
+        // location.reload() from their onDone callback, which replaces this whole element with a
+        // freshly server-rendered one anyway. The workshop test-run preview is the one caller that
+        // never reloads (it must never persist), so it needs its OWN final render pass here: if the
+        // server sent rendered html (see routes/workshop.py), swap it in now, while the target is
+        // still marked data-streaming="1" -- this happens strictly before that attribute is
+        // cleared below, so there is no frame where the raw pre-wrap text is shown without the
+        // benefit of white-space:pre-wrap (which is what previously caused the finished preview to
+        // visually collapse: newlines were only preserved while data-streaming="1" was set, and
+        // nothing ever put the text into real HTML block elements once streaming ended).
+        let payload = {};
+        try {
+          payload = JSON.parse(data);
+        } catch {
+          // Other routes' done payload is the literal string "{}" too, so this never actually
+          // throws in practice; the try/catch only guards against a malformed frame.
+        }
+        if (payload.html) targetEl.innerHTML = payload.html;
+        onDone?.(payload);
+      }
     }
   }
   delete targetEl.dataset.streaming;

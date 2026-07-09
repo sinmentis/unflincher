@@ -149,3 +149,72 @@ def test_stream_into_still_runs_normally_when_target_is_not_already_streaming():
     assert result["fetchCalls"] == 1
     assert result["textContent"] == "hi"  # cleared, then the new stream's own token
     assert "streaming" not in result  # dataset.streaming was deleted after completion, not set to null
+
+
+# Regression test for a second real production bug found alongside the re-entrancy one: the
+# workshop test-run preview never reloads the page (unlike entry commentary/chat, general chat,
+# and the report page, all of which call location.reload() from onDone and get a fresh
+# server-rendered pass) -- so its target element used to sit forever holding raw markdown-source
+# plaintext, and once data-streaming="1" was removed the CSS white-space:pre-wrap rule tied to
+# that attribute stopped applying, visually collapsing every paragraph break/newline the model had
+# written. The fix (routes/workshop.py) sends real rendered HTML back in the `done` event's JSON
+# payload; this test proves the client swaps it in via innerHTML, and does so BEFORE
+# dataset.streaming is cleared (so there is no frame where the raw, now-unstyled text is visible).
+_HTML_SWAP_ON_DONE_NODE_HARNESS = """
+globalThis.document = { body: { addEventListener() {} }, cookie: '' };
+const {streamInto} = require(process.argv[1]);
+
+globalThis.fetch = async () => {
+  const chunks = [
+    'event: token\\ndata: **hi**\\n\\n',
+    'event: done\\ndata: {"html":"<p><strong>hi</strong></p>"}\\n\\n',
+  ];
+  let i = 0;
+  return {
+    body: {
+      getReader() {
+        return {
+          async read() {
+            if (i < chunks.length) {
+              return {value: new TextEncoder().encode(chunks[i++]), done: false};
+            }
+            return {value: undefined, done: true};
+          },
+        };
+      },
+    },
+  };
+};
+
+const target = {dataset: {}, textContent: '', innerHTML: '', style: {}};
+let onDonePayload = null;
+streamInto('/x', null, target, (payload) => { onDonePayload = payload; }).then(() => {
+  process.stdout.write(JSON.stringify({
+    innerHTML: target.innerHTML,
+    textContent: target.textContent,
+    streaming: target.dataset.streaming,
+    onDonePayload,
+  }));
+});
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_stream_into_swaps_in_rendered_html_from_the_done_event_payload():
+    out = subprocess.run(
+        ["node", "-e", _HTML_SWAP_ON_DONE_NODE_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+
+    # The raw "**hi**" token text is replaced by the server-rendered HTML -- no literal markdown
+    # source left behind, and no reliance on white-space:pre-wrap to look right. (innerHTML is the
+    # one property real DOM and this plain-object test double agree on here; textContent isn't
+    # asserted post-swap since a real element's textContent getter recomputes from its live DOM
+    # tree after an innerHTML write, which a plain mock object can't reproduce.)
+    assert result["innerHTML"] == "<p><strong>hi</strong></p>"
+    assert "streaming" not in result  # cleared after completion, same as every other done path
+    assert result["onDonePayload"] == {"html": "<p><strong>hi</strong></p>"}
+

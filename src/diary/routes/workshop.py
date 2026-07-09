@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -8,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 from diary import llm
 from diary.config import load_settings
 from diary.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt, start_regen_job
+from diary.sanitize import render_ai_markdown
 from diary.worker import BatchWorker
 
 router = APIRouter()
@@ -53,14 +55,27 @@ async def workshop_test_run(request: Request):
     model = body.get("model") or (active_prompt["model"] if active_prompt else DEFAULT_MODEL)
 
     async def event_stream():
+        chunks = []
         async for token in llm.generate_commentary(
             dict(entry),
             [dict(e) for e in all_entries],
             body["draft_prompt"],
             model,
         ):
+            chunks.append(token)
             yield {"event": "token", "data": token}
-        yield {"event": "done", "data": "{}"}
+        # Preview never persists, but the owner still needs to SEE what a real generation would
+        # look like — that means real markdown rendering (bold/paragraphs), not raw tokens frozen
+        # in place forever (this route never reloads the page like the persisted commentary/chat/
+        # report routes do, so there is no second render pass to fall back on). render_ai_markdown
+        # is the exact same sanitizer every persisted surface already uses; sending its output back
+        # over the SAME `done` event the client already listens for keeps this a one-mechanism fix
+        # rather than a second markdown pipeline.
+        full_text = "".join(chunks)
+        yield {
+            "event": "done",
+            "data": json.dumps({"html": render_ai_markdown(full_text)}, ensure_ascii=False),
+        }
 
     return EventSourceResponse(event_stream(), sep="\n")
 
