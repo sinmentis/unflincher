@@ -6,6 +6,14 @@ async def _fake_tokens(*args, **kwargs):
         yield t
 
 
+async def _fake_multiline_tokens(*args, **kwargs):
+    # One token carries paragraph breaks; sse-starlette serializes each embedded newline as a
+    # separate `data: ` line inside a single event frame (the exact wire shape the browser SSE
+    # parser must rejoin). Regression guard for the multi-line streamed-text corruption bug.
+    yield "第一行\n第二行"
+    yield "\n\n列表：\n- 项目一"
+
+
 def test_generate_commentary_streams_and_persists(client, monkeypatch):
     monkeypatch.setattr(llm_module, "generate_commentary", _fake_tokens)
     db = client.app.state.db
@@ -31,6 +39,41 @@ def test_generate_commentary_404_for_missing_entry(client, monkeypatch):
     monkeypatch.setattr(llm_module, "generate_commentary", _fake_tokens)
     response = client.post("/entry/9999/commentary")
     assert response.status_code == 404
+
+
+def test_commentary_multiline_token_rejoins_without_data_prefix_leak(client, monkeypatch):
+    monkeypatch.setattr(llm_module, "generate_commentary", _fake_multiline_tokens)
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('标题', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+
+    response = client.post(f"/entry/{entry_id}/commentary")
+    assert response.status_code == 200
+
+    # Server frame shape: a multi-line token IS split into several `data: ` lines inside one
+    # `event: token` frame — exactly what the old single greedy-regex parser mis-handled.
+    token_frames = [f for f in response.text.split("\n\n") if "event: token" in f]
+    assert any(f.count("data: ") > 1 for f in token_frames)
+
+    # Rejoin each frame the way app.js's parseSseFrame does; the reconstructed text must equal the
+    # original tokens with NO stray "data: " field prefix embedded anywhere.
+    rendered = "".join(
+        "\n".join(line[6:] for line in f.split("\n") if line.startswith("data: "))
+        for f in token_frames
+    )
+    assert rendered == "第一行\n第二行\n\n列表：\n- 项目一"
+    assert "data: " not in rendered
+
+    # The persisted row (the permanent source of truth once the stream ends) carries the clean
+    # joined text, never a "data: " fragment.
+    row = db.execute(
+        "SELECT body_text, status FROM entry_commentary WHERE entry_id = ?", (entry_id,)
+    ).fetchone()
+    assert row["status"] == "ok"
+    assert row["body_text"] == "第一行\n第二行\n\n列表：\n- 项目一"
+    assert "data: " not in row["body_text"]
 
 
 def test_entry_detail_shows_content(client):
