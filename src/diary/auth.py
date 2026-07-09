@@ -38,7 +38,8 @@ class AccessJWTMiddleware(BaseHTTPMiddleware):
                 signing_key.key,
                 algorithms=["RS256"],
                 audience=self.settings.cf_access_aud,
-                options={"require": ["exp", "iat", "aud"]},
+                issuer=f"https://{self.settings.cf_team_domain}.cloudflareaccess.com",
+                options={"require": ["exp", "iat", "aud", "iss"]},
                 leeway=CLOCK_SKEW_LEEWAY_SECONDS,
             )
         except jwt.PyJWTError as exc:

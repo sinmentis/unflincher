@@ -99,6 +99,14 @@ def test_wrong_email_rejected(private_key):
     assert response.status_code == 403
 
 
+def test_wrong_issuer_rejected(private_key):
+    app = _make_app(_settings(), private_key.public_key())
+    client = TestClient(app)
+    token = _make_token(private_key, iss="https://attacker-team.cloudflareaccess.com")
+    response = client.get("/protected", headers={"Cf-Access-Jwt-Assertion": token})
+    assert response.status_code == 403
+
+
 def test_healthz_exempt_from_auth(private_key):
     app = _make_app(_settings(), private_key.public_key())
     client = TestClient(app)
