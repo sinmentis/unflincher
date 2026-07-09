@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from diary.auth import AccessJWTMiddleware
 from diary.config import load_settings
 from diary.db import get_connection, init_schema, resume_sweep
 from diary.llm import ensure_default_persona_prompt
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
         conn.close()
 
     app = FastAPI(title="diary", lifespan=lifespan)
+    app.add_middleware(AccessJWTMiddleware, settings=settings)
     app.mount("/static", StaticFiles(directory="src/diary/static"), name="static")
     app.include_router(timeline.router)
     app.include_router(entry.router)
