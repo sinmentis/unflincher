@@ -12,12 +12,13 @@ PublishPort=127.0.0.1:8096:8000
 
 Volume=diary-data.volume:/data
 
-# LLM API key — created once via `podman secret create diary-llm-key ...` (Task 21). Never
-# in the image or in git.
-Secret=diary-llm-key,type=env,target=ANTHROPIC_API_KEY
+# Shared secret — the SAME fine-grained GitHub PAT trading's and News Center's Copilot SDK
+# wrappers use (same GitHub account, same Copilot subscription). See website/README.md's secrets
+# section; don't fork a diary-only copy. CopilotClient() auto-detects this env var.
+Secret=unflincher-copilot-github-token,type=env,target=COPILOT_GITHUB_TOKEN
 
 Environment=DIARY_DB=/data/diary.db
-Environment=DIARY_LLM_MODEL=anthropic/claude-sonnet-4-5
+Environment=DIARY_LLM_MODEL=claude-sonnet-4.6
 Environment=DIARY_BATCH_CONCURRENCY=3
 # CF_TEAM_DOMAIN and OPERATOR_EMAIL match shunlyu-infra/deploy/infra.env's shared, non-secret
 # account facts (same values every Access-gated site on this box uses). AUD is the one value

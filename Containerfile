@@ -9,6 +9,11 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install --no-cache-dir .
 
+# Bake the Copilot CLI runtime into the image at build time so a fresh container doesn't fetch
+# it from GitHub Releases on first request (avoids that network dependency + latency spike),
+# mirroring how this repo vendors htmx.min.js instead of hitting a CDN at runtime.
+RUN python -m copilot download-runtime
+
 ENV DIARY_DB=/data/diary.db
 VOLUME ["/data"]
 EXPOSE 8000

@@ -18,7 +18,7 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         db_path=os.environ.get("DIARY_DB", "diary.dev.db"),
-        llm_model=os.environ.get("DIARY_LLM_MODEL", "anthropic/claude-sonnet-4-5"),
+        llm_model=os.environ.get("DIARY_LLM_MODEL", "claude-sonnet-4.6"),
         batch_concurrency=int(os.environ.get("DIARY_BATCH_CONCURRENCY", "3")),
         cf_team_domain=os.environ.get("DIARY_CF_TEAM_DOMAIN", ""),
         cf_access_aud=os.environ.get("DIARY_CF_ACCESS_AUD", ""),

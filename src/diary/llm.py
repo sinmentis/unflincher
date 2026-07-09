@@ -3,9 +3,8 @@ both chat surfaces, and the prompt-workshop test-run preview) goes through the S
 generate_* functions here with the SAME context-assembly logic — this module never writes
 to the database. Persisting a generation (or not, for test-run) is entirely the caller's
 responsibility (see Task 9's route and Task 13's worker vs. Task 12's test-run route)."""
+import asyncio
 from collections.abc import AsyncIterator
-
-import litellm
 
 DEFAULT_PERSONA_PROMPT = """你是用户的"人生导师"。你的任务是读用户的私人日记，帮TA看清自己的人生、反复出现的困惑和目标——而不是单纯地安慰或附和。
 
@@ -30,18 +29,74 @@ def ensure_default_persona_prompt(conn) -> None:
 
 
 async def stream_completion(system: str, user_content: str, model: str) -> AsyncIterator[str]:
-    response = await litellm.acompletion(
-        model=model,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_content},
-        ],
-        stream=True,
+    """Stream one completion token-by-token via the GitHub Copilot SDK. This is the ONLY
+    place the whole app talks to an LLM; every generate_*/chat_* path funnels through here.
+    Authenticates with COPILOT_GITHUB_TOKEN (a shared fine-grained GitHub PAT injected by the
+    Quadlet unit) — CopilotClient() auto-detects that env var, so no key is passed in code."""
+    from copilot import CopilotClient
+    from copilot.generated.session_events import (
+        AssistantIdleData,
+        AssistantMessageDeltaData,
+        SessionErrorData,
     )
-    async for chunk in response:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            yield delta
+
+    # The SDK dispatches session events from its background JSON-RPC reader thread, not from
+    # this coroutine's event loop. Bridge them onto the loop via call_soon_threadsafe — calling
+    # queue.put_nowait directly from the handler would be an unsafe cross-thread touch of
+    # asyncio internals.
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+
+    def _on_event(event):
+        loop.call_soon_threadsafe(queue.put_nowait, event)
+
+    client = CopilotClient()
+    unsubscribe = None
+    try:
+        await client.start()
+        session = await client.create_session(
+            model=model,
+            # "replace" mode: use diary's own persona+task text verbatim as the system prompt.
+            # The SDK's default is its full general-purpose coding-agent system prompt
+            # (identity/tone/tool/environment/code-change sections); that would contaminate the
+            # life-mentor persona. Do NOT simplify this back to the SDK default.
+            system_message={"mode": "replace", "content": system},
+            # Pure text-in/text-out. An empty allowlist disables the entire merged tool catalog
+            # (built-in + MCP + custom) so the model can never touch this server's filesystem or
+            # network. Security requirement, not an optimization — keep it empty.
+            available_tools=[],
+            # Isolate from any ambient AGENTS.md/.github/copilot-instructions on the host: custom
+            # instruction files load based on working_directory regardless of config discovery, so
+            # point it at /tmp (guaranteed to exist, guaranteed to hold no instruction files) and
+            # belt-and-suspenders the rest off.
+            working_directory="/tmp",
+            skip_custom_instructions=True,
+            enable_config_discovery=False,
+            enable_skills=False,
+            streaming=True,
+            on_event=_on_event,
+        )
+        # Register once more to capture the unsubscribe callable for guaranteed cleanup. on() adds
+        # to a set, so re-registering the same handler is idempotent (it still fires once/event).
+        unsubscribe = session.on(_on_event)
+        await session.send(user_content)
+        while True:
+            event = await queue.get()
+            data = event.data
+            if isinstance(data, AssistantMessageDeltaData):
+                if data.delta_content:
+                    yield data.delta_content
+            elif isinstance(data, SessionErrorData):
+                raise RuntimeError(f"Copilot SDK session error: {data.message}")
+            elif isinstance(data, AssistantIdleData):
+                break
+            # Ignore everything else (reasoning/lifecycle/etc.) and keep reading.
+    finally:
+        if unsubscribe is not None:
+            unsubscribe()
+        # Unconditional teardown: client.stop() disconnects the session and shuts down the CLI
+        # subprocess, so a mid-stream error (or early consumer close) still cleans up.
+        await client.stop()
 
 
 def _build_corpus(all_entries: list[dict]) -> str:

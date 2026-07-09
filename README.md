@@ -8,7 +8,10 @@ implementation plan in `shunlyu-infra/docs/superpowers/plans/2026-07-09-diary-im
 ## First-time deploy (in order)
 
 1. `podman build -t localhost/diary:latest .`
-2. `podman secret create diary-llm-key <(printf '%s' "$ANTHROPIC_API_KEY")`
+2. Ensure the shared `unflincher-copilot-github-token` podman secret exists (diary reuses it via
+   the Copilot SDK — it does NOT need its own dedicated LLM API key). It's almost certainly
+   already created for trading/News Center; if not, see `website/README.md`'s "Secrets & tokens"
+   section for the one-time creation command.
 3. `deploy/scripts/import-diary.sh /path/to/豆伴export.xlsx` — **before** starting the service.
 4. Edit `deploy/quadlet/diary.container`'s three `REPLACE_WITH_*` values (see Task 20 for how
    to obtain them), then:
