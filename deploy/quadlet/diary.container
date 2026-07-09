@@ -24,7 +24,7 @@ Environment=DIARY_BATCH_CONCURRENCY=3
 # account facts (same values every Access-gated site on this box uses). AUD is the one value
 # that's genuinely per-app -- only known after running deploy/create-access-diary-app.sh below.
 Environment=DIARY_CF_TEAM_DOMAIN=your-team-name.cloudflareaccess.com
-Environment=DIARY_CF_ACCESS_AUD=REPLACE_WITH_ACCESS_APP_AUD
+Environment=DIARY_CF_ACCESS_AUD=REPLACE_WITH_YOUR_ACCESS_APP_AUD
 Environment=DIARY_OPERATOR_EMAIL=your-email@example.com
 Environment=DIARY_REQUIRE_ACCESS_AUTH=true
 
@@ -43,6 +43,10 @@ Restart=always
 RestartSec=5
 TimeoutStartSec=90
 TimeoutStopSec=45
+# uvicorn exits 143 (128+SIGTERM) on a clean graceful shutdown -- without this, systemd logs
+# every intentional stop/restart as "Failed with result 'exit-code'" even though the app itself
+# shut down cleanly within TimeoutStopSec (verified: real shutdown took 0.3s).
+SuccessExitStatus=143
 
 [Install]
 WantedBy=default.target
