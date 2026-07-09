@@ -19,9 +19,12 @@ Secret=diary-llm-key,type=env,target=ANTHROPIC_API_KEY
 Environment=DIARY_DB=/data/diary.db
 Environment=DIARY_LLM_MODEL=anthropic/claude-sonnet-4-5
 Environment=DIARY_BATCH_CONCURRENCY=3
-Environment=DIARY_CF_TEAM_DOMAIN=REPLACE_WITH_TEAM_DOMAIN
+# CF_TEAM_DOMAIN and OPERATOR_EMAIL match shunlyu-infra/deploy/infra.env's shared, non-secret
+# account facts (same values every Access-gated site on this box uses). AUD is the one value
+# that's genuinely per-app -- only known after running deploy/create-access-diary-app.sh below.
+Environment=DIARY_CF_TEAM_DOMAIN=your-team-name.cloudflareaccess.com
 Environment=DIARY_CF_ACCESS_AUD=REPLACE_WITH_ACCESS_APP_AUD
-Environment=DIARY_OPERATOR_EMAIL=REPLACE_WITH_OPERATOR_EMAIL
+Environment=DIARY_OPERATOR_EMAIL=your-email@example.com
 Environment=DIARY_REQUIRE_ACCESS_AUTH=true
 
 HealthCmd=python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=5).status==200 else 1)"

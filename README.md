@@ -16,7 +16,9 @@ implementation plan in `shunlyu-infra/docs/superpowers/plans/2026-07-09-diary-im
    `systemctl --user daemon-reload && systemctl --user start diary.service`
 5. Merge `deploy/cloudflared/diary-ingress.snippet.yml` into `~/.cloudflared/config.yml`,
    then `cloudflared tunnel route dns unflincher-host diary.yourdomain.com && systemctl --user restart cloudflared`.
-6. `CF_ACCOUNT_ID=... DIARY_OPERATOR_EMAIL=... CF_TOKEN=... ./deploy/create-access-diary-app.sh`
+6. `CF_TOKEN=... ./deploy/create-access-diary-app.sh` (account ID + operator email now come
+   from `shunlyu-infra/deploy/infra.env`; override `DIARY_OPERATOR_EMAIL=...` if it should
+   differ from the default operator)
 7. `cp deploy/systemd/diary-backup.* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now diary-backup.timer`
 
 ## Repeat deploys
