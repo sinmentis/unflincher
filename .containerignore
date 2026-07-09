@@ -1,0 +1,12 @@
+# .containerignore
+.venv
+.git
+tests
+豆伴*.xlsx
+*.db
+*.db-wal
+*.db-shm
+data/
+import/
+__pycache__
+*.pyc

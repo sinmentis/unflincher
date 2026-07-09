@@ -1,0 +1,9 @@
+# deploy/quadlet/diary-data.volume
+[Unit]
+Description=diary SQLite data volume
+
+[Volume]
+VolumeName=diary-data
+
+[Install]
+WantedBy=default.target
