@@ -1,7 +1,7 @@
 /* src/diary/static/theme.css — gruvbox dark, see technical design §5.1 for the full rationale */
 :root{
   --gb-bg0-hard:#1d2021; --gb-bg0:#282828; --gb-bg1:#3c3836; --gb-bg2:#504945;
-  --gb-fg0:#fbf1c7; --gb-fg1:#ebdbb2; --gb-fg4:#a89984; --gb-gray:#928374;
+  --gb-fg0:#fbf1c7; --gb-fg1:#ebdbb2; --gb-fg3:#bdae93; --gb-fg4:#a89984; --gb-gray:#928374;
   --gb-red:#fb4934; --gb-green:#b8bb26; --gb-yellow:#fabd2f;
   --gb-blue:#83a598; --gb-aqua:#8ec07c;
 
@@ -12,6 +12,7 @@
   --ink:var(--gb-fg1);
   --ink-strong:var(--gb-fg0);
   --muted:var(--gb-fg4);
+  --quote:var(--gb-fg3);
   --faint:var(--gb-gray);
   --accent:var(--gb-aqua);
   --ok:var(--gb-green);
@@ -24,22 +25,24 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--base); color: var(--ink); font-family: var(--font-ui); }
+html, body { margin: 0; background: var(--base); color: var(--ink); font-family: var(--font-ui); font-size: 17px; }
 a { color: var(--link); }
 .nav { display: flex; gap: 4px; padding: 12px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: 14px; }
+.nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: 15px; }
 .nav a:hover, .nav a.active { color: var(--ink-strong); background: var(--card); }
 main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
 .entry-row { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
-.entry-date { color: var(--muted); font-family: var(--font-mono); font-size: 12px; width: 90px; flex-shrink: 0; }
-.entry-title { font-family: var(--font-read); font-size: 16px; margin: 0 0 4px; }
+.entry-date { color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+.entry-row .entry-date { width: 96px; flex-shrink: 0; }
+.entry-title { font-family: var(--font-read); font-size: 17px; margin: 0 0 4px; }
 .entry-title a { color: var(--ink-strong); text-decoration: none; }
-.badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; height: fit-content; }
+.badge { font-size: 12px; padding: 2px 9px; border-radius: 20px; white-space: nowrap; height: fit-content; }
 .badge.done { background: var(--card); color: var(--accent); border: 1px solid var(--accent); }
 .badge.pending { background: var(--card); color: var(--ink); border: 1px solid var(--faint); }
-.diary-text { font-family: var(--font-read); font-size: 17px; line-height: 1.8; max-width: 38em; }
-.ai-card { background: var(--card); border-left: 3px solid var(--accent); border-radius: 6px; padding: 16px 20px; margin: 16px 0; }
-.ai-label { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+.diary-text { font-family: var(--font-read); font-size: 18px; line-height: 1.9; letter-spacing: .01em; max-width: 38em; }
+.ai-card { background: var(--card); border-left: 3px solid var(--accent); border-radius: var(--radius-md); padding: 18px 22px; margin: 18px 0; line-height: 1.8; }
+.ai-label { font-family: var(--font-mono); font-size: 13px; color: var(--accent); margin-bottom: 10px; letter-spacing: .02em; }
+.chat-msg { line-height: 1.8; margin: 16px 0; }
 
 /* ============================================================================
    Form controls, buttons, focus & streaming feedback — gruvbox dark
@@ -47,18 +50,23 @@ main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
    deliberate dark-mode "shadow-as-border" treatment (pure white, per design review) — never
    tinted from the palette, so they read consistently as depth regardless of the surface color
    they sit on.
-   Accessibility guardrails baked in here (from a dedicated a11y audit): --faint is never used
-   for placeholder/border text at small sizes (only 3.16:1 on --card, fails AA) -- --muted is used
-   instead where a placeholder needs to sit on --canvas (5.90:1); accent-filled buttons always
-   pair with dark (--gb-bg0-hard) text, never light --ink (would be 1.53:1); --danger red on
-   --canvas/--card is 5.0/4.3:1 so it's only used on --canvas or paired with bold weight, never a
-   plain small label on --card alone.
+   Accessibility guardrails baked in here (all ratios recomputed WCAG 2.x, verified this pass):
+   --faint is never used for placeholder/border text at small sizes (only 3.16:1 on --card, fails AA)
+   -- --muted is used instead where a placeholder needs to sit on --canvas (5.90:1); a *solid* accent
+   fill would still need dark (--gb-bg0-hard) text, never light --ink (that would be 1.53:1) -- but the
+   accent buttons below are now TONAL (aqua label on a dark aqua wash: 5.4:1 resting / 4.7:1 hover, and
+   the aqua .done pill 5.6:1) rather than solid fills; --danger red is 4.8:1 on --canvas but only 3.4:1
+   on --card, so the danger button keeps its red label on the dark --canvas (never on a card/red-tinted
+   fill, which would fail AA) and only fills on hover with the dimmer red #cc241d under cream
+   --ink-strong text (4.8:1); the AI/diary blockquote uses --quote (gb-fg3) = 5.3:1 on --card / 6.8:1 on
+   --base, a softer-than-body tone that still clears AA where plain --muted (4.2:1 on --card) would not;
+   focus-visible ring is --link on --canvas = 6.1:1, well above the 3:1 non-text minimum.
    ============================================================================ */
 :root{
   --radius-md: 8px;
   --radius-pill: 999px;
-  --ring:       0 0 0 1px rgba(255,255,255,0.08);   /* shadows-over-borders (dark) */
-  --ring-hover: 0 0 0 1px rgba(255,255,255,0.14);
+  --ring:       0 0 0 1px rgba(255,255,255,0.06);   /* shadows-over-borders (dark), quieted for 淡雅 */
+  --ring-hover: 0 0 0 1px rgba(255,255,255,0.12);
   --focus-ring: 0 0 0 2px var(--canvas), 0 0 0 4px var(--link);
 }
 
@@ -66,11 +74,31 @@ html{ color-scheme: dark; -webkit-font-smoothing: antialiased; -moz-osx-font-smo
 
 /* Typography polish */
 h1, .entry-title{ text-wrap: balance; }
-.diary-text, .ai-card{ text-wrap: pretty; }
+.diary-text, .ai-card, .chat-msg{ text-wrap: pretty; }
+
+/* Headings — an explicit scale at a lighter weight (600, not the UA bold 700) for a calmer, more
+   淡雅 hierarchy. h1 is page chrome; h2–h4 appear only inside AI markdown + sanitized diary HTML. */
+h1{ font-size: 32px; font-weight: 600; line-height: 1.3; letter-spacing: -0.01em; color: var(--ink-strong); margin: 0 0 22px; }
+.ai-card :is(h1,h2,h3,h4), .diary-text :is(h1,h2,h3,h4){ color: var(--ink-strong); font-weight: 600; line-height: 1.4; letter-spacing: -0.005em; }
+.ai-card :is(h1,h2), .diary-text :is(h1,h2){ font-size: 21px; margin: 1.5em 0 .5em; }
+.ai-card h3, .diary-text h3{ font-size: 18px; margin: 1.4em 0 .4em; }
+.ai-card h4, .diary-text h4{ font-size: 16px; margin: 1.3em 0 .35em; }
+/* Collapse the outer edges so card padding isn't doubled by leading/trailing block margins. */
+.ai-card > :first-child, .diary-text > :first-child{ margin-top: 0; }
+.ai-card > :last-child, .diary-text > :last-child{ margin-bottom: 0; }
+
+/* Quiet pull-quote for AI markdown / diary content — a thin muted rule instead of an orphaned,
+   ambiguous indent (which is all a UA blockquote gives on this dark canvas). --quote (gb-fg3) is a
+   deliberately softer-than-body tone that still clears AA on the lighter --card (5.3:1) as well as
+   --base (6.8:1); plain --muted here would be only 4.2:1 on --card and fail AA. */
+.ai-card blockquote, .diary-text blockquote{
+  margin: 1em 0; padding: 2px 0 2px 16px;
+  border-left: 2px solid var(--border); color: var(--quote);
+}
 
 /* Text fields — recessed wells on the dark canvas */
 input[type="text"], textarea, select{
-  font: inherit; font-size: 15px;
+  font: inherit; font-size: 16px;
   color: var(--ink); background: var(--canvas);
   border: 0; border-radius: var(--radius-md);
   box-shadow: var(--ring);
@@ -92,11 +120,11 @@ select{
 /* Per-field sizing (preserves size if the inline styles are stripped later; harmless if not) */
 #new-title, #new-content, #prompt-draft{ width: 100%; }
 #new-content{ min-height: 220px; }
-#prompt-draft{ min-height: 280px; font-family: var(--font-mono); font-size: 14px; }
+#prompt-draft{ min-height: 280px; font-family: var(--font-mono); font-size: 15px; }
 
 /* Buttons — base (neutral, raised) */
 button{
-  font: inherit; font-size: 14px;
+  font: inherit; font-size: 15px;
   color: var(--ink); background: var(--card);
   border: 0; border-radius: var(--radius-md);
   box-shadow: var(--ring);
@@ -110,18 +138,25 @@ button:hover{ background: var(--border); box-shadow: var(--ring-hover); }
 button:active{ scale: 0.96; }
 button:disabled{ opacity: .5; cursor: not-allowed; scale: none; background: var(--card); box-shadow: var(--ring); }
 
-/* Primary — frequent, safe (保存日记, 应用) */
-.btn-primary{ background: var(--accent); color: var(--gb-bg0-hard); box-shadow: none; font-weight: 600; }
-.btn-primary:hover{ background: var(--accent); box-shadow: none; filter: brightness(1.08); }
+/* Primary — frequent, safe (保存日记, 应用). Softened from a solid neon-aqua fill to a quiet
+   TONAL treatment (aqua wash + aqua label + hairline aqua ring) for a more 淡雅 feel while still
+   clearly reading as THE accent action. Aqua label on the dark wash = 5.4:1 (AA). */
+.btn-primary{ background: rgba(142,192,124,0.13); color: var(--accent); box-shadow: 0 0 0 1px rgba(142,192,124,0.42); font-weight: 600; }
+.btn-primary:hover{ background: rgba(142,192,124,0.20); box-shadow: 0 0 0 1px rgba(142,192,124,0.60); filter: none; }
 
-/* Danger — expensive / whole-corpus (应用并对全部历史日记+报告重新生成) */
-.btn-danger{ background: var(--canvas); color: var(--danger); box-shadow: 0 0 0 1px var(--danger); font-weight: 600; }
-.btn-danger:hover{ background: var(--danger); color: var(--gb-bg0-hard); box-shadow: 0 0 0 1px var(--danger); }
+/* Danger — expensive / whole-corpus (应用并对全部历史日记+报告重新生成). Quiet outline at rest
+   (softened red ring, full-strength red label on dark --canvas = 4.8:1). It still FILLS on hover
+   to signal "this is serious", but with gruvbox's dimmer red #cc241d under cream text (4.8:1),
+   so it reads deliberate rather than neon-loud. */
+.btn-danger{ background: var(--canvas); color: var(--danger); box-shadow: 0 0 0 1px rgba(251,73,52,0.50); font-weight: 600; }
+.btn-danger:hover{ background: #cc241d; color: var(--ink-strong); box-shadow: 0 0 0 1px #cc241d; }
 
-/* Pill triggers (#run-commentary, #run-report) — badge look, real-button size, ring via shadow */
-button.badge{ font-size: 13px; min-height: 40px; padding: 8px 16px; border-radius: var(--radius-pill); }
-button.badge.done{ background: var(--card); color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-button.badge.done:hover{ background: var(--accent); color: var(--gb-bg0-hard); box-shadow: 0 0 0 1px var(--accent); }
+/* Pill triggers (#run-commentary, #run-report) — badge look, real-button size, ring via shadow.
+   Same tonal aqua as .btn-primary: a quiet wash at rest, a gentle deepening on hover (no neon
+   solid fill), so "generate" invites rather than shouts. */
+button.badge{ font-size: 14px; min-height: 40px; padding: 8px 18px; border-radius: var(--radius-pill); }
+button.badge.done{ background: rgba(142,192,124,0.12); color: var(--accent); box-shadow: 0 0 0 1px rgba(142,192,124,0.40); }
+button.badge.done:hover{ background: rgba(142,192,124,0.20); color: var(--accent); box-shadow: 0 0 0 1px rgba(142,192,124,0.58); }
 
 /* Nav links — >=40px hit target */
 .nav a{ display: inline-flex; align-items: center; min-height: 40px; }
@@ -138,6 +173,12 @@ button.badge:focus-visible,
 }
 
 /* Streaming feedback — reuses data-streaming="1" set by streamInto() on the TARGET */
+/* While streaming, the target holds raw plaintext tokens whose newlines are significant, so
+   preserve them; once streaming finishes the page reloads and the SAME .ai-card re-renders
+   sanitized markdown HTML, which needs normal white-space. Scoping pre-wrap to the streaming
+   state (instead of a blanket .ai-card{white-space:pre-wrap}) stops the markdown source's blank
+   lines from leaking into the rendered commentary/report as loose vertical gaps. */
+.ai-card[data-streaming="1"]{ white-space: pre-wrap; }
 main:has(#commentary-stream[data-streaming="1"]) #run-commentary,
 main:has(#report-stream[data-streaming="1"])     #run-report,
 main:has(#preview-stream[data-streaming="1"])    #run-test,
@@ -154,7 +195,7 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
 }
 .ai-card[data-streaming="1"]:empty::after{
   content: "思考中 ▍"; color: var(--faint);
-  font-family: var(--font-ui); font-size: 14px;
+  font-family: var(--font-ui); font-size: 15px;
   animation: gb-pulse 1.2s ease-in-out infinite;
 }
 @keyframes gb-spin{ to{ transform: rotate(360deg); } }
@@ -168,7 +209,7 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
 }
 
 /* Misc polish */
-.stream-err{ color: var(--danger); font-family: var(--font-ui); font-size: 14px; font-weight: 600; }
+.stream-err{ color: var(--danger); font-family: var(--font-ui); font-size: 15px; font-weight: 600; }
 #regen-progress{ font-variant-numeric: tabular-nums; }
 .diary-text img, .ai-card img{ max-width: 100%; outline: 1px solid rgba(255,255,255,0.1); outline-offset: -1px; }
 ::selection{ background: var(--gb-bg2); color: var(--ink-strong); }
