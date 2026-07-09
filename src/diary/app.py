@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from diary.auth import AccessJWTMiddleware
 from diary.config import load_settings
+from diary.csrf import CSRFMiddleware
 from diary.db import get_connection, init_schema, resume_sweep
 from diary.llm import ensure_default_persona_prompt
 from diary.routes import chat, entry, new_entry, report, timeline, workshop
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="diary", lifespan=lifespan)
     app.add_middleware(AccessJWTMiddleware, settings=settings)
+    app.add_middleware(CSRFMiddleware)
     app.mount("/static", StaticFiles(directory="src/diary/static"), name="static")
     app.include_router(timeline.router)
     app.include_router(entry.router)

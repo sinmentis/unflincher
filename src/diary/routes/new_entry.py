@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from diary.sanitize import plain_text_to_safe_html
@@ -16,13 +16,14 @@ async def new_entry_form(request: Request):
 
 
 @router.post("/new")
-async def create_new_entry(request: Request, title: str = Form(...), content: str = Form(...)):
+async def create_new_entry(request: Request):
     db = request.app.state.db
+    body = await request.json()
     now = datetime.now(timezone.utc).isoformat()
-    safe_html = plain_text_to_safe_html(content)
+    safe_html = plain_text_to_safe_html(body["content"])
     cur = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES (?, ?, ?, ?, ?, 'manual')",
-        (title, content, safe_html, content, now),
+        (body["title"], body["content"], safe_html, body["content"], now),
     )
-    return RedirectResponse(url=f"/entry/{cur.lastrowid}", status_code=303)
+    return JSONResponse({"entry_id": cur.lastrowid})

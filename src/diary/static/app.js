@@ -1,9 +1,18 @@
 // src/diary/static/app.js — shared SSE-consumer, reused by Task 10 (chat) and Task 14 (test-run)
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+  return match ? match[1] : "";
+}
+
+document.body.addEventListener("htmx:configRequest", (event) => {
+  event.detail.headers["X-CSRF-Token"] = getCsrfToken();
+});
+
 async function streamInto(url, body, targetEl, onDone) {
   targetEl.dataset.streaming = "1";
   const res = await fetch(url, {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
     body: body ? JSON.stringify(body) : undefined,
   });
   const reader = res.body.getReader();

@@ -30,13 +30,13 @@ document.getElementById("run-test").addEventListener("click", () => {
 });
 document.getElementById("apply-btn").addEventListener("click", async () => {
   await fetch("/workshop/apply", {
-    method: "POST", headers: {"Content-Type": "application/json"},
+    method: "POST", headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
     body: JSON.stringify({draft_prompt: document.getElementById("prompt-draft").value}),
   });
   location.reload();
 });
 document.getElementById("apply-all-btn").addEventListener("click", async () => {
-  const res = await fetch("/workshop/apply-all", {method: "POST"});
+  const res = await fetch("/workshop/apply-all", {method: "POST", headers: {"X-CSRF-Token": getCsrfToken()}});
   if (res.status === 409) { alert("已经有一个批量任务在跑，请等它结束。"); return; }
   const {job_id} = await res.json();
   const holder = document.getElementById("regen-progress-holder");

@@ -11,4 +11,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
     app = create_app()
     with TestClient(app) as c:
+        c.get("/healthz")  # any GET response sets the csrf_token cookie
+        token = c.cookies.get("csrf_token")
+        c.headers.update({"X-CSRF-Token": token})
         yield c
