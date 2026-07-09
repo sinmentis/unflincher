@@ -146,3 +146,31 @@ def test_entry_chat_uses_latest_ok_commentary_not_a_specific_version(client, mon
     client.post(f"/entry/{entry_id}/chat", json={"message": "hi"})
 
     assert captured["commentary_text"] == "最新版本"
+
+
+def test_view_specific_historical_commentary_version(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    # is_active=0: the startup lifespan already seeds an active default persona and the
+    # partial unique index allows only one is_active=1 row; this prompt is just a FK target.
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'p', 0)"
+    ).lastrowid
+    old_id = db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', '旧版本内容', 'ok', '2026-01-01T00:00:00')", (entry_id, prompt_id),
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', '最新版本内容', 'ok', '2026-01-02T00:00:00')", (entry_id, prompt_id),
+    )
+
+    response = client.get(f"/entry/{entry_id}/commentary/{old_id}")
+
+    assert response.status_code == 200
+    assert "旧版本内容" in response.text
+    # browsing an old version must not affect the chat thread's own independent context —
+    # this route only swaps the commentary display, per Global Constraints.

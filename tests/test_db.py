@@ -5,9 +5,13 @@ import pytest
 from diary.db import (
     complete_job_item,
     get_active_prompt,
+    get_commentary_by_id,
     get_connection,
     get_current_commentary,
+    get_report_by_id,
     init_schema,
+    list_commentary_versions,
+    list_report_versions,
     set_active_prompt,
     start_regen_job,
 )
@@ -135,3 +139,60 @@ def test_complete_job_item_is_atomic(conn):
         "SELECT body_text FROM entry_commentary WHERE id = ?", (item["result_id"],)
     ).fetchone()
     assert commentary["body_text"] == "generated"
+
+
+def test_list_commentary_versions_newest_first_excludes_nothing(conn):
+    entry_id = conn.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
+    ).lastrowid
+    prompt_id = set_active_prompt(conn, "p")
+    conn.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', 'v1', 'ok', '2026-01-01T00:00:00')", (entry_id, prompt_id),
+    )
+    conn.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', 'v2-failed', 'failed', '2026-01-02T00:00:00')", (entry_id, prompt_id),
+    )
+    conn.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', 'v3', 'ok', '2026-01-03T00:00:00')", (entry_id, prompt_id),
+    )
+
+    versions = list_commentary_versions(conn, entry_id)
+
+    # unlike get_current_commentary, the history view shows failed attempts too (so the owner
+    # can see "this regen failed on this date") — but ordered newest first.
+    assert [v["body_text"] for v in versions] == ["v3", "v2-failed", "v1"]
+
+
+def test_get_commentary_by_id_returns_a_specific_old_version(conn):
+    entry_id = conn.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
+    ).lastrowid
+    prompt_id = set_active_prompt(conn, "p")
+    old_id = conn.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'old take', 'ok')", (entry_id, prompt_id),
+    ).lastrowid
+
+    row = get_commentary_by_id(conn, old_id)
+    assert row["body_text"] == "old take"
+
+
+def test_list_and_get_report_versions(conn):
+    prompt_id = set_active_prompt(conn, "p")
+    first_id = conn.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status, created_at) VALUES (?, 'm', '第一版', 1, 'ok', '2026-01-01T00:00:00')", (prompt_id,),
+    ).lastrowid
+    conn.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status, created_at) VALUES (?, 'm', '第二版', 2, 'ok', '2026-01-02T00:00:00')", (prompt_id,),
+    )
+
+    versions = list_report_versions(conn)
+    assert [v["body_text"] for v in versions] == ["第二版", "第一版"]
+    assert get_report_by_id(conn, first_id)["body_text"] == "第一版"

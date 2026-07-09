@@ -4,7 +4,12 @@ from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
 from diary.config import load_settings
-from diary.db import get_active_prompt, get_current_commentary
+from diary.db import (
+    get_active_prompt,
+    get_commentary_by_id,
+    get_current_commentary,
+    list_commentary_versions,
+)
 from diary.sanitize import render_ai_markdown
 
 router = APIRouter()
@@ -24,11 +29,47 @@ async def entry_detail(request: Request, entry_id: int):
         "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
         (entry_id,),
     ).fetchall()
+    versions = list_commentary_versions(db, entry_id)
 
     return templates.TemplateResponse(
         request,
         "entry_detail.html",
-        {"entry": entry, "commentary_html": commentary_html, "chat_history": chat_history},
+        {
+            "entry": entry,
+            "commentary_html": commentary_html,
+            "chat_history": chat_history,
+            "versions": versions,
+            "viewing_version_id": commentary["id"] if commentary else None,
+        },
+    )
+
+
+@router.get("/entry/{entry_id}/commentary/{commentary_id}")
+async def view_commentary_version(request: Request, entry_id: int, commentary_id: int):
+    db = request.app.state.db
+    entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (entry_id,)).fetchone()
+    commentary = get_commentary_by_id(db, commentary_id)
+    if entry is None or commentary is None or commentary["entry_id"] != entry_id:
+        raise HTTPException(status_code=404, detail="not found")
+
+    # The chat thread is keyed by entry_id alone and stays grounded in the latest ok
+    # commentary; browsing an old version only swaps the displayed commentary, nothing else.
+    chat_history = db.execute(
+        "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
+        (entry_id,),
+    ).fetchall()
+    versions = list_commentary_versions(db, entry_id)
+
+    return templates.TemplateResponse(
+        request,
+        "entry_detail.html",
+        {
+            "entry": entry,
+            "commentary_html": render_ai_markdown(commentary["body_text"]) if commentary["status"] == "ok" else None,
+            "chat_history": chat_history,
+            "versions": versions,
+            "viewing_version_id": commentary_id,
+        },
     )
 
 

@@ -158,6 +158,29 @@ def get_current_report(conn: sqlite3.Connection) -> sqlite3.Row | None:
     ).fetchone()
 
 
+def list_commentary_versions(conn: sqlite3.Connection, entry_id: int) -> list[sqlite3.Row]:
+    # Unlike get_current_commentary, the history view keeps failed rows too, so the owner can
+    # see that a regen failed on a given date. Newest first.
+    return conn.execute(
+        "SELECT * FROM entry_commentary WHERE entry_id = ? ORDER BY created_at DESC",
+        (entry_id,),
+    ).fetchall()
+
+
+def get_commentary_by_id(conn: sqlite3.Connection, commentary_id: int) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM entry_commentary WHERE id = ?", (commentary_id,)
+    ).fetchone()
+
+
+def list_report_versions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute("SELECT * FROM aggregate_report ORDER BY created_at DESC").fetchall()
+
+
+def get_report_by_id(conn: sqlite3.Connection, report_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM aggregate_report WHERE id = ?", (report_id,)).fetchone()
+
+
 def start_regen_job(conn: sqlite3.Connection, prompt_version_id: int, entry_ids: list[int]) -> int:
     """Create a regen_job + one regen_job_item per entry + one for the aggregate report.
     Raises sqlite3.IntegrityError (via the partial unique index) if a job is already running."""

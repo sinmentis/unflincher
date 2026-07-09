@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
 from diary.config import load_settings
-from diary.db import get_active_prompt, get_current_report
+from diary.db import get_active_prompt, get_current_report, get_report_by_id, list_report_versions
 from diary.sanitize import render_ai_markdown
 
 router = APIRouter()
@@ -15,15 +15,39 @@ templates = Jinja2Templates(directory="src/diary/templates")
 async def report_page(request: Request):
     db = request.app.state.db
     report = get_current_report(db)
-    context = {"report_html": None}
+    versions = list_report_versions(db)
+    context = {"report_html": None, "versions": versions, "viewing_version_id": None}
     if report:
         context = {
             "report_html": render_ai_markdown(report["body_text"]),
             "covered_count": report["covered_entry_count"],
             "covered_from": report["covered_from_date"],
             "covered_to": report["covered_to_date"],
+            "versions": versions,
+            "viewing_version_id": report["id"],
         }
     return templates.TemplateResponse(request, "report.html", context)
+
+
+@router.get("/report/{report_id}")
+async def view_report_version(request: Request, report_id: int):
+    db = request.app.state.db
+    report = get_report_by_id(db, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="not found")
+    versions = list_report_versions(db)
+    return templates.TemplateResponse(
+        request,
+        "report.html",
+        {
+            "report_html": render_ai_markdown(report["body_text"]) if report["status"] == "ok" else None,
+            "covered_count": report["covered_entry_count"],
+            "covered_from": report["covered_from_date"],
+            "covered_to": report["covered_to_date"],
+            "versions": versions,
+            "viewing_version_id": report_id,
+        },
+    )
 
 
 @router.post("/report/generate")

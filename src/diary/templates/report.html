@@ -3,6 +3,15 @@
 {% block nav_report %}active{% endblock %}
 {% block content %}
 <h1>综合人生报告</h1>
+{% if versions|length > 1 %}
+<p class="entry-date">历史版本：
+  {% for v in versions %}
+  <a href="/report/{{ v.id }}" style="{{ 'font-weight:bold' if v.id == viewing_version_id else '' }}">
+    {{ v.created_at[:16] }}{{ '（失败）' if v.status == 'failed' else '' }}
+  </a>{{ " · " if not loop.last }}
+  {% endfor %}
+</p>
+{% endif %}
 {% if report_html %}
 <p class="entry-date">覆盖 {{ covered_count }} 篇 · {{ covered_from }} ~ {{ covered_to }}</p>
 <div class="ai-card">{{ report_html | safe }}</div>

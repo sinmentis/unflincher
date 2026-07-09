@@ -47,3 +47,22 @@ def test_report_page_shows_current_report_after_generation(client, monkeypatch):
     response = client.get("/report")
 
     assert "反复出现的主题" in response.text
+
+
+def test_view_specific_historical_report_version(client):
+    db = client.app.state.db
+    # is_active=0: the startup lifespan already seeds an active default persona and the
+    # partial unique index allows only one is_active=1 row; this prompt is just a FK target.
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'p', 0)"
+    ).lastrowid
+    old_id = db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status, created_at) VALUES (?, 'm', '半年前的报告', 5, 'ok', '2026-01-01T00:00:00')",
+        (prompt_id,),
+    ).lastrowid
+
+    response = client.get(f"/report/{old_id}")
+
+    assert response.status_code == 200
+    assert "半年前的报告" in response.text

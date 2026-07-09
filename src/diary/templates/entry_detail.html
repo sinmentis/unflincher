@@ -5,6 +5,16 @@
 <h1>{{ entry.title }}</h1>
 <div class="diary-text">{{ entry.content_html | safe }}</div>
 
+{% if versions|length > 1 %}
+<p class="entry-date">历史版本：
+  {% for v in versions %}
+  <a href="/entry/{{ entry.id }}/commentary/{{ v.id }}" style="{{ 'font-weight:bold' if v.id == viewing_version_id else '' }}">
+    {{ v.created_at[:16] }}{{ '（失败）' if v.status == 'failed' else '' }}
+  </a>{{ " · " if not loop.last }}
+  {% endfor %}
+</p>
+{% endif %}
+
 {% if commentary_html %}
 <div class="ai-card">
   <div class="ai-label">AI 人生导师锐评</div>
