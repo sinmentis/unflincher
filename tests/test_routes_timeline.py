@@ -23,7 +23,7 @@ def test_timeline_shows_commentary_badge(client):
         "entry_date, source) VALUES ('已点评', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'import')"
     ).lastrowid
     prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'p', 0)"
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'test-model', 0)"
     ).lastrowid
     db.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "

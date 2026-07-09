@@ -6,6 +6,31 @@ responsibility (see Task 9's route and Task 13's worker vs. Task 12's test-run r
 import asyncio
 from collections.abc import AsyncIterator
 
+# Curated (id, display_name) model list for the workshop dropdown, capability-descending within
+# each family. Captured live via CopilotClient.list_models() against this deployment's actual
+# Copilot credential (the unflincher-copilot-github-token secret); the meta-option "auto" is omitted
+# on purpose since it hides which model produced a given commentary. No code depends on this being
+# exhaustive or live — it is a static, curated list. Refresh it if the subscription's available
+# models change.
+AVAILABLE_MODELS = [
+    ("claude-sonnet-5", "Claude Sonnet 5"),
+    ("claude-sonnet-4.6", "Claude Sonnet 4.6"),
+    ("claude-sonnet-4.5", "Claude Sonnet 4.5"),
+    ("claude-haiku-4.5", "Claude Haiku 4.5"),
+    ("claude-opus-4.8", "Claude Opus 4.8"),
+    ("claude-opus-4.7", "Claude Opus 4.7"),
+    ("claude-opus-4.6", "Claude Opus 4.6"),
+    ("claude-opus-4.5", "Claude Opus 4.5"),
+    ("gpt-5.5", "GPT-5.5"),
+    ("gpt-5.4", "GPT-5.4"),
+    ("gpt-5.3-codex", "GPT-5.3-Codex"),
+    ("gpt-5.4-mini", "GPT-5.4 mini"),
+    ("gpt-5-mini", "GPT-5 mini"),
+    ("gemini-3.1-pro-preview", "Gemini 3.1 Pro"),
+    ("gemini-3.5-flash", "Gemini 3.5 Flash"),
+    ("mai-code-1-flash-picker", "MAI-Code-1-Flash"),
+]
+
 DEFAULT_PERSONA_PROMPT = """你是用户的"人生导师"。你的任务是读用户的私人日记，帮TA看清自己的人生、反复出现的困惑和目标——而不是单纯地安慰或附和。
 
 你的语气默认温和克制，像一个真正了解TA、心疼TA的朋友；但当你从日记里察觉到自我欺骗、逃避，或者TA在用"看似合理的理由"包装自己真正害怕的东西时，直接说出来，哪怕会让TA不舒服。你的价值不在于让TA感觉良好，而在于让TA真的看清楚。
@@ -32,9 +57,9 @@ _STALL_TIMEOUT_SECONDS = 120.0
 
 def ensure_default_persona_prompt(conn) -> None:
     """Seed the default persona on first startup — a no-op if a version already exists."""
-    from diary.db import get_active_prompt, set_active_prompt
+    from diary.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt
     if get_active_prompt(conn) is None:
-        set_active_prompt(conn, DEFAULT_PERSONA_PROMPT)
+        set_active_prompt(conn, DEFAULT_PERSONA_PROMPT, DEFAULT_MODEL)
 
 
 async def stream_completion(system: str, user_content: str, model: str) -> AsyncIterator[str]:

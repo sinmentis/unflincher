@@ -3,7 +3,6 @@ from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
-from diary.config import load_settings
 from diary.db import get_active_prompt, get_current_report, get_report_by_id, list_report_versions
 from diary.sanitize import render_ai_markdown
 
@@ -55,12 +54,12 @@ async def trigger_report(request: Request):
     db = request.app.state.db
     all_entries = db.execute("SELECT * FROM diary_entry ORDER BY entry_date").fetchall()
     active_prompt = get_active_prompt(db)
-    settings = load_settings()
+    model = active_prompt["model"]
 
     async def event_stream():
         chunks = []
         async for token in llm.generate_report(
-            [dict(e) for e in all_entries], active_prompt["body_text"], settings.llm_model
+            [dict(e) for e in all_entries], active_prompt["body_text"], model
         ):
             chunks.append(token)
             yield {"event": "token", "data": token}
@@ -71,7 +70,7 @@ async def trigger_report(request: Request):
             "covered_entry_count, covered_from_date, covered_to_date, status) "
             "VALUES (?, ?, ?, ?, ?, ?, 'ok')",
             (
-                active_prompt["id"], settings.llm_model, full_text, len(all_entries),
+                active_prompt["id"], model, full_text, len(all_entries),
                 min(dates) if dates else None, max(dates) if dates else None,
             ),
         )

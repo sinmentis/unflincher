@@ -6,7 +6,7 @@ worker to finish deterministically — proving the resume path end-to-end at app
 """
 import diary.llm as llm_module
 from diary.app import create_app
-from diary.db import get_connection, init_schema
+from diary.db import get_connection, init_schema, migrate_persona_prompt_model
 
 
 async def _fake_commentary(entry, all_entries, persona_text, model):
@@ -21,12 +21,15 @@ async def test_startup_recovers_crashed_running_job(tmp_path, monkeypatch):
     # matching Task 15's crash-simulation pattern. Use a throwaway connection, then close it.
     seed = get_connection(db_path)
     init_schema(seed)
+    migrate_persona_prompt_model(seed)
     entry_id = seed.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('日记0', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
     ).lastrowid
+    # Seed a NON-default model (settings.llm_model defaults to claude-sonnet-4.6) so the assertion
+    # below proves the recovered worker uses the job's OWN persona model, not the env default.
     prompt_id = seed.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (1, '人设', 1)"
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (1, '人设', 'gpt-5.4', 1)"
     ).lastrowid
     job_id = seed.execute(
         "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'running')", (prompt_id,)
@@ -56,10 +59,12 @@ async def test_startup_recovers_crashed_running_job(tmp_path, monkeypatch):
         db = app.state.db
         job = db.execute("SELECT status FROM regen_job WHERE id = ?", (job_id,)).fetchone()
         commentaries = db.execute(
-            "SELECT status FROM entry_commentary WHERE entry_id = ?", (entry_id,)
+            "SELECT status, model FROM entry_commentary WHERE entry_id = ?", (entry_id,)
         ).fetchall()
 
     assert job["status"] == "done"
     # Exactly one 'ok' row — the crash-safety property: resume never duplicates a result.
     assert len(commentaries) == 1
     assert commentaries[0]["status"] == "ok"
+    # The recovered worker recorded the job's own persona model, not settings.llm_model.
+    assert commentaries[0]["model"] == "gpt-5.4"

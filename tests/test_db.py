@@ -12,6 +12,7 @@ from diary.db import (
     init_schema,
     list_commentary_versions,
     list_report_versions,
+    migrate_persona_prompt_model,
     set_active_prompt,
     start_regen_job,
 )
@@ -22,6 +23,7 @@ def conn(tmp_path):
     db_path = str(tmp_path / "test.db")
     c = get_connection(db_path)
     init_schema(c)
+    migrate_persona_prompt_model(c)
     yield c
     c.close()
 
@@ -39,12 +41,13 @@ def test_init_schema_creates_all_tables(conn):
 
 
 def test_set_active_prompt_deactivates_previous(conn):
-    first_id = set_active_prompt(conn, "v1 persona")
-    second_id = set_active_prompt(conn, "v2 persona")
+    first_id = set_active_prompt(conn, "v1 persona", "gpt-5.4")
+    second_id = set_active_prompt(conn, "v2 persona", "claude-opus-4.8")
 
     active = get_active_prompt(conn)
     assert active["id"] == second_id
     assert active["body_text"] == "v2 persona"
+    assert active["model"] == "claude-opus-4.8"
 
     first_row = conn.execute(
         "SELECT is_active FROM persona_prompt WHERE id = ?", (first_id,)
@@ -52,19 +55,54 @@ def test_set_active_prompt_deactivates_previous(conn):
     assert first_row["is_active"] == 0
 
 
+def test_set_active_prompt_persists_model(conn):
+    pid = set_active_prompt(conn, "人设", "gpt-5.4")
+    active = get_active_prompt(conn)
+    assert active["id"] == pid
+    assert active["model"] == "gpt-5.4"
+
+
+def test_migration_is_idempotent(tmp_path):
+    # Runs against a fresh DB whose persona_prompt was created WITHOUT the model column (the
+    # SCHEMA's CREATE TABLE is unchanged); running the migration twice must not error and must
+    # leave exactly one model column.
+    c = get_connection(str(tmp_path / "m.db"))
+    init_schema(c)
+    assert "model" not in {r["name"] for r in c.execute("PRAGMA table_info(persona_prompt)")}
+    migrate_persona_prompt_model(c)
+    migrate_persona_prompt_model(c)  # second run is a no-op, not a duplicate-column error
+    model_cols = [r for r in c.execute("PRAGMA table_info(persona_prompt)") if r["name"] == "model"]
+    assert len(model_cols) == 1
+    c.close()
+
+
+def test_migration_backfills_existing_old_schema_rows(tmp_path):
+    # Simulates the live production DB: a persona_prompt row written the OLD way (before the
+    # column existed) must backfill to the default model when the migration runs on startup.
+    c = get_connection(str(tmp_path / "old.db"))
+    init_schema(c)
+    c.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (1, '线上人设', 1)"
+    )
+    migrate_persona_prompt_model(c)
+    row = c.execute("SELECT model FROM persona_prompt WHERE version_no = 1").fetchone()
+    assert row["model"] == "claude-sonnet-4.6"
+    c.close()
+
+
 def test_only_one_active_prompt_allowed_at_db_level(conn):
-    set_active_prompt(conn, "v1")
+    set_active_prompt(conn, "v1", "test-model")
     # Directly trying to force a second active row (bypassing set_active_prompt's own
     # deactivation step) must be rejected by the partial unique index, not just app logic.
     conn.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'v2', 0)"
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'v2', 'test-model', 0)"
     )
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute(
             "UPDATE persona_prompt SET is_active = 1 WHERE version_no = 2"
         )
         conn.execute(
-            "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (3, 'v3', 1)"
+            "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (3, 'v3', 'test-model', 1)"
         )
 
 
@@ -73,7 +111,7 @@ def test_current_commentary_excludes_failed_rows(conn):
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
     ).lastrowid
-    prompt_id = set_active_prompt(conn, "persona")
+    prompt_id = set_active_prompt(conn, "persona", "test-model")
 
     conn.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
@@ -106,7 +144,7 @@ def test_start_regen_job_rejects_second_concurrent_job(conn):
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('t2', '<p>y</p>', '<p>y</p>', 'y', '2026-01-02', 'manual')"
     ).lastrowid
-    prompt_id = set_active_prompt(conn, "persona")
+    prompt_id = set_active_prompt(conn, "persona", "test-model")
     start_regen_job(conn, prompt_id, entry_ids=[e1, e2])
 
     with pytest.raises(sqlite3.IntegrityError):
@@ -118,7 +156,7 @@ def test_complete_job_item_is_atomic(conn):
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
     ).lastrowid
-    prompt_id = set_active_prompt(conn, "persona")
+    prompt_id = set_active_prompt(conn, "persona", "test-model")
     job_id = start_regen_job(conn, prompt_id, entry_ids=[entry_id])
     item_id = conn.execute(
         "SELECT id FROM regen_job_item WHERE job_id = ? AND entry_id = ?", (job_id, entry_id)
@@ -146,7 +184,7 @@ def test_list_commentary_versions_newest_first_excludes_nothing(conn):
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
     ).lastrowid
-    prompt_id = set_active_prompt(conn, "p")
+    prompt_id = set_active_prompt(conn, "p", "test-model")
     conn.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
         "VALUES (?, ?, 'm', 'v1', 'ok', '2026-01-01T00:00:00')", (entry_id, prompt_id),
@@ -172,7 +210,7 @@ def test_get_commentary_by_id_returns_a_specific_old_version(conn):
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
     ).lastrowid
-    prompt_id = set_active_prompt(conn, "p")
+    prompt_id = set_active_prompt(conn, "p", "test-model")
     old_id = conn.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
         "VALUES (?, ?, 'm', 'old take', 'ok')", (entry_id, prompt_id),
@@ -183,7 +221,7 @@ def test_get_commentary_by_id_returns_a_specific_old_version(conn):
 
 
 def test_list_and_get_report_versions(conn):
-    prompt_id = set_active_prompt(conn, "p")
+    prompt_id = set_active_prompt(conn, "p", "test-model")
     first_id = conn.execute(
         "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
         "status, created_at) VALUES (?, 'm', '第一版', 1, 'ok', '2026-01-01T00:00:00')", (prompt_id,),

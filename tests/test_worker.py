@@ -1,7 +1,7 @@
 import pytest
 
 import diary.llm as llm_module
-from diary.db import get_active_prompt, get_connection, get_current_commentary, init_schema, resume_sweep, set_active_prompt, start_regen_job
+from diary.db import get_connection, get_current_commentary, init_schema, migrate_persona_prompt_model, resume_sweep, set_active_prompt, start_regen_job
 from diary.worker import BatchWorker
 
 
@@ -9,6 +9,7 @@ from diary.worker import BatchWorker
 def conn(tmp_path):
     c = get_connection(str(tmp_path / "test.db"))
     init_schema(c)
+    migrate_persona_prompt_model(c)
     yield c
     c.close()
 
@@ -35,7 +36,7 @@ async def test_run_job_generates_commentary_for_every_entry_and_the_report(monke
     monkeypatch.setattr(llm_module, "generate_report", fake_report)
 
     entry_ids = _seed_entries(conn, 3)
-    prompt_id = set_active_prompt(conn, "人设")
+    prompt_id = set_active_prompt(conn, "人设", "test-model")
     job_id = start_regen_job(conn, prompt_id, entry_ids)
 
     worker = BatchWorker(conn, concurrency=2)
@@ -68,7 +69,7 @@ async def test_run_job_isolates_failures_and_continues(monkeypatch, conn):
     monkeypatch.setattr(llm_module, "generate_report", fake_report)
 
     entry_ids = _seed_entries(conn, 2)
-    prompt_id = set_active_prompt(conn, "人设")
+    prompt_id = set_active_prompt(conn, "人设", "test-model")
     job_id = start_regen_job(conn, prompt_id, entry_ids)
 
     worker = BatchWorker(conn, concurrency=2)
@@ -97,7 +98,7 @@ async def test_resume_sweep_requeues_running_items_without_duplicating_results(m
     monkeypatch.setattr(llm_module, "generate_report", lambda *a, **k: _empty_gen())
 
     entry_ids = _seed_entries(conn, 1)
-    prompt_id = set_active_prompt(conn, "人设")
+    prompt_id = set_active_prompt(conn, "人设", "test-model")
     job_id = start_regen_job(conn, prompt_id, entry_ids)
     # Simulate the crash: mark the report item 'ok' (so we only re-drive the entry item) and
     # force the entry item into 'running' with no result_id, as if the worker claimed it but

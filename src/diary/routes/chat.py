@@ -7,7 +7,6 @@ from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
-from diary.config import load_settings
 from diary.db import get_active_prompt
 
 router = APIRouter()
@@ -43,7 +42,7 @@ async def send_general_chat(request: Request):
     )
 
     active_prompt = get_active_prompt(db)
-    settings = load_settings()
+    model = active_prompt["model"]
 
     async def event_stream():
         chunks = []
@@ -52,7 +51,7 @@ async def send_general_chat(request: Request):
             history,
             user_message,
             active_prompt["body_text"],
-            settings.llm_model,
+            model,
         ):
             chunks.append(token)
             yield {"event": "token", "data": token}
@@ -60,7 +59,7 @@ async def send_general_chat(request: Request):
         db.execute(
             "INSERT INTO chat_message (thread_kind, role, content, model) "
             "VALUES ('general', 'assistant', ?, ?)",
-            (full_text, settings.llm_model),
+            (full_text, model),
         )
         yield {"event": "done", "data": "{}"}
 

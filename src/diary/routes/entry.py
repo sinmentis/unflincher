@@ -3,7 +3,6 @@ from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
-from diary.config import load_settings
 from diary.db import (
     get_active_prompt,
     get_commentary_by_id,
@@ -81,12 +80,12 @@ async def trigger_entry_commentary(request: Request, entry_id: int):
         raise HTTPException(status_code=404, detail="entry not found")
     all_entries = db.execute("SELECT * FROM diary_entry ORDER BY entry_date").fetchall()
     active_prompt = get_active_prompt(db)
-    settings = load_settings()
+    model = active_prompt["model"]
 
     async def event_stream():
         chunks = []
         async for token in llm.generate_commentary(
-            dict(entry), [dict(e) for e in all_entries], active_prompt["body_text"], settings.llm_model
+            dict(entry), [dict(e) for e in all_entries], active_prompt["body_text"], model
         ):
             chunks.append(token)
             yield {"event": "token", "data": token}
@@ -94,7 +93,7 @@ async def trigger_entry_commentary(request: Request, entry_id: int):
         db.execute(
             "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
             "VALUES (?, ?, ?, ?, 'ok')",
-            (entry_id, active_prompt["id"], settings.llm_model, full_text),
+            (entry_id, active_prompt["id"], model, full_text),
         )
         yield {"event": "done", "data": "{}"}
 
@@ -129,7 +128,7 @@ async def entry_chat(request: Request, entry_id: int):
     commentary = get_current_commentary(db, entry_id)
     commentary_text = commentary["body_text"] if commentary else None
     active_prompt = get_active_prompt(db)
-    settings = load_settings()
+    model = active_prompt["model"]
 
     async def event_stream():
         chunks = []
@@ -139,7 +138,7 @@ async def entry_chat(request: Request, entry_id: int):
             history,
             user_message,
             active_prompt["body_text"],
-            settings.llm_model,
+            model,
         ):
             chunks.append(token)
             yield {"event": "token", "data": token}
@@ -147,7 +146,7 @@ async def entry_chat(request: Request, entry_id: int):
         db.execute(
             "INSERT INTO chat_message (thread_kind, entry_id, role, content, model) "
             "VALUES ('entry', ?, 'assistant', ?, ?)",
-            (entry_id, full_text, settings.llm_model),
+            (entry_id, full_text, model),
         )
         yield {"event": "done", "data": "{}"}
 

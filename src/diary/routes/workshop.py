@@ -7,7 +7,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
 from diary.config import load_settings
-from diary.db import get_active_prompt, set_active_prompt, start_regen_job
+from diary.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt, start_regen_job
 from diary.worker import BatchWorker
 
 router = APIRouter()
@@ -24,6 +24,8 @@ async def workshop_page(request: Request):
         "workshop.html",
         {
             "active_prompt": active_prompt["body_text"] if active_prompt else "",
+            "active_model": active_prompt["model"] if active_prompt else DEFAULT_MODEL,
+            "models": llm.AVAILABLE_MODELS,
             "entries": entries,
         },
     )
@@ -38,19 +40,24 @@ async def workshop_test_run(request: Request):
     predict the real output. The single picked entry is the focus, but the model still sees
     every entry for cross-entry pattern matching — passing just the one entry here would make
     the preview lie about what the real generation produces.
+
+    An explicit `model` in the body lets the owner trial a model different from the saved active
+    one without committing to it (this route still writes nothing); absent that, it falls back to
+    the active persona's saved model so the preview matches what a real generation would use.
     """
     db = request.app.state.db
     body = await request.json()
     entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (body["entry_id"],)).fetchone()
     all_entries = db.execute("SELECT * FROM diary_entry ORDER BY entry_date").fetchall()
-    settings = load_settings()
+    active_prompt = get_active_prompt(db)
+    model = body.get("model") or (active_prompt["model"] if active_prompt else DEFAULT_MODEL)
 
     async def event_stream():
         async for token in llm.generate_commentary(
             dict(entry),
             [dict(e) for e in all_entries],
             body["draft_prompt"],
-            settings.llm_model,
+            model,
         ):
             yield {"event": "token", "data": token}
         yield {"event": "done", "data": "{}"}
@@ -61,10 +68,11 @@ async def workshop_test_run(request: Request):
 @router.post("/workshop/apply")
 async def workshop_apply(request: Request):
     """Commit the draft as the new active persona version. No generation happens here — that is
-    Task 16's apply-to-all path. This is purely a version swap."""
+    Task 16's apply-to-all path. This is purely a version swap. The chosen model is persisted as
+    part of the new version, so every later generation under it uses that model."""
     db = request.app.state.db
     body = await request.json()
-    new_id = set_active_prompt(db, body["draft_prompt"])
+    new_id = set_active_prompt(db, body["draft_prompt"], body["model"])
     return {"persona_prompt_id": new_id}
 
 
@@ -89,7 +97,7 @@ async def workshop_apply_all(request: Request, background_tasks: BackgroundTasks
     settings = load_settings()
     worker = BatchWorker(db, settings.batch_concurrency)
     background_tasks.add_task(
-        worker.run_job, job_id, active_prompt["body_text"], settings.llm_model
+        worker.run_job, job_id, active_prompt["body_text"], active_prompt["model"]
     )
     return JSONResponse({"job_id": job_id})
 
@@ -146,12 +154,15 @@ async def retry_job_item(
     )
     job = db.execute("SELECT * FROM regen_job WHERE id = ?", (job_id,)).fetchone()
     prompt = db.execute(
-        "SELECT body_text FROM persona_prompt WHERE id = ?", (job["prompt_version_id"],)
+        "SELECT body_text, model FROM persona_prompt WHERE id = ?", (job["prompt_version_id"],)
     ).fetchone()
     settings = load_settings()
     worker = BatchWorker(db, settings.batch_concurrency)
+    # Retry with the model this job's own persona version carried, NOT the currently-active
+    # persona's model (which may have changed since the job started). A retried item must stay
+    # consistent with the rest of its job.
     background_tasks.add_task(
-        worker.run_job, job_id, prompt["body_text"], settings.llm_model
+        worker.run_job, job_id, prompt["body_text"], prompt["model"]
     )
     # Return the re-rendered progress fragment (not JSON) so htmx's outerHTML swap keeps the panel
     # in place; the job is now 'running', so the fragment re-carries `hx-trigger="every 2s"` and

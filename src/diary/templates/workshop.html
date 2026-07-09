@@ -5,6 +5,12 @@
 <h1>Prompt 设置</h1>
 <textarea id="prompt-draft" aria-label="Persona prompt 内容" style="width:100%;min-height:280px;padding:10px;font-family:var(--font-mono)">{{ active_prompt }}</textarea>
 
+<p><label for="model-select">生成用的模型：</label>
+  <select id="model-select" aria-label="生成用的模型">
+    {% for mid, mname in models %}<option value="{{ mid }}"{% if mid == active_model %} selected{% endif %}>{{ mname }}</option>{% endfor %}
+  </select>
+</p>
+
 <p><label for="test-entry">Test run 用哪篇日记预览：</label>
   <select id="test-entry">
     {% for e in entries %}<option value="{{ e.id }}">{{ e.title }}</option>{% endfor %}
@@ -26,12 +32,16 @@ document.getElementById("run-test").addEventListener("click", () => {
   streamInto("/workshop/test-run", {
     draft_prompt: document.getElementById("prompt-draft").value,
     entry_id: parseInt(document.getElementById("test-entry").value, 10),
+    model: document.getElementById("model-select").value,
   }, target);
 });
 document.getElementById("apply-btn").addEventListener("click", async () => {
   await fetch("/workshop/apply", {
     method: "POST", headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
-    body: JSON.stringify({draft_prompt: document.getElementById("prompt-draft").value}),
+    body: JSON.stringify({
+      draft_prompt: document.getElementById("prompt-draft").value,
+      model: document.getElementById("model-select").value,
+    }),
   });
   location.reload();
 });

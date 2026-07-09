@@ -77,7 +77,7 @@ def test_apply_creates_new_active_prompt_version_without_generating(client, monk
     monkeypatch.setattr(llm_module, "generate_commentary", _boom)
     db = client.app.state.db
 
-    response = client.post("/workshop/apply", json={"draft_prompt": "新的正式人设"})
+    response = client.post("/workshop/apply", json={"draft_prompt": "新的正式人设", "model": "claude-sonnet-4.6"})
 
     assert response.status_code == 200
     active = db.execute("SELECT body_text FROM persona_prompt WHERE is_active = 1").fetchone()
@@ -217,3 +217,137 @@ def test_retry_returns_progress_fragment_not_json(client, monkeypatch):
     # Structural parity with the GET progress fragment (same counts line), never raw JSON.
     assert "排队中" in response.text
     assert '"status"' not in response.text
+
+
+def test_workshop_page_shows_model_select_with_active_model_selected(client):
+    db = client.app.state.db
+    _seed_entries(db)
+    from diary.db import set_active_prompt
+    set_active_prompt(db, "人设", "gpt-5.5")
+
+    response = client.get("/workshop")
+
+    assert response.status_code == 200
+    assert 'id="model-select"' in response.text
+    # curated display names from AVAILABLE_MODELS are rendered as options
+    assert "GPT-5.5" in response.text
+    assert "Claude Opus 4.8" in response.text
+    # the active model's option is pre-selected
+    assert 'value="gpt-5.5" selected' in response.text
+
+
+def test_apply_saves_chosen_model(client, monkeypatch):
+    def _boom(*args, **kwargs):
+        raise AssertionError("apply must not call the LLM")
+    monkeypatch.setattr(llm_module, "generate_commentary", _boom)
+    db = client.app.state.db
+
+    response = client.post(
+        "/workshop/apply", json={"draft_prompt": "带模型的人设", "model": "claude-opus-4.7"}
+    )
+
+    assert response.status_code == 200
+    active = db.execute(
+        "SELECT body_text, model FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()
+    assert active["body_text"] == "带模型的人设"
+    assert active["model"] == "claude-opus-4.7"
+
+
+def test_test_run_uses_explicit_model_override(client, monkeypatch):
+    captured = {}
+
+    async def fake_gen(entry, all_entries, persona_text, model):
+        captured["model"] = model
+        yield "x"
+
+    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+
+    client.post(
+        "/workshop/test-run",
+        json={"draft_prompt": "草稿", "entry_id": entry_ids[0], "model": "gpt-5.3-codex"},
+    )
+
+    # An explicit model in the body wins, letting the owner trial a model without persisting it.
+    assert captured["model"] == "gpt-5.3-codex"
+    # ...and the override is never written to a persona version.
+    persisted = db.execute(
+        "SELECT COUNT(*) AS n FROM persona_prompt WHERE model = 'gpt-5.3-codex'"
+    ).fetchone()["n"]
+    assert persisted == 0
+
+
+def test_test_run_falls_back_to_active_model_when_not_specified(client, monkeypatch):
+    captured = {}
+
+    async def fake_gen(entry, all_entries, persona_text, model):
+        captured["model"] = model
+        yield "x"
+
+    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    from diary.db import set_active_prompt
+    set_active_prompt(db, "人设", "claude-opus-4.8")
+
+    client.post("/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": entry_ids[0]})
+
+    # No model in the body → fall back to the active persona's saved model.
+    assert captured["model"] == "claude-opus-4.8"
+
+
+def test_apply_all_uses_active_persona_model(client, monkeypatch):
+    monkeypatch.setattr(llm_module, "generate_commentary", _fake_gen_ok)
+    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    from diary.db import set_active_prompt
+    set_active_prompt(db, "人设X", "gpt-5.4-mini")
+
+    client.post("/workshop/apply-all")
+
+    row = db.execute(
+        "SELECT model FROM entry_commentary WHERE entry_id = ?", (entry_ids[0],)
+    ).fetchone()
+    assert row["model"] == "gpt-5.4-mini"
+    report = db.execute("SELECT model FROM aggregate_report WHERE status='ok'").fetchone()
+    assert report["model"] == "gpt-5.4-mini"
+
+
+def test_retry_uses_original_job_model_not_current_active(client, monkeypatch):
+    # 日记1 fails on its first generation so there is a failed item to retry.
+    attempts = {}
+
+    async def fake_gen(entry, all_entries, persona_text, model):
+        title = entry["title"]
+        attempts[title] = attempts.get(title, 0) + 1
+        if title == "日记1" and attempts[title] == 1:
+            raise RuntimeError("boom")
+        yield "recovered"
+
+    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
+    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
+    db = client.app.state.db
+    _seed_entries(db)
+
+    from diary.db import set_active_prompt
+    # The job runs under this persona/model...
+    set_active_prompt(db, "人设A", "gpt-5.4")
+    job_id = client.post("/workshop/apply-all").json()["job_id"]
+    failed_item = db.execute(
+        "SELECT id, entry_id FROM regen_job_item WHERE job_id=? AND status='failed'", (job_id,)
+    ).fetchone()
+
+    # ...then the active persona's model changes BEFORE the retry.
+    set_active_prompt(db, "人设B", "gemini-3.1-pro-preview")
+
+    client.post(f"/workshop/jobs/{job_id}/item/{failed_item['id']}/retry")
+
+    # The retried item must record the ORIGINAL job's model, not today's active one.
+    row = db.execute(
+        "SELECT model FROM entry_commentary WHERE entry_id = ? ORDER BY created_at DESC LIMIT 1",
+        (failed_item["entry_id"],),
+    ).fetchone()
+    assert row["model"] == "gpt-5.4"

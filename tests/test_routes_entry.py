@@ -98,7 +98,7 @@ def test_entry_detail_shows_current_commentary_when_present(client):
         "entry_date, source) VALUES ('标题', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
     ).lastrowid
     prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'p', 0)"
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'test-model', 0)"
     ).lastrowid
     db.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
@@ -175,7 +175,7 @@ def test_entry_chat_uses_latest_ok_commentary_not_a_specific_version(client, mon
     # partial unique index allows only one is_active=1 row. This prompt only needs to be a
     # valid FK target for the commentary rows below.
     prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'p', 0)"
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'test-model', 0)"
     ).lastrowid
     db.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
@@ -200,7 +200,7 @@ def test_view_specific_historical_commentary_version(client):
     # is_active=0: the startup lifespan already seeds an active default persona and the
     # partial unique index allows only one is_active=1 row; this prompt is just a FK target.
     prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'p', 0)"
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'test-model', 0)"
     ).lastrowid
     old_id = db.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "

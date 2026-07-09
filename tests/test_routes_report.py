@@ -54,7 +54,7 @@ def test_view_specific_historical_report_version(client):
     # is_active=0: the startup lifespan already seeds an active default persona and the
     # partial unique index allows only one is_active=1 row; this prompt is just a FK target.
     prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, is_active) VALUES (2, 'p', 0)"
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'test-model', 0)"
     ).lastrowid
     old_id = db.execute(
         "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "

@@ -9,6 +9,11 @@ Design invariants enforced here (see plan Global Constraints):
 import sqlite3
 from datetime import datetime, timezone
 
+# Fallback model for a brand-new install and for rows that predate the persona_prompt.model
+# column (see migrate_persona_prompt_model). Kept in sync with config.py's DIARY_LLM_MODEL
+# default so upgrading an existing deployment leaves generation behaviour unchanged.
+DEFAULT_MODEL = "claude-sonnet-4.6"
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS diary_entry (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +119,24 @@ def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
 
 
+def migrate_persona_prompt_model(conn: sqlite3.Connection) -> None:
+    """Add persona_prompt.model to a database created before the column existed.
+
+    This is the app's first real schema migration. init_schema() only runs CREATE TABLE IF NOT
+    EXISTS, which is a no-op against the already-deployed production table, so the new column has
+    to be added with ALTER TABLE rather than by editing the CREATE TABLE text. Idempotent and safe
+    to run on every startup: existing rows (including the live active persona) backfill to
+    DEFAULT_MODEL, and a second run is a no-op because the column is already present.
+    """
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(persona_prompt)")}
+    if "model" not in columns:
+        # DEFAULT_MODEL is a trusted in-code constant, not user input, so interpolating it into
+        # the DDL is safe (ALTER TABLE ... ADD COLUMN requires a literal default anyway).
+        conn.execute(
+            f"ALTER TABLE persona_prompt ADD COLUMN model TEXT NOT NULL DEFAULT '{DEFAULT_MODEL}'"
+        )
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -124,17 +147,21 @@ def get_active_prompt(conn: sqlite3.Connection) -> sqlite3.Row | None:
     ).fetchone()
 
 
-def set_active_prompt(conn: sqlite3.Connection, body_text: str) -> int:
-    """Insert a new persona_prompt version and make it the only active one. Atomic."""
+def set_active_prompt(conn: sqlite3.Connection, body_text: str, model: str) -> int:
+    """Insert a new persona_prompt version and make it the only active one. Atomic.
+
+    model is required (never defaulted here): the model is part of "how generation happens" and
+    every caller — the workshop apply route, the default-persona seeder — must choose it
+    explicitly so a version never silently inherits some other version's model."""
     conn.execute("BEGIN IMMEDIATE")
     try:
         row = conn.execute("SELECT MAX(version_no) AS m FROM persona_prompt").fetchone()
         next_version = (row["m"] or 0) + 1
         conn.execute("UPDATE persona_prompt SET is_active = 0 WHERE is_active = 1")
         cur = conn.execute(
-            "INSERT INTO persona_prompt (version_no, body_text, is_active, created_at) "
-            "VALUES (?, ?, 1, ?)",
-            (next_version, body_text, _now()),
+            "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
+            "VALUES (?, ?, ?, 1, ?)",
+            (next_version, body_text, model, _now()),
         )
         new_id = cur.lastrowid
         conn.execute("COMMIT")

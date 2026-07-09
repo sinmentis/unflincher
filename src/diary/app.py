@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from diary.auth import AccessJWTMiddleware
 from diary.config import load_settings
 from diary.csrf import CSRFMiddleware
-from diary.db import get_connection, init_schema, resume_sweep
+from diary.db import get_connection, init_schema, migrate_persona_prompt_model, resume_sweep
 from diary.llm import ensure_default_persona_prompt
 from diary.routes import chat, entry, new_entry, report, timeline, workshop
 from diary.worker import BatchWorker
@@ -22,6 +22,9 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         conn = get_connection(settings.db_path)
         init_schema(conn)
+        # Must run before anything reads/writes persona_prompt (ensure_default_persona_prompt and
+        # the recovery lookup below both do). Idempotent, so safe on every production restart.
+        migrate_persona_prompt_model(conn)
         ensure_default_persona_prompt(conn)
         resume_sweep(conn)
         app.state.db = conn
@@ -34,15 +37,17 @@ def create_app() -> FastAPI:
         ).fetchone()
         if running_job is not None:
             prompt = conn.execute(
-                "SELECT body_text FROM persona_prompt WHERE id = ?",
+                "SELECT body_text, model FROM persona_prompt WHERE id = ?",
                 (running_job["prompt_version_id"],),
             ).fetchone()
             worker = BatchWorker(conn, settings.batch_concurrency)
             # Hold a strong reference on app.state so the task can't be GC'd mid-run (RUF006);
             # it also gives tests a handle to await the relaunched worker deterministically.
+            # Resume with the job's OWN persona model, not settings.llm_model — a recovered job
+            # must stay consistent with the model its already-generated items used.
             app.state.recovery_task = asyncio.create_task(
                 worker.run_job(
-                    running_job["id"], prompt["body_text"], settings.llm_model
+                    running_job["id"], prompt["body_text"], prompt["model"]
                 )
             )
 
