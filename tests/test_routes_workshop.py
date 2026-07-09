@@ -180,3 +180,40 @@ def test_retry_failed_item_reopens_job_and_succeeds(client, monkeypatch):
         (failed_item["entry_id"],),
     ).fetchone()
     assert row["status"] == "ok"
+
+
+def test_retry_returns_progress_fragment_not_json(client, monkeypatch):
+    # A failed item must exist to retry, so 日记1 fails on its first generation.
+    attempts = {}
+
+    async def fake_gen(entry, all_entries, persona_text, model):
+        title = entry["title"]
+        attempts[title] = attempts.get(title, 0) + 1
+        if title == "日记1" and attempts[title] == 1:
+            raise RuntimeError("boom")
+        yield "recovered"
+
+    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
+    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
+    db = client.app.state.db
+    _seed_entries(db)
+
+    job_id = client.post("/workshop/apply-all").json()["job_id"]
+    failed_item = db.execute(
+        "SELECT id FROM regen_job_item WHERE job_id=? AND status='failed'", (job_id,)
+    ).fetchone()
+
+    response = client.post(f"/workshop/jobs/{job_id}/item/{failed_item['id']}/retry")
+
+    assert response.status_code == 200
+    # Retry must return the SAME html progress fragment the GET progress route returns, NOT the
+    # old `{"status": "retrying"}` JSON that replaced the whole panel and stopped polling.
+    assert response.headers["content-type"].startswith("text/html")
+    assert 'id="regen-progress"' in response.text
+    # The job was reopened to 'running', so the fragment re-carries the 2s polling trigger and
+    # htmx keeps polling instead of freezing on stale content.
+    assert "hx-trigger" in response.text
+    assert "every 2s" in response.text
+    # Structural parity with the GET progress fragment (same counts line), never raw JSON.
+    assert "排队中" in response.text
+    assert '"status"' not in response.text

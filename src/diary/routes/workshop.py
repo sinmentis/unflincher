@@ -97,6 +97,13 @@ async def workshop_apply_all(request: Request, background_tasks: BackgroundTasks
 @router.get("/workshop/jobs/{job_id}/progress")
 async def job_progress(request: Request, job_id: int):
     """htmx-polled fragment: per-item counts plus any failed items (each with a retry button)."""
+    return _render_job_progress(request, job_id)
+
+
+def _render_job_progress(request: Request, job_id: int):
+    """Render the per-job progress fragment from the current item/job state. Shared by the polled
+    GET route and the retry POST so both return the same HTML (with the `every 2s` polling
+    attribute whenever the job is 'running'), never divergent bodies."""
     db = request.app.state.db
     items = db.execute(
         "SELECT * FROM regen_job_item WHERE job_id = ?", (job_id,)
@@ -146,4 +153,7 @@ async def retry_job_item(
     background_tasks.add_task(
         worker.run_job, job_id, prompt["body_text"], settings.llm_model
     )
-    return JSONResponse({"status": "retrying"})
+    # Return the re-rendered progress fragment (not JSON) so htmx's outerHTML swap keeps the panel
+    # in place; the job is now 'running', so the fragment re-carries `hx-trigger="every 2s"` and
+    # polling resumes automatically.
+    return _render_job_progress(request, job_id)
