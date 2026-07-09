@@ -16,8 +16,6 @@
 document.getElementById("chat-send").addEventListener("click", () => {
   const input = document.getElementById("chat-input");
   const target = document.getElementById("chat-stream");
-  target.style.display = "block";
-  target.textContent = "";
   streamInto("/chat/message", {message: input.value}, target, () => location.reload());
   input.value = "";
 });

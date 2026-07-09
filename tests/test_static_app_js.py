@@ -42,3 +42,110 @@ def test_app_js_parseSseFrame_rejoins_multiline_data_from_real_server_frame():
     assert result["ev"] == "token"
     assert result["data"] == token  # multi-line token reconstructed exactly
     assert "data: " not in result["data"]  # no stray SSE field prefix leaked into rendered text
+
+
+# Regression test for a real production bug: the CSS-only "disable while streaming" treatment
+# (main:has([data-streaming="1"]) #trigger { pointer-events: none }) only blocks MOUSE clicks --
+# a keyboard Enter/Space on the still-focused trigger button, or any programmatic .click(), was
+# NOT blocked, so a second streamInto() call on the same target while the first was still reading
+# its response raced the first: both loops appended tokens to the same element concurrently, and
+# the second call's own textContent="" wiped whatever the first had written so far, producing a
+# spliced/corrupted result. Reproduced live (mouse click blocked as expected; a focused-button
+# Enter key fired a second POST /workshop/test-run while the first was mid-stream). The fix moves
+# the guard into streamInto itself: a call on an already-streaming target is a no-op, regardless of
+# how it was triggered.
+_REENTRANCY_NODE_HARNESS = """
+globalThis.document = { body: { addEventListener() {} }, cookie: '' };
+const {streamInto} = require(process.argv[1]);
+
+let fetchCalls = 0;
+globalThis.fetch = async () => {
+  fetchCalls++;
+  const chunks = ['event: token\\ndata: hi\\n\\n', 'event: done\\ndata: {}\\n\\n'];
+  let i = 0;
+  return {
+    body: {
+      getReader() {
+        return {
+          async read() {
+            if (i < chunks.length) {
+              return {value: new TextEncoder().encode(chunks[i++]), done: false};
+            }
+            return {value: undefined, done: true};
+          },
+        };
+      },
+    },
+  };
+};
+
+const target = {dataset: {streaming: '1'}, textContent: 'existing content', style: {}};
+streamInto('/x', null, target).then(() => {
+  process.stdout.write(JSON.stringify({fetchCalls, textContent: target.textContent}));
+});
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_stream_into_ignores_reinvocation_on_an_already_streaming_target():
+    out = subprocess.run(
+        ["node", "-e", _REENTRANCY_NODE_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+
+    # No fetch at all: the guard returns before ever starting a second request.
+    assert result["fetchCalls"] == 0
+    # And critically, the pre-existing (first stream's) content is left untouched -- the bug's
+    # exact symptom was this being wiped by the second call's textContent = "".
+    assert result["textContent"] == "existing content"
+
+
+_ALLOWS_FRESH_STREAM_NODE_HARNESS = """
+globalThis.document = { body: { addEventListener() {} }, cookie: '' };
+const {streamInto} = require(process.argv[1]);
+
+let fetchCalls = 0;
+globalThis.fetch = async () => {
+  fetchCalls++;
+  const chunks = ['event: token\\ndata: hi\\n\\n', 'event: done\\ndata: {}\\n\\n'];
+  let i = 0;
+  return {
+    body: {
+      getReader() {
+        return {
+          async read() {
+            if (i < chunks.length) {
+              return {value: new TextEncoder().encode(chunks[i++]), done: false};
+            }
+            return {value: undefined, done: true};
+          },
+        };
+      },
+    },
+  };
+};
+
+// Not currently streaming (no dataset.streaming key at all) -- a normal, non-overlapping call.
+const target = {dataset: {}, textContent: 'stale text from a previous run', style: {}};
+streamInto('/x', null, target).then(() => {
+  process.stdout.write(JSON.stringify({fetchCalls, textContent: target.textContent, streaming: target.dataset.streaming}));
+});
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_stream_into_still_runs_normally_when_target_is_not_already_streaming():
+    out = subprocess.run(
+        ["node", "-e", _ALLOWS_FRESH_STREAM_NODE_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+
+    assert result["fetchCalls"] == 1
+    assert result["textContent"] == "hi"  # cleared, then the new stream's own token
+    assert "streaming" not in result  # dataset.streaming was deleted after completion, not set to null

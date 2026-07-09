@@ -23,6 +23,17 @@ function parseSseFrame(frame) {
 }
 
 async function streamInto(url, body, targetEl, onDone) {
+  // Re-entrancy guard: the CSS-only "disable while streaming" treatment
+  // (main:has([data-streaming="1"]) #trigger-btn { pointer-events: none }) only blocks MOUSE
+  // clicks -- it does nothing against a keyboard Enter/Space on the still-focused button, or any
+  // programmatic .click(). Without this check, a second invocation while the first is still
+  // reading its response body races the first: both loops end up appending tokens to the same
+  // targetEl concurrently, and this call's own `textContent = ""` below wipes whatever the first
+  // stream had already written, producing corrupted, spliced-together output. Ignoring a
+  // re-invocation while already streaming is the actual fix; the CSS is just a visual hint.
+  if (targetEl.dataset.streaming === "1") return;
+  targetEl.style.display = "block";
+  targetEl.textContent = "";
   targetEl.dataset.streaming = "1";
   const res = await fetch(url, {
     method: "POST",
@@ -51,5 +62,5 @@ async function streamInto(url, body, targetEl, onDone) {
 
 // Exposed for Node-based unit testing; harmless in the browser where `module` is undefined.
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {parseSseFrame};
+  module.exports = {parseSseFrame, streamInto};
 }

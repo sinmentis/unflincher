@@ -30,8 +30,6 @@
 <script>
 document.getElementById("run-commentary").addEventListener("click", () => {
   const target = document.getElementById("commentary-stream");
-  target.style.display = "block";
-  target.textContent = "";
   streamInto("/entry/{{ entry.id }}/commentary", null, target, () => location.reload());
 });
 </script>
@@ -48,8 +46,6 @@ document.getElementById("run-commentary").addEventListener("click", () => {
 document.getElementById("chat-send").addEventListener("click", () => {
   const input = document.getElementById("chat-input");
   const target = document.getElementById("chat-stream");
-  target.style.display = "block";
-  target.textContent = "";
   streamInto("/entry/{{ entry.id }}/chat", {message: input.value}, target, () => location.reload());
   input.value = "";
 });

@@ -24,8 +24,6 @@
 <script>
 document.getElementById("run-report").addEventListener("click", () => {
   const target = document.getElementById("report-stream");
-  target.style.display = "block";
-  target.textContent = "";
   streamInto("/report/generate", null, target, () => location.reload());
 });
 </script>

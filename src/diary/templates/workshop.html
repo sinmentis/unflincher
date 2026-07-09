@@ -27,8 +27,6 @@
 <script>
 document.getElementById("run-test").addEventListener("click", () => {
   const target = document.getElementById("preview-stream");
-  target.style.display = "block";
-  target.textContent = "";
   streamInto("/workshop/test-run", {
     draft_prompt: document.getElementById("prompt-draft").value,
     entry_id: parseInt(document.getElementById("test-entry").value, 10),
