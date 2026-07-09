@@ -36,7 +36,140 @@ main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
 .entry-title a { color: var(--ink-strong); text-decoration: none; }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; height: fit-content; }
 .badge.done { background: var(--card); color: var(--accent); border: 1px solid var(--accent); }
-.badge.pending { background: var(--card); color: var(--faint); }
+.badge.pending { background: var(--card); color: var(--ink); border: 1px solid var(--faint); }
 .diary-text { font-family: var(--font-read); font-size: 17px; line-height: 1.8; max-width: 38em; }
 .ai-card { background: var(--card); border-left: 3px solid var(--accent); border-radius: 6px; padding: 16px 20px; margin: 16px 0; }
 .ai-label { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+
+/* ============================================================================
+   Form controls, buttons, focus & streaming feedback — gruvbox dark
+   Reuses existing :root tokens only; the rgba(255,255,255) rings/outlines below are the
+   deliberate dark-mode "shadow-as-border" treatment (pure white, per design review) — never
+   tinted from the palette, so they read consistently as depth regardless of the surface color
+   they sit on.
+   Accessibility guardrails baked in here (from a dedicated a11y audit): --faint is never used
+   for placeholder/border text at small sizes (only 3.16:1 on --card, fails AA) -- --muted is used
+   instead where a placeholder needs to sit on --canvas (5.90:1); accent-filled buttons always
+   pair with dark (--gb-bg0-hard) text, never light --ink (would be 1.53:1); --danger red on
+   --canvas/--card is 5.0/4.3:1 so it's only used on --canvas or paired with bold weight, never a
+   plain small label on --card alone.
+   ============================================================================ */
+:root{
+  --radius-md: 8px;
+  --radius-pill: 999px;
+  --ring:       0 0 0 1px rgba(255,255,255,0.08);   /* shadows-over-borders (dark) */
+  --ring-hover: 0 0 0 1px rgba(255,255,255,0.14);
+  --focus-ring: 0 0 0 2px var(--canvas), 0 0 0 4px var(--link);
+}
+
+html{ color-scheme: dark; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* Typography polish */
+h1, .entry-title{ text-wrap: balance; }
+.diary-text, .ai-card{ text-wrap: pretty; }
+
+/* Text fields — recessed wells on the dark canvas */
+input[type="text"], textarea, select{
+  font: inherit; font-size: 15px;
+  color: var(--ink); background: var(--canvas);
+  border: 0; border-radius: var(--radius-md);
+  box-shadow: var(--ring);
+  padding: 10px 12px; min-height: 40px;
+  caret-color: var(--accent);
+  transition-property: box-shadow, background-color;
+  transition-duration: 150ms; transition-timing-function: ease-out;
+}
+input[type="text"]:hover, textarea:hover, select:hover{ box-shadow: var(--ring-hover); }
+textarea{ width: 100%; line-height: 1.6; resize: vertical; }
+::placeholder{ color: var(--muted); opacity: 1; }
+
+select{
+  appearance: none; padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%23a89984' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+
+/* Per-field sizing (preserves size if the inline styles are stripped later; harmless if not) */
+#new-title, #new-content, #prompt-draft{ width: 100%; }
+#new-content{ min-height: 220px; }
+#prompt-draft{ min-height: 280px; font-family: var(--font-mono); font-size: 14px; }
+
+/* Buttons — base (neutral, raised) */
+button{
+  font: inherit; font-size: 14px;
+  color: var(--ink); background: var(--card);
+  border: 0; border-radius: var(--radius-md);
+  box-shadow: var(--ring);
+  padding: 9px 16px; min-height: 40px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer;
+  transition-property: box-shadow, background-color, scale, opacity;
+  transition-duration: 150ms; transition-timing-function: ease-out;
+}
+button:hover{ background: var(--border); box-shadow: var(--ring-hover); }
+button:active{ scale: 0.96; }
+button:disabled{ opacity: .5; cursor: not-allowed; scale: none; background: var(--card); box-shadow: var(--ring); }
+
+/* Primary — frequent, safe (保存日记, 应用) */
+.btn-primary{ background: var(--accent); color: var(--gb-bg0-hard); box-shadow: none; font-weight: 600; }
+.btn-primary:hover{ background: var(--accent); box-shadow: none; filter: brightness(1.08); }
+
+/* Danger — expensive / whole-corpus (应用并对全部历史日记+报告重新生成) */
+.btn-danger{ background: var(--canvas); color: var(--danger); box-shadow: 0 0 0 1px var(--danger); font-weight: 600; }
+.btn-danger:hover{ background: var(--danger); color: var(--gb-bg0-hard); box-shadow: 0 0 0 1px var(--danger); }
+
+/* Pill triggers (#run-commentary, #run-report) — badge look, real-button size, ring via shadow */
+button.badge{ font-size: 13px; min-height: 40px; padding: 8px 16px; border-radius: var(--radius-pill); }
+button.badge.done{ background: var(--card); color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+button.badge.done:hover{ background: var(--accent); color: var(--gb-bg0-hard); box-shadow: 0 0 0 1px var(--accent); }
+
+/* Nav links — >=40px hit target */
+.nav a{ display: inline-flex; align-items: center; min-height: 40px; }
+
+/* Focus — one visible ring everywhere (transparent outline survives forced-colors) */
+input[type="text"]:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+button.badge:focus-visible,
+.nav a:focus-visible{
+  outline: 2px solid transparent; outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+
+/* Streaming feedback — reuses data-streaming="1" set by streamInto() on the TARGET */
+main:has(#commentary-stream[data-streaming="1"]) #run-commentary,
+main:has(#report-stream[data-streaming="1"])     #run-report,
+main:has(#preview-stream[data-streaming="1"])    #run-test,
+main:has(#chat-stream[data-streaming="1"])       #chat-send{
+  color: var(--faint); pointer-events: none;
+}
+main:has(#commentary-stream[data-streaming="1"]) #run-commentary::after,
+main:has(#report-stream[data-streaming="1"])     #run-report::after,
+main:has(#preview-stream[data-streaming="1"])    #run-test::after,
+main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
+  content: ""; width: 13px; height: 13px;
+  border: 2px solid var(--faint); border-top-color: var(--accent);
+  border-radius: 50%; animation: gb-spin .7s linear infinite;
+}
+.ai-card[data-streaming="1"]:empty::after{
+  content: "思考中 ▍"; color: var(--faint);
+  font-family: var(--font-ui); font-size: 14px;
+  animation: gb-pulse 1.2s ease-in-out infinite;
+}
+@keyframes gb-spin{ to{ transform: rotate(360deg); } }
+@keyframes gb-pulse{ 0%,100%{ opacity:.35 } 50%{ opacity:.8 } }
+@media (prefers-reduced-motion: reduce){
+  main:has([data-streaming="1"]) #run-commentary::after,
+  main:has([data-streaming="1"]) #run-report::after,
+  main:has([data-streaming="1"]) #run-test::after,
+  main:has([data-streaming="1"]) #chat-send::after{ animation: none; }
+  .ai-card[data-streaming="1"]:empty::after{ animation: none; opacity: .6; }
+}
+
+/* Misc polish */
+.stream-err{ color: var(--danger); font-family: var(--font-ui); font-size: 14px; font-weight: 600; }
+#regen-progress{ font-variant-numeric: tabular-nums; }
+.diary-text img, .ai-card img{ max-width: 100%; outline: 1px solid rgba(255,255,255,0.1); outline-offset: -1px; }
+::selection{ background: var(--gb-bg2); color: var(--ink-strong); }
+

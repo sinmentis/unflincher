@@ -8,8 +8,8 @@
   <p><strong>{{ "我" if msg.role == "user" else "AI" }}：</strong>{{ msg.content }}</p>
   {% endfor %}
 </div>
-<div id="chat-stream" class="ai-card" style="display:none"></div>
-<input type="text" id="chat-input" placeholder="问点什么…">
+<div id="chat-stream" class="ai-card" style="display:none" aria-live="polite"></div>
+<input type="text" id="chat-input" placeholder="问点什么…" aria-label="跟AI聊天输入框">
 <button id="chat-send">发送</button>
 <script src="/static/app.js"></script>
 <script>

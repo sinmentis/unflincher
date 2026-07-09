@@ -18,7 +18,7 @@
 {% else %}
 <p class="entry-date">还没有生成过综合报告。</p>
 {% endif %}
-<div class="ai-card" id="report-stream" style="display:none"></div>
+<div class="ai-card" id="report-stream" style="display:none" aria-live="polite"></div>
 <button id="run-report" class="badge done" style="cursor:pointer;border:none">生成/重新生成报告</button>
 <script src="/static/app.js"></script>
 <script>

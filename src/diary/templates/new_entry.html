@@ -4,9 +4,9 @@
 {% block content %}
 <h1>写新日记</h1>
 <p class="entry-date">保存后不会自动点评，可在时间线里手动触发。</p>
-<p><input type="text" id="new-title" placeholder="标题" style="width:100%;padding:8px"></p>
-<p><textarea id="new-content" placeholder="今天想写点什么……" style="width:100%;min-height:220px;padding:8px"></textarea></p>
-<button id="save-entry">保存日记</button>
+<p><input type="text" id="new-title" placeholder="标题" aria-label="标题" style="width:100%;padding:8px"></p>
+<p><textarea id="new-content" placeholder="今天想写点什么……" aria-label="日记内容" style="width:100%;min-height:220px;padding:8px"></textarea></p>
+<button id="save-entry" class="btn-primary">保存日记</button>
 <script src="/static/app.js"></script>
 <script>
 document.getElementById("save-entry").addEventListener("click", async () => {

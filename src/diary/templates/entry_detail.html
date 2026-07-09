@@ -24,7 +24,7 @@
 <p class="entry-date">还没有锐评。</p>
 {% endif %}
 
-<div class="ai-card" id="commentary-stream" style="display:none"></div>
+<div class="ai-card" id="commentary-stream" style="display:none" aria-live="polite"></div>
 <button id="run-commentary" class="badge done" style="cursor:pointer;border:none">AI 锐评</button>
 <script src="/static/app.js"></script>
 <script>
@@ -41,8 +41,8 @@ document.getElementById("run-commentary").addEventListener("click", () => {
   <p><strong>{{ "我" if msg.role == "user" else "AI" }}：</strong>{{ msg.content }}</p>
   {% endfor %}
 </div>
-<div id="chat-stream" class="ai-card" style="display:none"></div>
-<input type="text" id="chat-input" placeholder="回复 AI 人生导师…">
+<div id="chat-stream" class="ai-card" style="display:none" aria-live="polite"></div>
+<input type="text" id="chat-input" placeholder="回复 AI 人生导师…" aria-label="回复AI人生导师输入框">
 <button id="chat-send">发送</button>
 <script>
 document.getElementById("chat-send").addEventListener("click", () => {
