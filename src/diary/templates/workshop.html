@@ -15,6 +15,7 @@
 
 <button id="apply-btn">应用</button>
 <button id="apply-all-btn">应用并对全部历史日记+报告重新生成</button>
+<div id="regen-progress-holder"></div>
 
 <script src="/static/app.js"></script>
 <script>
@@ -33,6 +34,14 @@ document.getElementById("apply-btn").addEventListener("click", async () => {
     body: JSON.stringify({draft_prompt: document.getElementById("prompt-draft").value}),
   });
   location.reload();
+});
+document.getElementById("apply-all-btn").addEventListener("click", async () => {
+  const res = await fetch("/workshop/apply-all", {method: "POST"});
+  if (res.status === 409) { alert("已经有一个批量任务在跑，请等它结束。"); return; }
+  const {job_id} = await res.json();
+  const holder = document.getElementById("regen-progress-holder");
+  holder.innerHTML = `<div id="regen-progress" hx-get="/workshop/jobs/${job_id}/progress" hx-trigger="load, every 2s" hx-swap="outerHTML"></div>`;
+  htmx.process(holder);
 });
 </script>
 {% endblock %}
