@@ -1,7 +1,7 @@
 import pytest
 
 import diary.llm as llm_module
-from diary.llm import chat_reply, generate_commentary, generate_report
+from diary.llm import chat_reply, generate_commentary, generate_report, generate_session_title
 
 
 class _FakeStream:
@@ -69,3 +69,26 @@ async def test_chat_reply_includes_history_and_latest_commentary(fake_stream):
     assert "上次锐评内容" in system or "上次锐评内容" in user_content
     assert "之前问过" in user_content
     assert "新问题" in user_content
+
+
+async def _fake_title_tokens(system, user_content, model):
+    for t in ["该", "不", "该", "辞职"]:
+        yield t
+
+
+async def test_generate_session_title_joins_stream_and_strips(monkeypatch):
+    monkeypatch.setattr(llm_module, "stream_completion", _fake_title_tokens)
+    title = await generate_session_title("我是不是该辞职", "gpt-5.4-mini")
+    assert title == "该不该辞职"
+
+
+async def test_generate_session_title_passes_the_requested_model(monkeypatch):
+    seen = {}
+
+    async def _capture(system, user_content, model):
+        seen["model"] = model
+        yield "x"
+
+    monkeypatch.setattr(llm_module, "stream_completion", _capture)
+    await generate_session_title("随便什么", "gpt-5.4-mini")
+    assert seen["model"] == "gpt-5.4-mini"

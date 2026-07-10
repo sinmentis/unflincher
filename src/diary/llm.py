@@ -192,3 +192,17 @@ async def general_chat_reply(
     user_content = f"{history_text}\nuser: {user_message}" if history else user_message
     async for token in stream_completion(system, user_content, model):
         yield token
+
+
+_TITLE_SYSTEM_PROMPT = (
+    "用不超过10个汉字概括这条消息想聊的主题，只输出主题本身，不要标点、不要解释、不要引号。"
+)
+
+
+async def generate_session_title(first_message: str, model: str) -> str:
+    """One-shot title generation for a newly (lazily) created chat session, used by
+    routes/chat.py. Reuses stream_completion — the same seam every other generation path goes
+    through — rather than a separate LLM entry point; the caller just joins the chunks since a
+    short title has no benefit from token-by-token streaming to the browser."""
+    chunks = [t async for t in stream_completion(_TITLE_SYSTEM_PROMPT, first_message, model)]
+    return "".join(chunks).strip()
