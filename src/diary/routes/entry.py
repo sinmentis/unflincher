@@ -1,15 +1,19 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
+from diary.config import load_settings
 from diary.db import (
     get_active_prompt,
     get_commentary_by_id,
     get_current_commentary,
+    get_latest_commentary_job_item,
     list_commentary_versions,
+    start_single_entry_commentary_job,
 )
 from diary.sanitize import render_ai_markdown
+from diary.worker import BatchWorker
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/diary/templates")
@@ -40,6 +44,12 @@ async def entry_detail(request: Request, entry_id: int):
     ]
     versions = list_commentary_versions(db, entry_id)
 
+    latest_item = get_latest_commentary_job_item(db, entry_id)
+    commentary_job_status = latest_item["status"] if latest_item else None
+    commentary_job_error = (
+        latest_item["error"] if latest_item and latest_item["status"] == "failed" else None
+    )
+
     return templates.TemplateResponse(
         request,
         "entry_detail.html",
@@ -49,6 +59,8 @@ async def entry_detail(request: Request, entry_id: int):
             "chat_history": chat_history,
             "versions": versions,
             "viewing_version_id": commentary["id"] if commentary else None,
+            "commentary_job_status": commentary_job_status,
+            "commentary_job_error": commentary_job_error,
         },
     )
 
@@ -91,31 +103,45 @@ async def view_commentary_version(request: Request, entry_id: int, commentary_id
 
 
 @router.post("/entry/{entry_id}/commentary")
-async def trigger_entry_commentary(request: Request, entry_id: int):
+async def trigger_entry_commentary(request: Request, entry_id: int, background_tasks: BackgroundTasks):
+    """Fire-and-forget: creates a single-item background job and returns immediately, so the
+    caller (the browser) can navigate away without losing the result. Reuses the exact same
+    single-flight regen_job infrastructure workshop.py's apply-all route uses -- see
+    db.start_single_entry_commentary_job's docstring for the confirmed "only one job
+    system-wide" trade-off."""
+    import sqlite3
+
     db = request.app.state.db
     entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (entry_id,)).fetchone()
     if entry is None:
         raise HTTPException(status_code=404, detail="entry not found")
-    all_entries = db.execute("SELECT * FROM diary_entry ORDER BY entry_date").fetchall()
+
     active_prompt = get_active_prompt(db)
-    model = active_prompt["model"]
+    try:
+        job_id = start_single_entry_commentary_job(db, active_prompt["id"], entry_id)
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="a regeneration job is already running")
 
-    async def event_stream():
-        chunks = []
-        async for token in llm.generate_commentary(
-            dict(entry), [dict(e) for e in all_entries], active_prompt["body_text"], model
-        ):
-            chunks.append(token)
-            yield {"event": "token", "data": token}
-        full_text = "".join(chunks)
-        db.execute(
-            "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
-            "VALUES (?, ?, ?, ?, 'ok')",
-            (entry_id, active_prompt["id"], model, full_text),
-        )
-        yield {"event": "done", "data": "{}"}
+    settings = load_settings()
+    worker = BatchWorker(db, settings.batch_concurrency)
+    background_tasks.add_task(
+        worker.run_job, job_id, active_prompt["body_text"], active_prompt["model"]
+    )
+    return {"job_id": job_id}
 
-    return EventSourceResponse(event_stream(), sep="\n")
+
+@router.get("/entry/{entry_id}/commentary-status")
+async def entry_commentary_status(request: Request, entry_id: int):
+    """Polled by entry_detail.html's busy-state widget every few seconds. Renders either the
+    "still generating" fragment (with an hx-trigger that keeps polling) or a fragment that
+    reloads the page once the job item is no longer pending/running -- see
+    partials/commentary_status.html."""
+    db = request.app.state.db
+    item = get_latest_commentary_job_item(db, entry_id)
+    busy = item is not None and item["status"] in ("pending", "running")
+    return templates.TemplateResponse(
+        request, "partials/commentary_status.html", {"entry_id": entry_id, "busy": busy}
+    )
 
 
 @router.post("/entry/{entry_id}/chat")

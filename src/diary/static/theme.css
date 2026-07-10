@@ -39,6 +39,7 @@ main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
 .badge { font-size: 12px; padding: 2px 9px; border-radius: 20px; white-space: nowrap; height: fit-content; }
 .badge.done { background: var(--card); color: var(--accent); border: 1px solid var(--accent); }
 .badge.pending { background: var(--card); color: var(--ink); border: 1px solid var(--faint); }
+.badge.generating { background: var(--card); color: var(--warn); border: 1px solid var(--warn); }
 .diary-text { font-family: var(--font-read); font-size: 18px; line-height: 1.9; letter-spacing: .01em; max-width: 38em; }
 .ai-card { background: var(--card); border-left: 3px solid var(--accent); border-radius: var(--radius-md); padding: 18px 22px; margin: 18px 0; line-height: 1.8; }
 .ai-label { font-family: var(--font-mono); font-size: 13px; color: var(--accent); margin-bottom: 10px; letter-spacing: .02em; }

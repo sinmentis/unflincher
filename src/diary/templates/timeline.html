@@ -25,7 +25,9 @@
     <div style="flex:1">
       <p class="entry-title"><a href="/entry/{{ entry.id }}">{{ entry.title }}</a></p>
     </div>
-    {% if entry.has_commentary %}
+    {% if entry.is_generating %}
+      <span class="badge generating">点评中</span>
+    {% elif entry.has_commentary %}
       <span class="badge done">AI 已点评</span>
     {% else %}
       <span class="badge pending">未点评</span>

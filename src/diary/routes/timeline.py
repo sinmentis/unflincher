@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
-from diary.db import get_current_commentary
+from diary.db import get_current_commentary, get_entries_with_active_commentary_job
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/diary/templates")
@@ -13,6 +13,7 @@ async def timeline(request: Request):
     rows = db.execute(
         "SELECT id, title, entry_date FROM diary_entry ORDER BY entry_date DESC"
     ).fetchall()
+    active_job_entry_ids = get_entries_with_active_commentary_job(db)
     entries = []
     year_counts: dict[str, int] = {}
     for row in rows:
@@ -21,6 +22,7 @@ async def timeline(request: Request):
         entries.append({
             "id": row["id"], "title": row["title"], "entry_date": row["entry_date"],
             "year": year, "has_commentary": commentary is not None,
+            "is_generating": row["id"] in active_job_entry_ids,
         })
         year_counts[year] = year_counts.get(year, 0) + 1
     # dict preserves insertion order (Python 3.7+); rows are already newest-first, so the first

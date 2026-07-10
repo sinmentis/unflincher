@@ -1,21 +1,11 @@
 import diary.llm as llm_module
 
 
-async def _fake_tokens(*args, **kwargs):
-    for t in ["观察：", "你在", "逃避"]:
-        yield t
+def test_trigger_commentary_creates_background_job(client, monkeypatch):
+    async def _fake_run_job(self, job_id, persona_text, model):
+        pass  # don't actually run the worker in this test -- only the job creation is under test
 
-
-async def _fake_multiline_tokens(*args, **kwargs):
-    # One token carries paragraph breaks; sse-starlette serializes each embedded newline as a
-    # separate `data: ` line inside a single event frame (the exact wire shape the browser SSE
-    # parser must rejoin). Regression guard for the multi-line streamed-text corruption bug.
-    yield "第一行\n第二行"
-    yield "\n\n列表：\n- 项目一"
-
-
-def test_generate_commentary_streams_and_persists(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_commentary", _fake_tokens)
+    monkeypatch.setattr("diary.worker.BatchWorker.run_job", _fake_run_job)
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -25,55 +15,36 @@ def test_generate_commentary_streams_and_persists(client, monkeypatch):
     response = client.post(f"/entry/{entry_id}/commentary")
 
     assert response.status_code == 200
-    assert "观察：" in response.text
-    assert "event: done" in response.text
-
-    row = db.execute(
-        "SELECT body_text, status FROM entry_commentary WHERE entry_id = ?", (entry_id,)
-    ).fetchone()
-    assert row["status"] == "ok"
-    assert row["body_text"] == "观察：你在逃避"
+    assert "job_id" in response.json()
+    items = db.execute(
+        "SELECT * FROM regen_job_item WHERE target_type = 'entry_commentary' AND entry_id = ?",
+        (entry_id,),
+    ).fetchall()
+    assert len(items) == 1
 
 
-def test_generate_commentary_404_for_missing_entry(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_commentary", _fake_tokens)
+def test_trigger_commentary_404_for_missing_entry(client):
     response = client.post("/entry/9999/commentary")
     assert response.status_code == 404
 
 
-def test_commentary_multiline_token_rejoins_without_data_prefix_leak(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_commentary", _fake_multiline_tokens)
+def test_trigger_commentary_409_when_a_job_is_already_running(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-        "entry_date, source) VALUES ('标题', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+        "entry_date, source) VALUES ('a', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
     ).lastrowid
 
+    # Directly create a running job to simulate "one already in flight" -- matches the
+    # established pattern in test_routes_workshop.py's test_apply_all_rejects_concurrent_job:
+    # inserting the job row alone is enough to hold the single-flight lock; no need to race a
+    # real background task through the TestClient (which blocks on BackgroundTasks completion).
+    from diary.db import get_active_prompt, start_single_entry_commentary_job
+    active_prompt = get_active_prompt(db)
+    start_single_entry_commentary_job(db, active_prompt["id"], entry_id)
+
     response = client.post(f"/entry/{entry_id}/commentary")
-    assert response.status_code == 200
-
-    # Server frame shape: a multi-line token IS split into several `data: ` lines inside one
-    # `event: token` frame — exactly what the old single greedy-regex parser mis-handled.
-    token_frames = [f for f in response.text.split("\n\n") if "event: token" in f]
-    assert any(f.count("data: ") > 1 for f in token_frames)
-
-    # Rejoin each frame the way app.js's parseSseFrame does; the reconstructed text must equal the
-    # original tokens with NO stray "data: " field prefix embedded anywhere.
-    rendered = "".join(
-        "\n".join(line[6:] for line in f.split("\n") if line.startswith("data: "))
-        for f in token_frames
-    )
-    assert rendered == "第一行\n第二行\n\n列表：\n- 项目一"
-    assert "data: " not in rendered
-
-    # The persisted row (the permanent source of truth once the stream ends) carries the clean
-    # joined text, never a "data: " fragment.
-    row = db.execute(
-        "SELECT body_text, status FROM entry_commentary WHERE entry_id = ?", (entry_id,)
-    ).fetchone()
-    assert row["status"] == "ok"
-    assert row["body_text"] == "第一行\n第二行\n\n列表：\n- 项目一"
-    assert "data: " not in row["body_text"]
+    assert response.status_code == 409
 
 
 def test_entry_detail_shows_content(client):
@@ -281,3 +252,100 @@ def test_entry_detail_chat_uses_bubble_classes_per_role(client):
 
     assert 'class="chat-bubble mine"' in body
     assert 'class="chat-bubble mentor"' in body
+
+
+def test_entry_detail_shows_busy_state_when_job_is_running(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    job_id = db.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'running')", (prompt_id,)
+    ).lastrowid
+    db.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'running')", (job_id, entry_id),
+    )
+
+    response = client.get(f"/entry/{entry_id}")
+
+    assert response.status_code == 200
+    assert "生成中" in response.text
+    assert 'id="run-commentary"' not in response.text
+
+
+def test_entry_detail_shows_failure_state_and_retry_button(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    job_id = db.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'done')", (prompt_id,)
+    ).lastrowid
+    item_id = db.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'failed')", (job_id, entry_id),
+    ).lastrowid
+    from diary.db import fail_job_item
+    fail_job_item(db, item_id, "模型报错了")
+
+    response = client.get(f"/entry/{entry_id}")
+
+    assert response.status_code == 200
+    assert "模型报错了" in response.text
+    assert 'id="retry-commentary"' in response.text
+
+
+def test_commentary_status_route_returns_polling_fragment_while_busy(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    job_id = db.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'running')", (prompt_id,)
+    ).lastrowid
+    db.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'pending')", (job_id, entry_id),
+    )
+
+    response = client.get(f"/entry/{entry_id}/commentary-status")
+
+    assert response.status_code == 200
+    assert "hx-trigger" in response.text
+    assert "location.reload" not in response.text
+
+
+def test_commentary_status_route_returns_reload_script_once_done(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    job_id = db.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'done')", (prompt_id,)
+    ).lastrowid
+    db.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'ok')", (job_id, entry_id),
+    )
+
+    response = client.get(f"/entry/{entry_id}/commentary-status")
+
+    assert response.status_code == 200
+    assert "location.reload" in response.text

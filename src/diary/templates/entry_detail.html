@@ -31,15 +31,32 @@
 <p class="entry-date">还没有锐评。</p>
 {% endif %}
 
-<div class="ai-card" id="commentary-stream" style="display:none" aria-live="polite"></div>
-<button id="run-commentary" class="badge done" style="cursor:pointer;border:none">AI 锐评</button>
 <script src="/static/app.js"></script>
+{% if commentary_job_status in ("pending", "running") %}
+{% with entry_id=entry.id, busy=True %}{% include "partials/commentary_status.html" %}{% endwith %}
+{% elif commentary_job_status == "failed" %}
+<div class="ai-card stream-err" id="commentary-error">
+  <div class="ai-label">上次生成失败</div>
+  <p>{{ commentary_job_error }}</p>
+  <button id="retry-commentary" class="badge done" style="cursor:pointer;border:none">重试</button>
+</div>
 <script>
-document.getElementById("run-commentary").addEventListener("click", () => {
-  const target = document.getElementById("commentary-stream");
-  streamInto("/entry/{{ entry.id }}/commentary", null, target, () => location.reload());
+document.getElementById("retry-commentary").addEventListener("click", async () => {
+  const res = await fetch("/entry/{{ entry.id }}/commentary", {method: "POST", headers: {"X-CSRF-Token": getCsrfToken()}});
+  if (res.status === 409) { alert("已经有任务在跑，请稍后再试"); return; }
+  location.reload();
 });
 </script>
+{% else %}
+<button id="run-commentary" class="badge done" style="cursor:pointer;border:none">AI 锐评</button>
+<script>
+document.getElementById("run-commentary").addEventListener("click", async () => {
+  const res = await fetch("/entry/{{ entry.id }}/commentary", {method: "POST", headers: {"X-CSRF-Token": getCsrfToken()}});
+  if (res.status === 409) { alert("已经有任务在跑，请稍后再试"); return; }
+  location.reload();
+});
+</script>
+{% endif %}
 
 <div id="chat-section">
 <div id="chat-thread">

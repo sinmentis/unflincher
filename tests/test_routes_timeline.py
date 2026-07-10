@@ -102,3 +102,25 @@ def test_timeline_computes_share_correctly(client):
     # 2023 has 1 of 3 entries: share = 0.33
     assert '--dot-scale: 0.67' in body
     assert '--dot-scale: 0.33' in body
+
+
+def test_timeline_shows_generating_badge_for_entry_with_active_job(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('生成中的', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    job_id = db.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'running')", (prompt_id,)
+    ).lastrowid
+    db.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'running')", (job_id, entry_id),
+    )
+
+    body = client.get("/").text
+
+    assert "点评中" in body
