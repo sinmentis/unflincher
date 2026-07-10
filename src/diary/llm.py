@@ -32,6 +32,12 @@ _client_lock = asyncio.Lock()
 # a batch regeneration job plus a background title-generation task are all in flight together.
 _llm_semaphore = asyncio.Semaphore(load_settings().llm_concurrency)
 
+# Tracks how many stream_completion() calls are currently inside their streaming loop. Checked by
+# refresh_available_models() below, which must refuse to restart the shared client (the only way
+# to bust the SDK's in-process model-list cache) while a generation is actively using it — doing
+# so would kill that generation's in-flight stream.
+_active_session_count = 0
+
 
 async def _ensure_client() -> tuple[CopilotClient, int]:
     """Return the shared client (starting a new one if none exists yet) and the generation number
@@ -89,30 +95,6 @@ async def shutdown_client() -> None:
             _client = None
 
 
-
-# each family. Captured live via CopilotClient.list_models() against this deployment's actual
-# Copilot credential (the unflincher-copilot-github-token secret); the meta-option "auto" is omitted
-# on purpose since it hides which model produced a given commentary. No code depends on this being
-# exhaustive or live — it is a static, curated list. Refresh it if the subscription's available
-# models change.
-AVAILABLE_MODELS = [
-    ("claude-sonnet-5", "Claude Sonnet 5"),
-    ("claude-sonnet-4.6", "Claude Sonnet 4.6"),
-    ("claude-sonnet-4.5", "Claude Sonnet 4.5"),
-    ("claude-haiku-4.5", "Claude Haiku 4.5"),
-    ("claude-opus-4.8", "Claude Opus 4.8"),
-    ("claude-opus-4.7", "Claude Opus 4.7"),
-    ("claude-opus-4.6", "Claude Opus 4.6"),
-    ("claude-opus-4.5", "Claude Opus 4.5"),
-    ("gpt-5.5", "GPT-5.5"),
-    ("gpt-5.4", "GPT-5.4"),
-    ("gpt-5.3-codex", "GPT-5.3-Codex"),
-    ("gpt-5.4-mini", "GPT-5.4 mini"),
-    ("gpt-5-mini", "GPT-5 mini"),
-    ("gemini-3.1-pro-preview", "Gemini 3.1 Pro"),
-    ("gemini-3.5-flash", "Gemini 3.5 Flash"),
-    ("mai-code-1-flash-picker", "MAI-Code-1-Flash"),
-]
 
 DEFAULT_PERSONA_PROMPT = """你是用户的"人生导师"。你的任务是读用户的私人日记，帮TA看清自己的人生、反复出现的困惑和目标——而不是单纯地安慰或附和。
 
@@ -182,6 +164,8 @@ async def stream_completion(system: str, user_content: str, model: str) -> Async
 
     for attempt in range(2):  # at most one retry, per the docstring above
         async with _llm_semaphore:
+            global _active_session_count
+            _active_session_count += 1
             client, generation = await _ensure_client()
             loop = asyncio.get_running_loop()
             queue: asyncio.Queue = asyncio.Queue()
@@ -256,6 +240,7 @@ async def stream_completion(system: str, user_content: str, model: str) -> Async
                 await _stop_shared_client(generation)
                 continue
             finally:
+                _active_session_count -= 1
                 if unsubscribe is not None:
                     unsubscribe()
                 if session_id is not None:
@@ -327,3 +312,23 @@ async def generate_session_title(first_message: str, model: str) -> str:
     short title has no benefit from token-by-token streaming to the browser."""
     chunks = [t async for t in stream_completion(_TITLE_SYSTEM_PROMPT, first_message, model)]
     return "".join(chunks).strip()
+
+
+async def list_available_models() -> list[tuple[str, str]]:
+    """(id, display_name) pairs for the workshop dropdown, excluding the "auto" meta-model (it
+    hides which model actually produced a given commentary, so it's never offered as a choice)."""
+    client, _ = await _ensure_client()
+    models = await client.list_models()
+    return [(m.id, m.name) for m in models if m.id != "auto"]
+
+
+async def refresh_available_models() -> list[tuple[str, str]]:
+    """Force a fresh fetch, busting the SDK's in-process model-list cache. The SDK only clears
+    that cache when the client disconnects (no public API invalidates just the cache), so this is
+    implemented as a full client restart — which is why it refuses to run while any generation is
+    active on the shared client (that would kill its in-flight stream)."""
+    if _active_session_count > 0:
+        raise RuntimeError("正在生成中，请稍后再刷新模型列表")
+    _, generation = await _ensure_client()
+    await _stop_shared_client(generation)
+    return await list_available_models()

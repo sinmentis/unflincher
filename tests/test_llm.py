@@ -403,3 +403,70 @@ async def test_stream_completion_limits_concurrent_sessions(monkeypatch):
     # With a semaphore of 1, B cannot start until A has fully finished (start-A, end-A, start-B,
     # end-B) — never interleaved (start-A, start-B, end-A, end-B).
     assert order == ["start-A", "end-A", "start-B", "end-B"]
+
+
+# ---------------------------------------------------------------------------
+# Task 4: Live model list tests
+# ---------------------------------------------------------------------------
+
+class _ModelInfo:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+
+
+class _FakeCopilotClientWithModels(_FakeCopilotClientWithSessions):
+    def __init__(self):
+        super().__init__()
+        self.list_models_calls = 0
+        self.models_to_return: list[_ModelInfo] = []
+
+    async def list_models(self):
+        self.list_models_calls += 1
+        return self.models_to_return
+
+
+async def test_list_available_models_filters_out_auto():
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = [
+        _ModelInfo("auto", "Auto"),
+        _ModelInfo("gpt-5.5", "GPT-5.5"),
+        _ModelInfo("claude-opus-4.8", "Claude Opus 4.8"),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    result = await llm_module.list_available_models()
+
+    assert result == [("gpt-5.5", "GPT-5.5"), ("claude-opus-4.8", "Claude Opus 4.8")]
+
+
+async def test_refresh_available_models_restarts_client_and_refetches():
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = [_ModelInfo("gpt-5.5", "GPT-5.5")]
+    llm_module.CopilotClient = lambda: fake
+
+    await llm_module.list_available_models()  # first fetch, populates the SDK's own cache
+    result = await llm_module.refresh_available_models()
+
+    assert result == [("gpt-5.5", "GPT-5.5")]
+    assert fake.stop_calls == 1  # the old client was torn down to bust its cache
+    assert fake.start_calls == 2  # a fresh client was started for the refetch
+
+
+async def test_refresh_available_models_refuses_while_a_session_is_active():
+    fake = _FakeCopilotClientWithModels()
+    fake.sessions_to_create = [
+        _FakeSession([_FakeEvent(AssistantMessageDeltaData(delta_content="x", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    # Manually mark a session as "active" the same way stream_completion() would while running,
+    # without needing a real concurrent task — this test's job is to verify refresh_available_
+    # models() checks the counter, not to reproduce a full concurrent race.
+    llm_module._active_session_count = 1
+
+    with pytest.raises(RuntimeError, match="正在生成中"):
+        await llm_module.refresh_available_models()
+
+    assert fake.stop_calls == 0  # must not have torn down the client
+    llm_module._active_session_count = 0  # reset for any subsequent test in the same process
