@@ -25,7 +25,8 @@ async def timeline(request: Request):
         year_counts[year] = year_counts.get(year, 0) + 1
     # dict preserves insertion order (Python 3.7+); rows are already newest-first, so the first
     # time a year is seen is also its correct sidebar position (newest year first).
-    years = [{"year": y, "count": c} for y, c in year_counts.items()]
+    total_entries = sum(year_counts.values())
+    years = [{"year": y, "count": c, "share": c / total_entries if total_entries > 0 else 0} for y, c in year_counts.items()]
     return templates.TemplateResponse(
         request, "timeline.html", {"entries": entries, "years": years}
     )

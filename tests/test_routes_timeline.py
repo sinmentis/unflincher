@@ -78,3 +78,27 @@ def test_timeline_tags_each_entry_row_with_its_year(client):
     body = client.get("/").text
 
     assert 'data-year="2024"' in body
+
+
+def test_timeline_computes_share_correctly(client):
+    db = client.app.state.db
+    # Insert 2 entries from 2024 and 1 from 2023 (3 total)
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>a</p>', '<p>a</p>', 'a', '2024-03-01', 'import')"
+    )
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('b', '<p>b</p>', '<p>b</p>', 'b', '2024-08-01', 'import')"
+    )
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('c', '<p>c</p>', '<p>c</p>', 'c', '2023-01-01', 'import')"
+    )
+
+    body = client.get("/").text
+
+    # 2024 has 2 of 3 entries: share = 0.67
+    # 2023 has 1 of 3 entries: share = 0.33
+    assert '--dot-scale: 0.67' in body
+    assert '--dot-scale: 0.33' in body

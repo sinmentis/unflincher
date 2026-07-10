@@ -7,7 +7,7 @@
   {% for y in years %}
   <button type="button" class="side-nav-item" data-year-link="{{ y.year }}" data-year-count="{{ y.count }}">
     <span class="side-nav-item-year">{{ y.year }}</span>
-    <span class="side-nav-item-dot" style="--dot-scale: {{ (y.count / years[0].count) | round(2) }}"></span>
+    <span class="side-nav-item-dot" style="--dot-scale: {{ (y.share) | round(2) }}"></span>
     <span class="side-nav-item-count">{{ y.count }}</span>
   </button>
   {% endfor %}
