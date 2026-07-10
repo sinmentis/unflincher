@@ -265,3 +265,4 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
 }
 .year-divider:first-child{ margin-top: 0; padding-top: 0; border-top: 0; }
 
+.side-nav--toc .side-nav-item{ text-decoration: none; }

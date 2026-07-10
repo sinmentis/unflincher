@@ -242,3 +242,21 @@ def test_view_specific_historical_commentary_version(client):
     assert "旧版本内容" in response.text
     # browsing an old version must not affect the chat thread's own independent context —
     # this route only swaps the commentary display, per Global Constraints.
+
+
+def test_entry_detail_has_toc_anchors_and_sidebar(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert 'id="diary-text"' in body
+    assert 'id="chat-section"' in body
+    assert 'class="side-nav side-nav--toc"' in body
+    assert 'href="#diary-text"' in body
+    assert 'href="#chat-section"' in body
+    # No commentary yet on this entry — its TOC link must not be offered.
+    assert 'href="#ai-commentary"' not in body

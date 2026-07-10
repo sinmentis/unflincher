@@ -2,8 +2,15 @@
 {% extends "base.html" %}
 {% block title %}{{ entry.title }}{% endblock %}
 {% block content %}
+<nav class="side-nav side-nav--toc" aria-label="正文与对话跳转" id="entry-toc">
+  <a class="side-nav-item" href="#diary-text">正文</a>
+  {% if commentary_html %}
+  <a class="side-nav-item" href="#ai-commentary">AI 锐评</a>
+  {% endif %}
+  <a class="side-nav-item" href="#chat-section">对话</a>
+</nav>
 <h1>{{ entry.title }}</h1>
-<div class="diary-text">{{ entry.content_html | safe }}</div>
+<div class="diary-text" id="diary-text">{{ entry.content_html | safe }}</div>
 
 {% if versions|length > 1 %}
 <p class="entry-date">历史版本：
@@ -16,7 +23,7 @@
 {% endif %}
 
 {% if commentary_html %}
-<div class="ai-card">
+<div class="ai-card" id="ai-commentary">
   <div class="ai-label">AI 人生导师锐评</div>
   {{ commentary_html | safe }}
 </div>
@@ -34,14 +41,19 @@ document.getElementById("run-commentary").addEventListener("click", () => {
 });
 </script>
 
+<div id="chat-section">
 <div id="chat-thread">
   {% for msg in chat_history %}
-  <div class="chat-msg"><strong>{{ "我" if msg.role == "user" else "AI" }}：</strong>{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
+  <div class="chat-bubble {{ 'mine' if msg.role == 'user' else 'mentor' }}">
+    <div class="chat-bubble-label">{{ "我" if msg.role == "user" else "AI 人生导师" }}</div>
+    {% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}
+  </div>
   {% endfor %}
 </div>
 <div id="chat-stream" class="ai-card" style="display:none" aria-live="polite"></div>
 <input type="text" id="chat-input" placeholder="回复 AI 人生导师…" aria-label="回复AI人生导师输入框">
 <button id="chat-send">发送</button>
+</div>
 <script>
 document.getElementById("chat-send").addEventListener("click", () => {
   const input = document.getElementById("chat-input");
@@ -49,5 +61,25 @@ document.getElementById("chat-send").addEventListener("click", () => {
   streamInto("/entry/{{ entry.id }}/chat", {message: input.value}, target, () => location.reload());
   input.value = "";
 });
+
+// Highlight whichever TOC entry corresponds to the section currently in view. Plain
+// IntersectionObserver, no dependency — mirrors the "no build step" constraint.
+(() => {
+  const toc = document.getElementById("entry-toc");
+  const sections = ["diary-text", "ai-commentary", "chat-section"]
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+  if (!sections.length) return;
+  const linkFor = (id) => toc.querySelector(`a[href="#${id}"]`);
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        toc.querySelectorAll("a").forEach((a) => a.classList.remove("active"));
+        linkFor(entry.target.id)?.classList.add("active");
+      }
+    });
+  }, {rootMargin: "-40% 0px -50% 0px"});
+  sections.forEach((s) => observer.observe(s));
+})();
 </script>
 {% endblock %}
