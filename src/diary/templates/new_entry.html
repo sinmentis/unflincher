@@ -3,7 +3,7 @@
 {% block nav_new %}active{% endblock %}
 {% block content %}
 <h1>写新日记</h1>
-<p class="entry-date">保存后不会自动点评，可在时间线里手动触发。</p>
+<p class="entry-date">保存后不会自动点评，可在时间线里手动触发。 <span id="draft-status" class="entry-date"></span></p>
 <p><label for="new-date">日期：</label>
   <input type="date" id="new-date" aria-label="日记日期">
 </p>
@@ -22,6 +22,37 @@
   const dateInput = document.getElementById("new-date");
   dateInput.value = todayLocal;
   dateInput.max = todayLocal;
+
+  // Restore a saved draft, if there is one -- including overriding the date field's own "today"
+  // default above, since the draft is a more specific, more recent signal of intent. See
+  // docs/superpowers/specs/2026-07-10-diary-new-entry-draft-autosave-design.md.
+  const titleInput = document.getElementById("new-title");
+  const contentInput = document.getElementById("new-content");
+  const draftStatus = document.getElementById("draft-status");
+  const draft = loadDraft(window.localStorage);
+  if (draft) {
+    if (draft.date) dateInput.value = draft.date;
+    titleInput.value = draft.title || "";
+    contentInput.value = draft.content || "";
+    draftStatus.textContent = "已保存草稿";
+  }
+
+  // Debounced autosave: any input on date/title/content schedules a write 500ms after the last
+  // keystroke, so a burst of typing doesn't hit localStorage on every character.
+  let saveTimer = null;
+  const scheduleSave = () => {
+    draftStatus.textContent = "正在保存草稿…";
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveDraft(window.localStorage, {
+        date: dateInput.value, title: titleInput.value, content: contentInput.value,
+      });
+      draftStatus.textContent = "已保存草稿";
+    }, 500);
+  };
+  dateInput.addEventListener("input", scheduleSave);
+  titleInput.addEventListener("input", scheduleSave);
+  contentInput.addEventListener("input", scheduleSave);
 })();
 document.getElementById("save-entry").addEventListener("click", async () => {
   const res = await fetch("/new", {
@@ -33,6 +64,7 @@ document.getElementById("save-entry").addEventListener("click", async () => {
     }),
   });
   const {entry_id} = await res.json();
+  clearDraft(window.localStorage);
   window.location.href = `/entry/${entry_id}`;
 });
 </script>

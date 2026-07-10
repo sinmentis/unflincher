@@ -218,3 +218,57 @@ def test_stream_into_swaps_in_rendered_html_from_the_done_event_payload():
     assert "streaming" not in result  # cleared after completion, same as every other done path
     assert result["onDonePayload"] == {"html": "<p><strong>hi</strong></p>"}
 
+
+
+_DRAFT_NODE_HARNESS = (
+    "globalThis.document = { body: { addEventListener() {} }, cookie: '' };"
+    "const {saveDraft, loadDraft, clearDraft, DRAFT_KEY} = require(process.argv[1]);"
+    # A minimal in-memory fake standing in for window.localStorage -- exercises the real
+    # save/load/clear functions without needing a jsdom/browser localStorage polyfill in Node.
+    "const store = {};"
+    "const fakeStorage = {"
+    "  setItem(k, v) { store[k] = v; },"
+    "  getItem(k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },"
+    "  removeItem(k) { delete store[k]; },"
+    "};"
+    "const results = {};"
+    ""
+    "results.loadWithNoDraft = loadDraft(fakeStorage);"
+    ""
+    "saveDraft(fakeStorage, {date: '2026-01-01', title: 't', content: 'c'});"
+    "results.rawAfterSave = store[DRAFT_KEY];"
+    "results.loadAfterSave = loadDraft(fakeStorage);"
+    ""
+    "clearDraft(fakeStorage);"
+    "results.loadAfterClear = loadDraft(fakeStorage);"
+    ""
+    "saveDraft(fakeStorage, {date: '', title: '', content: ''});"
+    "results.loadAllEmptyDraft = loadDraft(fakeStorage);"
+    ""
+    "store[DRAFT_KEY] = 'not valid json {{{';"
+    "results.loadMalformedDraft = loadDraft(fakeStorage);"
+    ""
+    "process.stdout.write(JSON.stringify(results));"
+)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_draft_save_load_clear_round_trip():
+    out = subprocess.run(
+        ["node", "-e", _DRAFT_NODE_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+
+    assert result["loadWithNoDraft"] is None
+    assert result["rawAfterSave"] == '{"date":"2026-01-01","title":"t","content":"c"}'
+    assert result["loadAfterSave"] == {"date": "2026-01-01", "title": "t", "content": "c"}
+    assert result["loadAfterClear"] is None
+    # An all-fields-empty draft is indistinguishable from "no draft" -- must not override the
+    # date field's own "today" default with a blank on page load.
+    assert result["loadAllEmptyDraft"] is None
+    # Malformed JSON in storage (e.g. from a future format change) must not throw -- it's
+    # treated the same as "no usable draft", not a page-breaking error.
+    assert result["loadMalformedDraft"] is None

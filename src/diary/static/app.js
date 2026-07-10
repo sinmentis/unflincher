@@ -80,7 +80,38 @@ async function streamInto(url, body, targetEl, onDone) {
   delete targetEl.dataset.streaming;
 }
 
+// New-entry draft autosave (see docs/superpowers/specs/2026-07-10-diary-new-entry-draft-autosave-
+// design.md). Pure functions taking a `storage` argument (rather than touching window.localStorage
+// directly) so they're unit-testable from Node with a plain in-memory fake, matching parseSseFrame's
+// testing pattern above. There is only ever one "in-progress new entry" at a time (a single,
+// unparameterized /new route), so one fixed key is sufficient -- no per-session namespacing needed.
+const DRAFT_KEY = "diary-new-entry-draft";
+
+function saveDraft(storage, draft) {
+  storage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+
+// Returns null if there's no stored draft, the stored JSON is malformed, or every field is
+// empty (an all-empty draft is indistinguishable from "no draft" and must not override the
+// date field's own "today" default with a blank).
+function loadDraft(storage) {
+  const raw = storage.getItem(DRAFT_KEY);
+  if (!raw) return null;
+  let draft;
+  try {
+    draft = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!draft.date && !draft.title && !draft.content) return null;
+  return draft;
+}
+
+function clearDraft(storage) {
+  storage.removeItem(DRAFT_KEY);
+}
+
 // Exposed for Node-based unit testing; harmless in the browser where `module` is undefined.
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {parseSseFrame, streamInto};
+  module.exports = {parseSseFrame, streamInto, saveDraft, loadDraft, clearDraft, DRAFT_KEY};
 }
