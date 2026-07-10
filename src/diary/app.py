@@ -10,6 +10,7 @@ from diary.auth import AccessJWTMiddleware
 from diary.config import load_settings
 from diary.csrf import CSRFMiddleware
 from diary.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model, resume_sweep
+from diary import llm as _llm
 from diary.llm import ensure_default_persona_prompt
 from diary.routes import chat, entry, new_entry, report, timeline, workshop
 from diary.worker import BatchWorker
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
         ensure_default_persona_prompt(conn)
         resume_sweep(conn)
         app.state.db = conn
+        await _llm.warm_up_client()
 
         # Crash recovery: if a batch job was left 'running' when the process died, relaunch its
         # worker. resume_sweep() above already reset any half-done items back to 'pending', so the
@@ -53,6 +55,7 @@ def create_app() -> FastAPI:
             )
 
         yield
+        await _llm.shutdown_client()
         conn.close()
 
     app = FastAPI(title="diary", lifespan=lifespan)

@@ -83,3 +83,30 @@ def test_startup_runs_chat_session_migration(tmp_path, monkeypatch):
         db = app.state.db
         columns = {r["name"] for r in db.execute("PRAGMA table_info(chat_message)")}
         assert "session_id" in columns
+
+
+def test_startup_and_shutdown_call_client_warm_up_and_shutdown(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import diary.llm as llm_module
+
+    calls = []
+
+    async def _fake_warm_up():
+        calls.append("warm_up")
+
+    async def _fake_shutdown():
+        calls.append("shutdown")
+
+    monkeypatch.setattr(llm_module, "warm_up_client", _fake_warm_up)
+    monkeypatch.setattr(llm_module, "shutdown_client", _fake_shutdown)
+
+    db_path = str(tmp_path / "lifespan-client.db")
+    monkeypatch.setenv("DIARY_DB", db_path)
+    monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
+
+    app = create_app()
+    with TestClient(app) as c:
+        c.get("/healthz")
+        assert calls == ["warm_up"]
+
+    assert calls == ["warm_up", "shutdown"]

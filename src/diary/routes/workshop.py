@@ -21,16 +21,32 @@ async def workshop_page(request: Request):
     db = request.app.state.db
     active_prompt = get_active_prompt(db)
     entries = db.execute("SELECT id, title FROM diary_entry ORDER BY entry_date").fetchall()
+    models: list[tuple[str, str]] = []
+    models_error: str | None = None
+    try:
+        models = await llm.list_available_models()
+    except Exception as exc:
+        models_error = str(exc)
     return templates.TemplateResponse(
         request,
         "workshop.html",
         {
             "active_prompt": active_prompt["body_text"] if active_prompt else "",
             "active_model": active_prompt["model"] if active_prompt else DEFAULT_MODEL,
-            "models": llm.AVAILABLE_MODELS,
+            "models": models,
+            "models_error": models_error,
             "entries": entries,
         },
     )
+
+
+@router.post("/workshop/refresh-models")
+async def refresh_models(request: Request):
+    try:
+        await llm.refresh_available_models()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return {"ok": True}
 
 
 @router.post("/workshop/test-run")

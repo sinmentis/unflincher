@@ -254,7 +254,11 @@ def test_retry_returns_progress_fragment_not_json(client, monkeypatch):
     assert '"status"' not in response.text
 
 
-def test_workshop_page_shows_model_select_with_active_model_selected(client):
+def test_workshop_page_shows_model_select_with_active_model_selected(client, monkeypatch):
+    async def _fake_models():
+        return [("gpt-5.5", "GPT-5.5"), ("claude-opus-4.8", "Claude Opus 4.8")]
+    monkeypatch.setattr(llm_module, "list_available_models", _fake_models)
+
     db = client.app.state.db
     _seed_entries(db)
     from diary.db import set_active_prompt
@@ -264,11 +268,43 @@ def test_workshop_page_shows_model_select_with_active_model_selected(client):
 
     assert response.status_code == 200
     assert 'id="model-select"' in response.text
-    # curated display names from AVAILABLE_MODELS are rendered as options
     assert "GPT-5.5" in response.text
     assert "Claude Opus 4.8" in response.text
-    # the active model's option is pre-selected
     assert 'value="gpt-5.5" selected' in response.text
+
+
+def test_workshop_page_shows_error_when_model_list_fetch_fails(client, monkeypatch):
+    async def _failing_models():
+        raise RuntimeError("Copilot client unavailable")
+    monkeypatch.setattr(llm_module, "list_available_models", _failing_models)
+
+    response = client.get("/workshop")
+
+    assert response.status_code == 200
+    assert 'id="model-select"' not in response.text  # no dropdown when the fetch failed
+    assert "stream-err" in response.text
+
+
+def test_refresh_models_route_success(client, monkeypatch):
+    async def _fake_refresh():
+        return [("gpt-5.5", "GPT-5.5")]
+    monkeypatch.setattr(llm_module, "refresh_available_models", _fake_refresh)
+
+    response = client.post("/workshop/refresh-models")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+
+def test_refresh_models_route_returns_409_when_busy(client, monkeypatch):
+    async def _busy_refresh():
+        raise RuntimeError("正在生成中，请稍后再刷新模型列表")
+    monkeypatch.setattr(llm_module, "refresh_available_models", _busy_refresh)
+
+    response = client.post("/workshop/refresh-models")
+
+    assert response.status_code == 409
+    assert "正在生成中" in response.json()["detail"]
 
 
 def test_apply_saves_chosen_model(client, monkeypatch):
