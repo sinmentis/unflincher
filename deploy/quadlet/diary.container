@@ -20,6 +20,7 @@ Secret=unflincher-copilot-github-token,type=env,target=COPILOT_GITHUB_TOKEN
 Environment=DIARY_DB=/data/diary.db
 Environment=DIARY_LLM_MODEL=claude-sonnet-4.6
 Environment=DIARY_BATCH_CONCURRENCY=3
+Environment=DIARY_LLM_CONCURRENCY=4
 # OPERATOR_EMAIL matches shunlyu-infra/deploy/infra.env's shared, non-secret account facts.
 # CF_TEAM_DOMAIN is the SHORT team name only (this app's own auth.py appends
 # ".cloudflareaccess.com" itself for both the JWKS URL and the issuer check) -- infra.env's

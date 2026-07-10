@@ -285,8 +285,9 @@ def test_workshop_page_shows_error_when_model_list_fetch_fails(client, monkeypat
     response = client.get("/workshop")
 
     assert response.status_code == 200
-    assert 'id="model-select"' not in response.text  # no dropdown when the fetch failed
     assert "stream-err" in response.text
+    # #model-select must exist in DOM even on error so JS handlers never get null
+    assert 'id="model-select"' in response.text
 
 
 def test_refresh_models_route_success(client, monkeypatch):

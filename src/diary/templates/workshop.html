@@ -11,6 +11,7 @@
   <p><label for="model-select">生成用的模型：</label>
     {% if models_error %}
     <span class="stream-err">模型列表加载失败：{{ models_error }}</span>
+    <input type="hidden" id="model-select" value="{{ active_model }}">
     {% else %}
     <select id="model-select" aria-label="生成用的模型">
       {% for mid, mname in models %}<option value="{{ mid }}"{% if mid == active_model %} selected{% endif %}>{{ mname }}</option>{% endfor %}
