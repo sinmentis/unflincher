@@ -63,6 +63,14 @@ document.getElementById("save-entry").addEventListener("click", async () => {
       entry_date: document.getElementById("new-date").value,
     }),
   });
+  if (!res.ok) {
+    // A validation error (e.g. malformed/future entry_date) still returns a JSON body
+    // ({"detail": "..."}) that res.json() would happily parse, so this MUST be gated on res.ok,
+    // not just "did parsing succeed" -- otherwise the draft is wiped and the user is redirected
+    // to a nonexistent /entry/undefined despite their entry never having been saved.
+    alert("保存失败，请检查日期是否正确");
+    return;
+  }
   const {entry_id} = await res.json();
   clearDraft(window.localStorage);
   window.location.href = `/entry/${entry_id}`;
