@@ -1,11 +1,11 @@
 """Unit tests for diary.llm.stream_completion against a FAKE Copilot SDK.
 
 These never spawn the real Copilot CLI subprocess, touch the network, or need a real
-COPILOT_GITHUB_TOKEN. We monkeypatch `copilot.CopilotClient` (the single SDK entry point
-stream_completion imports) with a fake that emits a scripted sequence of REAL session
-event-data objects, then assert stream_completion translates them into the right yields,
-errors, and cleanup. Using the real event-data classes keeps the `isinstance` dispatch in
-the implementation honest — only the client/session plumbing is faked."""
+COPILOT_GITHUB_TOKEN. We monkeypatch `diary.llm.CopilotClient` (the module-level SDK entry point)
+with a fake that emits a scripted sequence of REAL session event-data objects, then assert
+stream_completion translates them into the right yields, errors, and cleanup. Using the real
+event-data classes keeps the `isinstance` dispatch in the implementation honest — only the
+client/session plumbing is faked."""
 import types
 
 import pytest
@@ -89,7 +89,7 @@ async def test_streams_deltas_in_order_then_ends(monkeypatch):
         AssistantMessageDeltaData(delta_content="好", message_id="m1"),
         AssistantIdleData(),
     ])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
 
     tokens = await _collect(user="问题")
 
@@ -109,13 +109,13 @@ async def test_empty_deltas_are_skipped(monkeypatch):
         AssistantMessageDeltaData(delta_content="B", message_id="m1"),
         AssistantIdleData(),
     ])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     assert await _collect() == ["A", "B"]
 
 
 async def test_model_passed_through_to_create_session(monkeypatch):
     FakeClient, record = _make_fake_copilot([AssistantIdleData()])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     await _collect(model="claude-sonnet-4.6")
     assert record["create_kwargs"]["model"] == "claude-sonnet-4.6"
 
@@ -124,7 +124,7 @@ async def test_system_message_replace_mode_passed(monkeypatch):
     # Locks in the anti-contamination behavior: diary's own persona text replaces the SDK's
     # default coding-agent system prompt.
     FakeClient, record = _make_fake_copilot([AssistantIdleData()])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     await _collect(system="扮演人生导师")
     assert record["create_kwargs"]["system_message"] == {
         "mode": "replace",
@@ -135,7 +135,7 @@ async def test_system_message_replace_mode_passed(monkeypatch):
 async def test_available_tools_empty_disables_all_tools(monkeypatch):
     # Locks in the "no tool access" security property.
     FakeClient, record = _make_fake_copilot([AssistantIdleData()])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     await _collect()
     assert record["create_kwargs"]["available_tools"] == []
 
@@ -144,7 +144,7 @@ async def test_session_error_raises_runtimeerror_with_message(monkeypatch):
     FakeClient, _ = _make_fake_copilot([
         SessionErrorData(error_type="model_error", message="rate limited"),
     ])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     with pytest.raises(RuntimeError, match="rate limited"):
         await _collect()
 
@@ -154,7 +154,7 @@ async def test_client_stopped_when_error_raises_midstream(monkeypatch):
         AssistantMessageDeltaData(delta_content="partial", message_id="m1"),
         SessionErrorData(error_type="model_error", message="boom"),
     ])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     with pytest.raises(RuntimeError, match="boom"):
         await _collect()
     # Cleanup still runs even though the SessionErrorData path raised mid-stream.
@@ -171,7 +171,7 @@ async def test_stall_timeout_raises_and_cleans_up(monkeypatch):
     FakeClient, record = _make_fake_copilot([
         AssistantMessageDeltaData(delta_content="partial", message_id="m1"),
     ])
-    monkeypatch.setattr("copilot.CopilotClient", FakeClient)
+    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     # Inject a tiny stall timeout so the suite doesn't wait the real 120s (matches this codebase's
     # monkeypatch-heavy test style; stream_completion reads the module constant at runtime).
     monkeypatch.setattr("diary.llm._STALL_TIMEOUT_SECONDS", 0.02)

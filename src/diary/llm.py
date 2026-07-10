@@ -4,9 +4,85 @@ generate_* functions here with the SAME context-assembly logic — this module n
 to the database. Persisting a generation (or not, for test-run) is entirely the caller's
 responsibility (see Task 9's route and Task 13's worker vs. Task 12's test-run route)."""
 import asyncio
+import contextlib
+import logging
 from collections.abc import AsyncIterator
 
-# Curated (id, display_name) model list for the workshop dropdown, capability-descending within
+from copilot import CopilotClient
+
+logger = logging.getLogger(__name__)
+
+# Shared, lifecycle-managed CopilotClient — see docs/superpowers/specs/2026-07-10-diary-persistent-
+# copilot-client-design.md for the full rationale. Starting/stopping a fresh CopilotClient per LLM
+# call was measured to cost ~2.5-6s of pure process-lifecycle overhead (CLI subprocess spawn +
+# teardown) on top of actual model inference time — this singleton amortizes that cost across the
+# app's entire uptime instead of paying it on every single call.
+_client: CopilotClient | None = None
+# Bumped every time a NEW client instance replaces the shared singleton. _stop_shared_client()
+# takes the generation the CALLER last observed and only tears down the client if it's still the
+# same instance — this prevents an ABA race where request A's own retry logic tears down a NEWER
+# client that request B already installed to recover from A DIFFERENT failure.
+_client_generation: int = 0
+_client_lock = asyncio.Lock()
+
+
+async def _ensure_client() -> tuple[CopilotClient, int]:
+    """Return the shared client (starting a new one if none exists yet) and the generation number
+    it was created under. Safe to call concurrently — only one caller actually starts a new
+    client; the rest just observe the result once the lock is released."""
+    global _client, _client_generation
+    async with _client_lock:
+        if _client is None:
+            client = CopilotClient()
+            try:
+                await client.start()
+            except Exception:
+                # A client that fails to start may still have partially launched the CLI
+                # subprocess; force_stop() is the best-effort cleanup for that half-started state
+                # so we never leak an orphan process on a failed startup attempt.
+                with contextlib.suppress(Exception):
+                    await client.force_stop()
+                raise
+            _client = client
+            _client_generation += 1
+        return _client, _client_generation
+
+
+async def _stop_shared_client(expected_generation: int) -> None:
+    """Tear down the shared client ONLY if it's still the instance the caller last observed
+    (expected_generation matches the current generation). If another caller already replaced it,
+    this is a no-op — see the ABA-race comment on _client_generation above."""
+    global _client, _client_generation
+    async with _client_lock:
+        if _client is not None and _client_generation == expected_generation:
+            with contextlib.suppress(Exception):
+                await _client.stop()
+            _client = None
+
+
+async def warm_up_client() -> None:
+    """Called from app.py's lifespan at startup. Best-effort: a transient auth hiccup at boot
+    must never prevent the app from starting — the first real request will retry via the same
+    _ensure_client() path this function itself uses."""
+    try:
+        await _ensure_client()
+    except Exception:
+        logger.warning("warm_up_client: failed to start the shared Copilot client at boot", exc_info=True)
+
+
+async def shutdown_client() -> None:
+    """Called from app.py's lifespan at shutdown. Unlike _stop_shared_client(), this always tears
+    down whatever the current client is (there's no caller-observed generation to race against
+    during a clean app shutdown)."""
+    global _client, _client_generation
+    async with _client_lock:
+        if _client is not None:
+            with contextlib.suppress(Exception):
+                await _client.stop()
+            _client = None
+
+
+
 # each family. Captured live via CopilotClient.list_models() against this deployment's actual
 # Copilot credential (the unflincher-copilot-github-token secret); the meta-option "auto" is omitted
 # on purpose since it hides which model produced a given commentary. No code depends on this being
@@ -67,7 +143,6 @@ async def stream_completion(system: str, user_content: str, model: str) -> Async
     place the whole app talks to an LLM; every generate_*/chat_* path funnels through here.
     Authenticates with COPILOT_GITHUB_TOKEN (a shared fine-grained GitHub PAT injected by the
     Quadlet unit) — CopilotClient() auto-detects that env var, so no key is passed in code."""
-    from copilot import CopilotClient
     from copilot.generated.session_events import (
         AssistantIdleData,
         AssistantMessageDeltaData,
