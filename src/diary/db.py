@@ -307,6 +307,53 @@ def start_regen_job(conn: sqlite3.Connection, prompt_version_id: int, entry_ids:
         raise
 
 
+def start_single_entry_commentary_job(conn: sqlite3.Connection, prompt_version_id: int, entry_id: int) -> int:
+    """Create a regen_job with exactly ONE regen_job_item (target_type='entry_commentary',
+    this single entry_id) -- unlike start_regen_job, no aggregate_report item is created, since
+    a single-entry trigger must never also kick off a full report regeneration. Raises
+    sqlite3.IntegrityError (via the same partial unique index start_regen_job relies on) if a
+    job is already running -- callers get the identical single-flight guarantee for free."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        cur = conn.execute(
+            "INSERT INTO regen_job (prompt_version_id, status, created_at, started_at) "
+            "VALUES (?, 'running', ?, ?)",
+            (prompt_version_id, _now(), _now()),
+        )
+        job_id = cur.lastrowid
+        conn.execute(
+            "INSERT INTO regen_job_item (job_id, target_type, entry_id, status, updated_at) "
+            "VALUES (?, 'entry_commentary', ?, 'pending', ?)",
+            (job_id, entry_id, _now()),
+        )
+        conn.execute("COMMIT")
+        return job_id
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def get_entries_with_active_commentary_job(conn: sqlite3.Connection) -> set[int]:
+    """entry_ids with a pending/running entry_commentary job item right now -- used by the
+    timeline to show a "点评中" badge. A single query regardless of how many entries exist."""
+    rows = conn.execute(
+        "SELECT entry_id FROM regen_job_item WHERE target_type = 'entry_commentary' "
+        "AND status IN ('pending', 'running')"
+    ).fetchall()
+    return {r["entry_id"] for r in rows}
+
+
+def get_latest_commentary_job_item(conn: sqlite3.Connection, entry_id: int) -> sqlite3.Row | None:
+    """The most recent regen_job_item (any status) for this entry, or None if a commentary job
+    has never been triggered for it. Used by the entry-detail page to pick which of the
+    idle/busy/failed states to render."""
+    return conn.execute(
+        "SELECT * FROM regen_job_item WHERE target_type = 'entry_commentary' AND entry_id = ? "
+        "ORDER BY id DESC LIMIT 1",
+        (entry_id,),
+    ).fetchone()
+
+
 def complete_job_item(conn: sqlite3.Connection, item_id: int, result_table: str, result_row: dict) -> None:
     """Insert the generated commentary/report row and mark the job item 'ok' atomically.
     result_table must be 'entry_commentary' or 'aggregate_report'."""

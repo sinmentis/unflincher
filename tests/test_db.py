@@ -6,11 +6,14 @@ from diary.db import (
     complete_job_item,
     create_chat_session,
     delete_chat_session,
+    fail_job_item,
     get_active_prompt,
     get_chat_session,
     get_commentary_by_id,
     get_connection,
     get_current_commentary,
+    get_entries_with_active_commentary_job,
+    get_latest_commentary_job_item,
     get_report_by_id,
     init_schema,
     list_chat_sessions,
@@ -21,6 +24,7 @@ from diary.db import (
     rename_chat_session,
     set_active_prompt,
     start_regen_job,
+    start_single_entry_commentary_job,
     touch_chat_session,
 )
 
@@ -329,3 +333,86 @@ def test_migrate_chat_session_discards_old_general_thread_only_once(tmp_path):
     assert len(rows) == 2
     c.close()
 
+
+
+def _seed_entry(conn, title="e"):
+    return conn.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES (?, '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')",
+        (title,),
+    ).lastrowid
+
+
+def test_start_single_entry_commentary_job_creates_exactly_one_item(conn):
+    prompt_id = set_active_prompt(conn, "人设", "test-model")
+    entry_id = _seed_entry(conn)
+    job_id = start_single_entry_commentary_job(conn, prompt_id, entry_id)
+
+    items = conn.execute("SELECT * FROM regen_job_item WHERE job_id = ?", (job_id,)).fetchall()
+    assert len(items) == 1
+    assert items[0]["target_type"] == "entry_commentary"
+    assert items[0]["entry_id"] == entry_id
+    assert items[0]["status"] == "pending"
+
+    job = conn.execute("SELECT status FROM regen_job WHERE id = ?", (job_id,)).fetchone()
+    assert job["status"] == "running"
+
+
+def test_start_single_entry_commentary_job_raises_if_a_job_is_already_running(conn):
+    prompt_id = set_active_prompt(conn, "人设", "test-model")
+    entry_id_1 = _seed_entry(conn, "a")
+    entry_id_2 = _seed_entry(conn, "b")
+    start_single_entry_commentary_job(conn, prompt_id, entry_id_1)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        start_single_entry_commentary_job(conn, prompt_id, entry_id_2)
+
+
+def test_get_entries_with_active_commentary_job(conn):
+    prompt_id = set_active_prompt(conn, "人设", "test-model")
+    entry_id_pending = _seed_entry(conn, "a")
+    entry_id_running = _seed_entry(conn, "b")
+    entry_id_ok = _seed_entry(conn, "c")
+    job_id = conn.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'running')", (prompt_id,)
+    ).lastrowid
+    conn.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'pending')", (job_id, entry_id_pending),
+    )
+    conn.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'running')", (job_id, entry_id_running),
+    )
+    conn.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'ok')", (job_id, entry_id_ok),
+    )
+
+    assert get_entries_with_active_commentary_job(conn) == {entry_id_pending, entry_id_running}
+
+
+def test_get_latest_commentary_job_item_returns_none_when_never_triggered(conn):
+    entry_id = _seed_entry(conn)
+    assert get_latest_commentary_job_item(conn, entry_id) is None
+
+
+def test_get_latest_commentary_job_item_returns_the_newest_one(conn):
+    prompt_id = set_active_prompt(conn, "人设", "test-model")
+    entry_id = _seed_entry(conn)
+    job_id = conn.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'done')", (prompt_id,)
+    ).lastrowid
+    old_item_id = conn.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'failed')", (job_id, entry_id),
+    ).lastrowid
+    fail_job_item(conn, old_item_id, "旧的失败原因")
+    new_item_id = conn.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
+        "VALUES (?, 'entry_commentary', ?, 'ok')", (job_id, entry_id),
+    ).lastrowid
+
+    latest = get_latest_commentary_job_item(conn, entry_id)
+    assert latest["id"] == new_item_id
+    assert latest["status"] == "ok"
