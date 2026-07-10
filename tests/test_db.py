@@ -4,17 +4,24 @@ import pytest
 
 from diary.db import (
     complete_job_item,
+    create_chat_session,
+    delete_chat_session,
     get_active_prompt,
+    get_chat_session,
     get_commentary_by_id,
     get_connection,
     get_current_commentary,
     get_report_by_id,
     init_schema,
+    list_chat_sessions,
     list_commentary_versions,
     list_report_versions,
+    migrate_chat_session,
     migrate_persona_prompt_model,
+    rename_chat_session,
     set_active_prompt,
     start_regen_job,
+    touch_chat_session,
 )
 
 
@@ -234,3 +241,91 @@ def test_list_and_get_report_versions(conn):
     versions = list_report_versions(conn)
     assert [v["body_text"] for v in versions] == ["第二版", "第一版"]
     assert get_report_by_id(conn, first_id)["body_text"] == "第一版"
+
+
+def test_create_and_get_chat_session(conn):
+    migrate_chat_session(conn)
+    session_id = create_chat_session(conn, "2026-07-10")
+    row = get_chat_session(conn, session_id)
+    assert row["title"] == "2026-07-10"
+
+
+def test_list_chat_sessions_orders_by_updated_at_desc(conn):
+    migrate_chat_session(conn)
+    first = create_chat_session(conn, "first")
+    second = create_chat_session(conn, "second")
+    touch_chat_session(conn, first)  # bump first back to the top
+
+    rows = list_chat_sessions(conn)
+
+    assert [r["id"] for r in rows] == [first, second]
+
+
+def test_rename_chat_session(conn):
+    migrate_chat_session(conn)
+    session_id = create_chat_session(conn, "old title")
+    rename_chat_session(conn, session_id, "new title")
+    assert get_chat_session(conn, session_id)["title"] == "new title"
+
+
+def test_delete_chat_session_removes_its_messages_too(conn):
+    migrate_chat_session(conn)
+    session_id = create_chat_session(conn, "t")
+    other_session_id = create_chat_session(conn, "other")
+    conn.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', 'a')",
+        (session_id,),
+    )
+    conn.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', 'b')",
+        (other_session_id,),
+    )
+
+    delete_chat_session(conn, session_id)
+
+    assert get_chat_session(conn, session_id) is None
+    remaining = conn.execute("SELECT session_id FROM chat_message").fetchall()
+    assert [r["session_id"] for r in remaining] == [other_session_id]
+
+
+def test_migrate_chat_session_is_idempotent(tmp_path):
+    c = get_connection(str(tmp_path / "m.db"))
+    init_schema(c)
+    assert "session_id" not in {r["name"] for r in c.execute("PRAGMA table_info(chat_message)")}
+    migrate_chat_session(c)
+    migrate_chat_session(c)  # second run must not error
+    session_cols = [r for r in c.execute("PRAGMA table_info(chat_message)") if r["name"] == "session_id"]
+    assert len(session_cols) == 1
+    c.close()
+
+
+def test_migrate_chat_session_discards_old_general_thread_only_once(tmp_path):
+    # Simulates the live production DB: pre-existing single-thread general-chat rows (predating
+    # chat_session entirely) must be discarded when the column is added, per the explicit product
+    # decision not to migrate that old thread into a "session 1". Per-entry rows are untouched.
+    c = get_connection(str(tmp_path / "old.db"))
+    init_schema(c)
+    c.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('e', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    )
+    c.execute("INSERT INTO chat_message (thread_kind, role, content) VALUES ('general', 'user', '旧的总对话')")
+    c.execute("INSERT INTO chat_message (thread_kind, entry_id, role, content) VALUES ('entry', 1, 'user', '逐篇对话')")
+
+    migrate_chat_session(c)
+
+    rows = c.execute("SELECT thread_kind FROM chat_message").fetchall()
+    assert [r["thread_kind"] for r in rows] == ["entry"]
+
+    # Adding a NEW general row post-migration, then re-running the (now idempotent) migration,
+    # must NOT discard it — the DELETE only fires the one time the column is actually being added.
+    session_id = create_chat_session(c, "new session")
+    c.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', '新对话')",
+        (session_id,),
+    )
+    migrate_chat_session(c)
+    rows = c.execute("SELECT thread_kind FROM chat_message").fetchall()
+    assert len(rows) == 2
+    c.close()
+

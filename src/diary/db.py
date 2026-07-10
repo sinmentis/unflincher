@@ -75,6 +75,13 @@ CREATE TABLE IF NOT EXISTS chat_message (
 );
 CREATE INDEX IF NOT EXISTS ix_chat_message_thread ON chat_message (thread_kind, entry_id, created_at);
 
+CREATE TABLE IF NOT EXISTS chat_session (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS regen_job (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     prompt_version_id INTEGER NOT NULL REFERENCES persona_prompt(id),
@@ -135,6 +142,69 @@ def migrate_persona_prompt_model(conn: sqlite3.Connection) -> None:
         conn.execute(
             f"ALTER TABLE persona_prompt ADD COLUMN model TEXT NOT NULL DEFAULT '{DEFAULT_MODEL}'"
         )
+
+
+def migrate_chat_session(conn: sqlite3.Connection) -> None:
+    """Add chat_message.session_id for the multi-session general chat feature.
+
+    Same idempotent pattern as migrate_persona_prompt_model. The FIRST time this runs against a
+    database that predates the column, it also discards the OLD single-thread general chat
+    history: multi-session sessions replace that design entirely, and the owner explicitly chose
+    not to migrate the old thread into a "session 1" (see the design spec). Entry-scoped chat
+    rows (thread_kind='entry') are never touched by the DELETE. The index creation runs
+    unconditionally (CREATE INDEX IF NOT EXISTS), since by this point the column is guaranteed to
+    exist whether it was just added or already present.
+    """
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(chat_message)")}
+    if "session_id" not in columns:
+        conn.execute(
+            "ALTER TABLE chat_message ADD COLUMN session_id INTEGER REFERENCES chat_session(id)"
+        )
+        conn.execute("DELETE FROM chat_message WHERE thread_kind = 'general'")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_chat_message_session ON chat_message (session_id, created_at)"
+    )
+
+
+def create_chat_session(conn: sqlite3.Connection, title: str) -> int:
+    cur = conn.execute(
+        "INSERT INTO chat_session (title, created_at, updated_at) VALUES (?, ?, ?)",
+        (title, _now(), _now()),
+    )
+    return cur.lastrowid
+
+
+def list_chat_sessions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute("SELECT * FROM chat_session ORDER BY updated_at DESC").fetchall()
+
+
+def get_chat_session(conn: sqlite3.Connection, session_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM chat_session WHERE id = ?", (session_id,)).fetchone()
+
+
+def rename_chat_session(conn: sqlite3.Connection, session_id: int, title: str) -> None:
+    conn.execute(
+        "UPDATE chat_session SET title = ?, updated_at = ? WHERE id = ?",
+        (title, _now(), session_id),
+    )
+
+
+def touch_chat_session(conn: sqlite3.Connection, session_id: int) -> None:
+    conn.execute("UPDATE chat_session SET updated_at = ? WHERE id = ?", (_now(), session_id))
+
+
+def delete_chat_session(conn: sqlite3.Connection, session_id: int) -> None:
+    """Delete a session and its messages atomically. No ON DELETE CASCADE in this schema (see
+    Global Constraints) — the cascade is explicit, matching complete_job_item's manual-transaction
+    pattern."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute("DELETE FROM chat_message WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM chat_session WHERE id = ?", (session_id,))
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def _now() -> str:
