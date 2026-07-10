@@ -1,3 +1,5 @@
+import sqlite3
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
@@ -109,8 +111,6 @@ async def trigger_entry_commentary(request: Request, entry_id: int, background_t
     single-flight regen_job infrastructure workshop.py's apply-all route uses -- see
     db.start_single_entry_commentary_job's docstring for the confirmed "only one job
     system-wide" trade-off."""
-    import sqlite3
-
     db = request.app.state.db
     entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (entry_id,)).fetchone()
     if entry is None:
