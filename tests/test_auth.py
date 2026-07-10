@@ -27,7 +27,7 @@ class _FakeJWKSClient:
 
 def _settings(**overrides):
     defaults = dict(
-        db_path=":memory:", llm_model="test", batch_concurrency=1,
+        db_path=":memory:", llm_model="test", batch_concurrency=1, llm_concurrency=4,
         cf_team_domain="myteam", cf_access_aud="test-aud",
         operator_email="owner@example.com", require_access_auth=True,
     )

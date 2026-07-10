@@ -42,6 +42,7 @@ def _reset_shared_client_state(monkeypatch):
     monkeypatch.setattr(llm_module, "_client", None)
     monkeypatch.setattr(llm_module, "_client_generation", 0)
     monkeypatch.setattr(llm_module, "_client_lock", asyncio.Lock())
+    monkeypatch.setattr(llm_module, "_llm_semaphore", asyncio.Semaphore(4))
     _FakeCopilotClient.instances = []
     monkeypatch.setattr(llm_module, "CopilotClient", _FakeCopilotClient)
     yield
@@ -348,3 +349,57 @@ async def test_stream_completion_never_retries_a_model_level_session_error():
         await _collect(llm_module.stream_completion("sys", "msg", "bad-model-name"))
 
     assert fake.stop_calls == 0  # never torn down for a model-level error
+
+
+# ---------------------------------------------------------------------------
+# Task 3: Concurrency limit tests
+# ---------------------------------------------------------------------------
+
+def test_settings_default_llm_concurrency(monkeypatch):
+    from diary.config import load_settings
+    monkeypatch.delenv("DIARY_LLM_CONCURRENCY", raising=False)
+    settings = load_settings()
+    assert settings.llm_concurrency == 4
+
+
+def test_settings_llm_concurrency_from_env(monkeypatch):
+    from diary.config import load_settings
+    monkeypatch.setenv("DIARY_LLM_CONCURRENCY", "7")
+    settings = load_settings()
+    assert settings.llm_concurrency == 7
+
+
+async def test_stream_completion_limits_concurrent_sessions(monkeypatch):
+    # Reconfigure the module's semaphore to a limit of 1 for this test, then launch two
+    # stream_completion() calls concurrently and verify the second one's session isn't created
+    # until the first has released the semaphore (proven by an ordering list both fakes append
+    # to).
+    monkeypatch.setattr(llm_module, "_llm_semaphore", asyncio.Semaphore(1))
+    order: list[str] = []
+
+    class _OrderedSession(_FakeSession):
+        def __init__(self, label, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.label = label
+
+        async def send(self, content):
+            order.append(f"start-{self.label}")
+            await asyncio.sleep(0.01)
+            order.append(f"end-{self.label}")
+            await super().send(content)
+
+    fake = _FakeCopilotClientWithSessions()
+    fake.sessions_to_create = [
+        _OrderedSession("A", [_FakeEvent(AssistantMessageDeltaData(delta_content="a", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+        _OrderedSession("B", [_FakeEvent(AssistantMessageDeltaData(delta_content="b", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    await asyncio.gather(
+        _collect(llm_module.stream_completion("sys", "msg-a", "test-model")),
+        _collect(llm_module.stream_completion("sys", "msg-b", "test-model")),
+    )
+
+    # With a semaphore of 1, B cannot start until A has fully finished (start-A, end-A, start-B,
+    # end-B) — never interleaved (start-A, start-B, end-A, end-B).
+    assert order == ["start-A", "end-A", "start-B", "end-B"]

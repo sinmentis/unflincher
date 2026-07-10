@@ -9,6 +9,7 @@ class Settings:
     db_path: str
     llm_model: str
     batch_concurrency: int
+    llm_concurrency: int
     cf_team_domain: str
     cf_access_aud: str
     operator_email: str
@@ -20,6 +21,7 @@ def load_settings() -> Settings:
         db_path=os.environ.get("DIARY_DB", "diary.dev.db"),
         llm_model=os.environ.get("DIARY_LLM_MODEL", "claude-sonnet-4.6"),
         batch_concurrency=int(os.environ.get("DIARY_BATCH_CONCURRENCY", "3")),
+        llm_concurrency=int(os.environ.get("DIARY_LLM_CONCURRENCY", "4")),
         cf_team_domain=os.environ.get("DIARY_CF_TEAM_DOMAIN", ""),
         cf_access_aud=os.environ.get("DIARY_CF_ACCESS_AUD", ""),
         operator_email=os.environ.get("DIARY_OPERATOR_EMAIL", ""),
