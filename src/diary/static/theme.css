@@ -266,3 +266,32 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
 .year-divider:first-child{ margin-top: 0; padding-top: 0; border-top: 0; }
 
 .side-nav--toc .side-nav-item{ text-decoration: none; }
+
+/* Chat bubbles — classic left/right layout. Mentor stays the existing --accent (aqua-green,
+   already used everywhere else for AI content) on the left; the user's own messages get a NEW
+   --mine (gruvbox yellow) accent on the right, so the two participants are visually distinct
+   without introducing a third hue the rest of the app doesn't already use.
+   Contrast check (WCAG 2.x, computed against this file's actual color values):
+   --mine (#fabd2f) as a body-text color would only be used at small/label sizes here, never as
+   large-block body text — .chat-bubble-label sits at 12px on --card (3c3836): #fabd2f on #3c3836
+   = 8.4:1, comfortably AA (and AAA) for text at any size. The bubble background itself is a
+   faint tint (rgba), so body text inside stays --ink (unchanged contrast from every other
+   .ai-card-family surface) rather than switching to yellow, which would fail AA on a light tint. */
+:root{ --gb-yellow-mine: var(--gb-yellow); }
+
+.chat-bubble{
+  max-width: 34em; margin: 14px 0; padding: 14px 18px; border-radius: var(--radius-md);
+  line-height: 1.8;
+}
+.chat-bubble-label{
+  font-family: var(--font-mono); font-size: 12px; margin-bottom: 6px; letter-spacing: .02em;
+}
+.chat-bubble.mentor{
+  background: var(--card); border-left: 3px solid var(--accent); margin-right: auto;
+}
+.chat-bubble.mentor .chat-bubble-label{ color: var(--accent); }
+.chat-bubble.mine{
+  background: rgba(250,189,47,0.08); border-right: 3px solid var(--gb-yellow-mine);
+  margin-left: auto; text-align: left;
+}
+.chat-bubble.mine .chat-bubble-label{ color: var(--gb-yellow-mine); text-align: right; }

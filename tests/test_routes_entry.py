@@ -260,3 +260,24 @@ def test_entry_detail_has_toc_anchors_and_sidebar(client):
     assert 'href="#chat-section"' in body
     # No commentary yet on this entry — its TOC link must not be offered.
     assert 'href="#ai-commentary"' not in body
+
+
+def test_entry_detail_chat_uses_bubble_classes_per_role(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, entry_id, role, content) VALUES ('entry', ?, 'user', ?)",
+        (entry_id, "我是不是在逃避"),
+    )
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, entry_id, role, content) VALUES ('entry', ?, 'assistant', ?)",
+        (entry_id, "看看你上个月写的那篇"),
+    )
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert 'class="chat-bubble mine"' in body
+    assert 'class="chat-bubble mentor"' in body
