@@ -4,6 +4,11 @@ import pytest
 
 import diary.llm as llm_module
 from diary.llm import chat_reply, generate_commentary, generate_report, generate_session_title
+from copilot.generated.session_events import (
+    AssistantIdleData,
+    AssistantMessageDeltaData,
+    SessionErrorData,
+)
 
 
 class _FakeCopilotClient:
@@ -204,3 +209,142 @@ async def test_generate_session_title_passes_the_requested_model(monkeypatch):
     monkeypatch.setattr(llm_module, "stream_completion", _capture)
     await generate_session_title("随便什么", "gpt-5.4-mini")
     assert seen["model"] == "gpt-5.4-mini"
+
+
+# ---------------------------------------------------------------------------
+# Task 2: stream_completion() rewrite tests
+# ---------------------------------------------------------------------------
+
+class _FakeEvent:
+    def __init__(self, data):
+        self.data = data
+
+
+class _FakeSession:
+    """Replays a scripted sequence of events to on_event, then supports .on()/.send() the same
+    shape stream_completion() expects. `session_id` is a fixed string per instance so
+    delete_session() calls can be asserted against it."""
+
+    def __init__(self, events, session_id="fake-session-1"):
+        self._events = events
+        self.session_id = session_id
+        self._on_event = None
+
+    def on(self, handler):
+        self._on_event = handler
+        return lambda: None  # unsubscribe callable
+
+    async def send(self, content):
+        for event in self._events:
+            self._on_event(event)
+
+
+class _FakeCopilotClientWithSessions(_FakeCopilotClient):
+    """Extends the Task 1 fake with create_session()/delete_session() so stream_completion() can
+    be driven end-to-end without a real CLI subprocess. `sessions_to_create` is a list consumed
+    one-per-create_session() call, in order — lets a test script "first call raises, second call
+    succeeds" scenarios."""
+
+    def __init__(self):
+        super().__init__()
+        self.sessions_to_create: list = []
+        self.deleted_session_ids: list[str] = []
+
+    async def create_session(self, **kwargs):
+        next_item = self.sessions_to_create.pop(0)
+        if isinstance(next_item, Exception):
+            raise next_item
+        return next_item
+
+    async def delete_session(self, session_id):
+        self.deleted_session_ids.append(session_id)
+
+
+async def _collect(agen):
+    return [token async for token in agen]
+
+
+async def test_stream_completion_reuses_client_across_two_calls():
+    fake = _FakeCopilotClientWithSessions()
+    fake.sessions_to_create = [
+        _FakeSession([_FakeEvent(AssistantMessageDeltaData(delta_content="A", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+        _FakeSession([_FakeEvent(AssistantMessageDeltaData(delta_content="B", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    result1 = await _collect(llm_module.stream_completion("sys", "msg1", "test-model"))
+    result2 = await _collect(llm_module.stream_completion("sys", "msg2", "test-model"))
+
+    assert result1 == ["A"]
+    assert result2 == ["B"]
+    assert fake.start_calls == 1  # only started once across both calls
+    assert fake.stop_calls == 0   # never stopped per-call anymore
+
+
+async def test_stream_completion_deletes_session_after_success():
+    fake = _FakeCopilotClientWithSessions()
+    session = _FakeSession(
+        [_FakeEvent(AssistantMessageDeltaData(delta_content="hi", message_id="m1")), _FakeEvent(AssistantIdleData())],
+        session_id="session-abc",
+    )
+    fake.sessions_to_create = [session]
+    llm_module.CopilotClient = lambda: fake
+
+    await _collect(llm_module.stream_completion("sys", "msg", "test-model"))
+
+    assert fake.deleted_session_ids == ["session-abc"]
+
+
+async def test_stream_completion_retries_once_on_transport_failure_before_any_token():
+    from copilot.client import ProcessExitedError
+
+    fake = _FakeCopilotClientWithSessions()
+    fake.sessions_to_create = [
+        ProcessExitedError("CLI died"),
+        _FakeSession([_FakeEvent(AssistantMessageDeltaData(delta_content="recovered", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    result = await _collect(llm_module.stream_completion("sys", "msg", "test-model"))
+
+    assert result == ["recovered"]
+    # The first (broken) client was torn down and a fresh one started for the retry.
+    assert fake.stop_calls == 1
+
+
+async def test_stream_completion_does_not_retry_after_a_token_was_already_yielded(monkeypatch):
+    # A session that yields one token, then stalls forever (no idle/error event follows).
+    # After a very short timeout, TransportStalledError fires — this is a transport failure
+    # but it arrives AFTER partial was already yielded, so no retry should occur.
+    fake = _FakeCopilotClientWithSessions()
+    fake.sessions_to_create = [
+        _FakeSession(
+            [_FakeEvent(AssistantMessageDeltaData(delta_content="partial", message_id="m1"))],
+            session_id="session-stall",
+        ),
+    ]
+    llm_module.CopilotClient = lambda: fake
+    monkeypatch.setattr(llm_module, "_STALL_TIMEOUT_SECONDS", 0.02)
+
+    agen = llm_module.stream_completion("sys", "msg", "test-model")
+    tokens = []
+    with pytest.raises(llm_module.TransportStalledError):
+        async for token in agen:
+            tokens.append(token)
+
+    assert tokens == ["partial"]  # the one token that WAS yielded is not lost/duplicated
+    assert len(fake.sessions_to_create) == 0  # no retry consumed a second scripted session
+    assert fake.stop_calls == 0  # shared client never torn down when failure is after yield
+
+
+async def test_stream_completion_never_retries_a_model_level_session_error():
+    fake = _FakeCopilotClientWithSessions()
+    fake.sessions_to_create = [
+        _FakeSession([_FakeEvent(SessionErrorData(error_type="model_error", message="invalid model name"))]),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    with pytest.raises(llm_module.ModelSessionError, match="invalid model name"):
+        await _collect(llm_module.stream_completion("sys", "msg", "bad-model-name"))
+
+    assert fake.stop_calls == 0  # never torn down for a model-level error

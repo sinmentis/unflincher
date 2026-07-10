@@ -138,83 +138,121 @@ def ensure_default_persona_prompt(conn) -> None:
         set_active_prompt(conn, DEFAULT_PERSONA_PROMPT, DEFAULT_MODEL)
 
 
+class ModelSessionError(RuntimeError):
+    """The model/session itself reported an error (bad model name, revoked auth, rate limit,
+    etc. — anything the SDK surfaces via a SessionErrorData event). Never retried: restarting the
+    CLI subprocess does not fix any of these, and retrying would silently mask a real, actionable
+    error behind an extra 1-3s delay and a second, more confusing failure."""
+
+
+class TransportStalledError(RuntimeError):
+    """No event arrived for _STALL_TIMEOUT_SECONDS — the CLI subprocess likely crashed or wedged
+    without reporting an error. Classified as a transport failure (retry-eligible if no token has
+    been yielded yet), same bucket as ProcessExitedError/ConnectionError/OSError."""
+
+
 async def stream_completion(system: str, user_content: str, model: str) -> AsyncIterator[str]:
     """Stream one completion token-by-token via the GitHub Copilot SDK. This is the ONLY
     place the whole app talks to an LLM; every generate_*/chat_* path funnels through here.
     Authenticates with COPILOT_GITHUB_TOKEN (a shared fine-grained GitHub PAT injected by the
-    Quadlet unit) — CopilotClient() auto-detects that env var, so no key is passed in code."""
+    Quadlet unit) — CopilotClient() auto-detects that env var, so no key is passed in code.
+
+    Uses the shared, lifecycle-managed client (_ensure_client()) instead of starting/stopping a
+    fresh CopilotClient per call — see docs/superpowers/specs/2026-07-10-diary-persistent-copilot-
+    client-design.md. A transport-level failure (ProcessExitedError, ConnectionError, OSError, or
+    TransportStalledError) that happens BEFORE any token has been yielded triggers exactly one
+    reset-and-retry; the same failure after a token has already reached the caller propagates
+    immediately (retrying then would duplicate or splice together two different model attempts).
+    A ModelSessionError (the model/session itself reported an error) is never retried, regardless
+    of whether tokens were yielded — it isn't a transport problem restarting the subprocess would
+    fix."""
+    from copilot.client import ProcessExitedError
     from copilot.generated.session_events import (
         AssistantIdleData,
         AssistantMessageDeltaData,
         SessionErrorData,
     )
 
-    # The SDK dispatches session events from its background JSON-RPC reader thread, not from
-    # this coroutine's event loop. Bridge them onto the loop via call_soon_threadsafe — calling
-    # queue.put_nowait directly from the handler would be an unsafe cross-thread touch of
-    # asyncio internals.
-    loop = asyncio.get_running_loop()
-    queue: asyncio.Queue = asyncio.Queue()
+    for attempt in range(2):  # at most one retry, per the docstring above
+        client, generation = await _ensure_client()
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
 
-    def _on_event(event):
-        loop.call_soon_threadsafe(queue.put_nowait, event)
+        def _on_event(event):
+            loop.call_soon_threadsafe(queue.put_nowait, event)
 
-    client = CopilotClient()
-    unsubscribe = None
-    try:
-        await client.start()
-        session = await client.create_session(
-            model=model,
-            # "replace" mode: use diary's own persona+task text verbatim as the system prompt.
-            # The SDK's default is its full general-purpose coding-agent system prompt
-            # (identity/tone/tool/environment/code-change sections); that would contaminate the
-            # life-mentor persona. Do NOT simplify this back to the SDK default.
-            system_message={"mode": "replace", "content": system},
-            # Pure text-in/text-out. An empty allowlist disables the entire merged tool catalog
-            # (built-in + MCP + custom) so the model can never touch this server's filesystem or
-            # network. Security requirement, not an optimization — keep it empty.
-            available_tools=[],
-            # Isolate from any ambient AGENTS.md/.github/copilot-instructions on the host: custom
-            # instruction files load based on working_directory regardless of config discovery, so
-            # point it at /tmp (guaranteed to exist, guaranteed to hold no instruction files) and
-            # belt-and-suspenders the rest off.
-            working_directory="/tmp",
-            skip_custom_instructions=True,
-            enable_config_discovery=False,
-            enable_skills=False,
-            streaming=True,
-            on_event=_on_event,
-        )
-        # Register once more to capture the unsubscribe callable for guaranteed cleanup. on() adds
-        # to a set, so re-registering the same handler is idempotent (it still fires once/event).
-        unsubscribe = session.on(_on_event)
-        await session.send(user_content)
-        while True:
-            try:
-                event = await asyncio.wait_for(queue.get(), timeout=_STALL_TIMEOUT_SECONDS)
-            except (asyncio.TimeoutError, TimeoutError) as exc:
-                # Distinct from the SessionErrorData message below: this is "we gave up waiting for
-                # a wedged/crashed subprocess that never reported anything", not "the model
-                # reported an error". The finally block still tears down the client + subprocess.
-                raise RuntimeError(
-                    f"Copilot SDK stream stalled: no event received for {_STALL_TIMEOUT_SECONDS}s "
-                    "(CLI subprocess likely crashed or wedged without reporting an error)"
-                ) from exc
-            data = event.data
-            if isinstance(data, AssistantMessageDeltaData):
-                if data.delta_content:
-                    yield data.delta_content
-            elif isinstance(data, SessionErrorData):
-                raise RuntimeError(f"Copilot SDK session error: {data.message}")
-            elif isinstance(data, AssistantIdleData):
-                break
-            # Ignore everything else (reasoning/lifecycle/etc.) and keep reading.
-    finally:
-        if unsubscribe is not None:
-            unsubscribe()
-        # Unconditional teardown: client.stop() disconnects the session and shuts down the CLI
-        # subprocess, so a mid-stream error (or early consumer close) still cleans up.
-        await client.stop()
+        unsubscribe = None
+        session_id: str | None = None
+        yielded_any = False
+        try:
+            session = await client.create_session(
+                model=model,
+                # "replace" mode: use diary's own persona+task text verbatim as the system
+                # prompt. The SDK's default is its full general-purpose coding-agent system
+                # prompt (identity/tone/tool/environment/code-change sections); that would
+                # contaminate the life-mentor persona. Do NOT simplify this back to the SDK
+                # default.
+                system_message={"mode": "replace", "content": system},
+                # Pure text-in/text-out. An empty allowlist disables the entire merged tool
+                # catalog (built-in + MCP + custom) so the model can never touch this server's
+                # filesystem or network. Security requirement, not an optimization — keep it
+                # empty.
+                available_tools=[],
+                # Isolate from any ambient AGENTS.md/.github/copilot-instructions on the host:
+                # custom instruction files load based on working_directory regardless of config
+                # discovery, so point it at /tmp (guaranteed to exist, guaranteed to hold no
+                # instruction files) and belt-and-suspenders the rest off.
+                working_directory="/tmp",
+                skip_custom_instructions=True,
+                enable_config_discovery=False,
+                enable_skills=False,
+                streaming=True,
+                on_event=_on_event,
+            )
+            session_id = session.session_id
+            # Register once more to capture the unsubscribe callable for guaranteed cleanup. on()
+            # adds to a set, so re-registering the same handler is idempotent (it still fires
+            # once/event).
+            unsubscribe = session.on(_on_event)
+            await session.send(user_content)
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=_STALL_TIMEOUT_SECONDS)
+                except (asyncio.TimeoutError, TimeoutError) as exc:
+                    raise TransportStalledError(
+                        f"Copilot SDK stream stalled: no event received for "
+                        f"{_STALL_TIMEOUT_SECONDS}s (CLI subprocess likely crashed or wedged "
+                        "without reporting an error)"
+                    ) from exc
+                data = event.data
+                if isinstance(data, AssistantMessageDeltaData):
+                    if data.delta_content:
+                        yielded_any = True
+                        yield data.delta_content
+                elif isinstance(data, SessionErrorData):
+                    raise ModelSessionError(f"Copilot SDK session error: {data.message}")
+                elif isinstance(data, AssistantIdleData):
+                    break
+                # Ignore everything else (reasoning/lifecycle/etc.) and keep reading.
+            return  # success — do not fall through to the retry loop
+        except ModelSessionError:
+            raise  # never retried, regardless of yielded_any
+        except (ProcessExitedError, TransportStalledError, ConnectionError, OSError, RuntimeError):
+            if yielded_any or attempt == 1:
+                # Either we already sent partial output downstream (retrying would corrupt it),
+                # or this WAS the retry attempt and it failed too — propagate either way.
+                raise
+            # First attempt failed before any token reached the caller: reset the shared client
+            # (only if it's still the same instance we observed — see _stop_shared_client's
+            # ABA-race guard) and let the `for` loop's next iteration retry once.
+            await _stop_shared_client(generation)
+            continue
+        finally:
+            if unsubscribe is not None:
+                unsubscribe()
+            if session_id is not None:
+                with contextlib.suppress(Exception):
+                    await client.delete_session(session_id)
 
 
 def _build_corpus(all_entries: list[dict]) -> str:

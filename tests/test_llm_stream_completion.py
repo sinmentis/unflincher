@@ -6,6 +6,7 @@ with a fake that emits a scripted sequence of REAL session event-data objects, t
 stream_completion translates them into the right yields, errors, and cleanup. Using the real
 event-data classes keeps the `isinstance` dispatch in the implementation honest — only the
 client/session plumbing is faked."""
+import asyncio
 import types
 
 import pytest
@@ -16,7 +17,18 @@ from copilot.generated.session_events import (
     SessionErrorData,
 )
 
+import diary.llm as llm_module
 from diary.llm import stream_completion
+
+
+@pytest.fixture(autouse=True)
+def _reset_shared_client_state(monkeypatch):
+    """Reset the shared-client singleton before each test so tests in this file don't
+    share state with each other or with tests in test_llm.py."""
+    monkeypatch.setattr(llm_module, "_client", None)
+    monkeypatch.setattr(llm_module, "_client_generation", 0)
+    monkeypatch.setattr(llm_module, "_client_lock", asyncio.Lock())
+    yield
 
 
 def _event(data):
@@ -33,9 +45,12 @@ def _make_fake_copilot(events):
         "stopped": False,
         "unsubscribed": False,
         "sent": [],
+        "deleted_session_ids": [],
     }
 
     class _FakeSession:
+        session_id = "fake-sid"
+
         def __init__(self):
             # A set, mirroring the real SDK's handler storage, so registering the same
             # handler twice (once via create_session(on_event=), once via the explicit
@@ -73,6 +88,9 @@ def _make_fake_copilot(events):
             record["session"] = session
             return session
 
+        async def delete_session(self, session_id):
+            record["deleted_session_ids"].append(session_id)
+
         async def stop(self):
             record["stopped"] = True
 
@@ -97,7 +115,8 @@ async def test_streams_deltas_in_order_then_ends(monkeypatch):
     # deliberate double registration, no hang).
     assert tokens == ["你", "好"]
     assert record["started"] is True
-    assert record["stopped"] is True
+    assert record["stopped"] is False  # shared client not stopped per-call
+    assert record["deleted_session_ids"] == ["fake-sid"]
     assert record["unsubscribed"] is True
     assert record["sent"] == ["问题"]
 
@@ -140,16 +159,24 @@ async def test_available_tools_empty_disables_all_tools(monkeypatch):
     assert record["create_kwargs"]["available_tools"] == []
 
 
-async def test_session_error_raises_runtimeerror_with_message(monkeypatch):
+async def test_session_error_raises_model_session_error_with_message(monkeypatch):
     FakeClient, _ = _make_fake_copilot([
         SessionErrorData(error_type="model_error", message="rate limited"),
     ])
     monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    # ModelSessionError is a RuntimeError subclass, so callers using RuntimeError still work.
     with pytest.raises(RuntimeError, match="rate limited"):
+        await _collect()
+    with pytest.raises(llm_module.ModelSessionError, match="rate limited"):
+        FakeClient2, _ = _make_fake_copilot([
+            SessionErrorData(error_type="model_error", message="rate limited"),
+        ])
+        monkeypatch.setattr("diary.llm.CopilotClient", FakeClient2)
+        monkeypatch.setattr(llm_module, "_client", None)
         await _collect()
 
 
-async def test_client_stopped_when_error_raises_midstream(monkeypatch):
+async def test_client_not_stopped_when_session_error_raises_midstream(monkeypatch):
     FakeClient, record = _make_fake_copilot([
         AssistantMessageDeltaData(delta_content="partial", message_id="m1"),
         SessionErrorData(error_type="model_error", message="boom"),
@@ -157,9 +184,10 @@ async def test_client_stopped_when_error_raises_midstream(monkeypatch):
     monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
     with pytest.raises(RuntimeError, match="boom"):
         await _collect()
-    # Cleanup still runs even though the SessionErrorData path raised mid-stream.
-    assert record["stopped"] is True
+    # Shared client is NOT stopped for model-level errors (not a transport problem).
+    assert record["stopped"] is False
     assert record["unsubscribed"] is True
+    assert record["deleted_session_ids"] == ["fake-sid"]
 
 
 async def test_stall_timeout_raises_and_cleans_up(monkeypatch):
@@ -177,9 +205,10 @@ async def test_stall_timeout_raises_and_cleans_up(monkeypatch):
     monkeypatch.setattr("diary.llm._STALL_TIMEOUT_SECONDS", 0.02)
 
     # Timeout-specific error, distinct from the "session error" message, and it arrives fast.
-    with pytest.raises(RuntimeError, match="stall") as excinfo:
+    with pytest.raises(llm_module.TransportStalledError, match="stall") as excinfo:
         await _collect()
     assert "session error" not in str(excinfo.value)
-    # The new timeout path runs the SAME finally cleanup as the SessionErrorData path above.
-    assert record["stopped"] is True
+    # Partial token WAS yielded, so no retry and shared client is NOT torn down.
+    assert record["stopped"] is False
     assert record["unsubscribed"] is True
+    assert record["deleted_session_ids"] == ["fake-sid"]
