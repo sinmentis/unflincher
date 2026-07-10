@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -27,7 +27,14 @@ async def create_new_entry(request: Request):
             picked_date = date.fromisoformat(picked_date_str)
         except ValueError:
             raise HTTPException(status_code=400, detail="entry_date must be YYYY-MM-DD")
-        if picked_date > now.date():
+        # The browser's date picker defaults/caps at LOCAL "today" (by design -- see the spec),
+        # but this check runs against the server's UTC date. For any positive-UTC-offset
+        # timezone (this app's owner is UTC+12), local "today" is genuinely one calendar day
+        # ahead of UTC "today" for roughly half of every day -- rejecting that would reject the
+        # picker's own default value. A one-day grace window keeps this a backstop against
+        # clearly-bogus future dates (anything more than a day ahead) without fighting the
+        # picker's legitimate default.
+        if picked_date > now.date() + timedelta(days=1):
             raise HTTPException(status_code=400, detail="entry_date cannot be in the future")
         # Combine the picked DATE with the server's real current time-of-day, so entry_date
         # keeps the exact full-ISO-8601-with-offset format every other row already uses (a bare

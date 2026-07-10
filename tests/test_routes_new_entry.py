@@ -63,13 +63,35 @@ def test_new_entry_rejects_malformed_date(client):
 
 
 def test_new_entry_rejects_future_date(client):
+    # More than one day ahead of the server's UTC "today" must still be rejected -- the grace
+    # window below (see test_new_entry_accepts_tomorrow_for_positive_utc_offset_timezones) only
+    # covers exactly one day ahead, not arbitrary future dates.
     from datetime import date, timedelta
 
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    day_after_tomorrow = (date.today() + timedelta(days=2)).isoformat()
     response = client.post(
-        "/new", json={"title": "未来日期", "content": "x", "entry_date": tomorrow}
+        "/new", json={"title": "未来日期", "content": "x", "entry_date": day_after_tomorrow}
     )
 
     assert response.status_code == 400
     db = client.app.state.db
     assert db.execute("SELECT * FROM diary_entry WHERE title = '未来日期'").fetchone() is None
+
+
+def test_new_entry_accepts_tomorrow_for_positive_utc_offset_timezones(client):
+    # Regression guard: the browser's date picker defaults/caps at LOCAL "today", but this
+    # server validates against its own UTC date. For any positive-UTC-offset timezone (this
+    # app's owner is UTC+12), local "today" is genuinely one calendar day ahead of UTC "today"
+    # for roughly half of every day -- without a one-day grace window, picking the picker's own
+    # default value would be rejected as "in the future" during that window.
+    from datetime import date, timedelta
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    response = client.post(
+        "/new", json={"title": "本地明天", "content": "x", "entry_date": tomorrow}
+    )
+
+    assert response.status_code == 200
+    db = client.app.state.db
+    row = db.execute("SELECT entry_date FROM diary_entry WHERE title = '本地明天'").fetchone()
+    assert row is not None and row["entry_date"].startswith(tomorrow)
