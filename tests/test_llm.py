@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 import diary.llm as llm_module
@@ -34,6 +36,7 @@ def _reset_shared_client_state(monkeypatch):
     list, regardless of test order or a previous test's failure leaving state dirty."""
     monkeypatch.setattr(llm_module, "_client", None)
     monkeypatch.setattr(llm_module, "_client_generation", 0)
+    monkeypatch.setattr(llm_module, "_client_lock", asyncio.Lock())
     _FakeCopilotClient.instances = []
     monkeypatch.setattr(llm_module, "CopilotClient", _FakeCopilotClient)
     yield
