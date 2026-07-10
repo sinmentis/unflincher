@@ -42,7 +42,6 @@ main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
 .diary-text { font-family: var(--font-read); font-size: 18px; line-height: 1.9; letter-spacing: .01em; max-width: 38em; }
 .ai-card { background: var(--card); border-left: 3px solid var(--accent); border-radius: var(--radius-md); padding: 18px 22px; margin: 18px 0; line-height: 1.8; }
 .ai-label { font-family: var(--font-mono); font-size: 13px; color: var(--accent); margin-bottom: 10px; letter-spacing: .02em; }
-.chat-msg { line-height: 1.8; margin: 16px 0; }
 /* Groups the workshop page (persona editor / test-run preview / save+regen-all) into clearly
    separated steps -- previously every control sat in one undifferentiated column. A quiet
    hairline (the same --border used elsewhere for dividers) is enough; no new visual language. */
@@ -78,7 +77,7 @@ html{ color-scheme: dark; -webkit-font-smoothing: antialiased; -moz-osx-font-smo
 
 /* Typography polish */
 h1, .entry-title{ text-wrap: balance; }
-.diary-text, .ai-card, .chat-msg{ text-wrap: pretty; }
+.diary-text, .ai-card, .chat-bubble{ text-wrap: pretty; }
 
 /* Headings — an explicit scale at a lighter weight (600, not the UA bold 700) for a calmer, more
    淡雅 hierarchy. h1 is page chrome; h2–h4 appear only inside AI markdown + sanitized diary HTML. */
