@@ -1,0 +1,37 @@
+<!-- src/diary/templates/partials/chat_sidebar.html -->
+<nav class="side-nav side-nav--sessions" aria-label="对话列表">
+  <a href="/chat/new" class="side-nav-item side-nav-new">+ 新对话</a>
+  {% for s in sessions %}
+  <div class="side-nav-session{{ ' active' if active_session_id == s.id else '' }}">
+    <a href="/chat/{{ s.id }}" class="side-nav-item side-nav-session-link">{{ s.title }}</a>
+    <button type="button" class="side-nav-session-action" data-rename-session="{{ s.id }}" title="重命名">✎</button>
+    <button type="button" class="side-nav-session-action" data-delete-session="{{ s.id }}" title="删除">🗑</button>
+  </div>
+  {% endfor %}
+</nav>
+<script>
+document.querySelectorAll("[data-rename-session]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const id = btn.dataset.renameSession;
+    const title = prompt("重命名对话：");
+    if (!title) return;
+    await fetch(`/chat/${id}/rename`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
+      body: JSON.stringify({title}),
+    });
+    location.reload();
+  });
+});
+document.querySelectorAll("[data-delete-session]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const id = btn.dataset.deleteSession;
+    if (!confirm("删除这个对话？不可恢复。")) return;
+    await fetch(`/chat/${id}/delete`, {
+      method: "POST",
+      headers: {"X-CSRF-Token": getCsrfToken()},
+    });
+    window.location.href = "/chat";
+  });
+});
+</script>

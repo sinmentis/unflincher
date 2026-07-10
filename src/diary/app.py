@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from diary.auth import AccessJWTMiddleware
 from diary.config import load_settings
 from diary.csrf import CSRFMiddleware
-from diary.db import get_connection, init_schema, migrate_persona_prompt_model, resume_sweep
+from diary.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model, resume_sweep
 from diary.llm import ensure_default_persona_prompt
 from diary.routes import chat, entry, new_entry, report, timeline, workshop
 from diary.worker import BatchWorker
@@ -25,6 +25,7 @@ def create_app() -> FastAPI:
         # Must run before anything reads/writes persona_prompt (ensure_default_persona_prompt and
         # the recovery lookup below both do). Idempotent, so safe on every production restart.
         migrate_persona_prompt_model(conn)
+        migrate_chat_session(conn)
         ensure_default_persona_prompt(conn)
         resume_sweep(conn)
         app.state.db = conn

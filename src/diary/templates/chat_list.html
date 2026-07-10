@@ -1,0 +1,13 @@
+<!-- src/diary/templates/chat_list.html -->
+{% extends "base.html" %}
+{% block nav_chat %}active{% endblock %}
+{% block content %}
+<script src="/static/app.js"></script>
+{% include "partials/chat_sidebar.html" %}
+<h1>跟AI聊聊</h1>
+{% if sessions %}
+<p class="entry-date">从左边选一个对话，或者点"+ 新对话"开始一个新的。</p>
+{% else %}
+<p class="entry-date">还没有任何对话，点左边"+ 新对话"开始第一次聊天。</p>
+{% endif %}
+{% endblock %}

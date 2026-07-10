@@ -295,3 +295,15 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
   margin-left: auto; text-align: left;
 }
 .chat-bubble.mine .chat-bubble-label{ color: var(--gb-yellow-mine); text-align: right; }
+
+/* Session sidebar (chat list) */
+.side-nav--sessions{ gap: 4px; }
+.side-nav-new{ font-weight: 600; color: var(--accent); margin-bottom: 8px; text-decoration: none; }
+.side-nav-session{ display: flex; align-items: center; gap: 2px; }
+.side-nav-session-link{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.side-nav-session.active .side-nav-session-link{ background: var(--card); color: var(--accent); font-weight: 600; }
+.side-nav-session-action{
+  background: none; border: 0; box-shadow: none; min-height: 0; padding: 2px 4px;
+  color: var(--faint); font-size: 12px; cursor: pointer;
+}
+.side-nav-session-action:hover{ color: var(--ink-strong); background: none; box-shadow: none; }
