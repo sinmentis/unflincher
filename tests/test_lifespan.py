@@ -6,7 +6,7 @@ worker to finish deterministically — proving the resume path end-to-end at app
 """
 import diary.llm as llm_module
 from diary.app import create_app
-from diary.db import get_connection, init_schema, migrate_persona_prompt_model
+from diary.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model
 
 
 async def _fake_commentary(entry, all_entries, persona_text, model):
@@ -68,3 +68,18 @@ async def test_startup_recovers_crashed_running_job(tmp_path, monkeypatch):
     assert commentaries[0]["status"] == "ok"
     # The recovered worker recorded the job's own persona model, not settings.llm_model.
     assert commentaries[0]["model"] == "gpt-5.4"
+
+
+def test_startup_runs_chat_session_migration(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    db_path = str(tmp_path / "migrate.db")
+    monkeypatch.setenv("DIARY_DB", db_path)
+    monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
+
+    app = create_app()
+    with TestClient(app) as c:
+        c.get("/healthz")
+        db = app.state.db
+        columns = {r["name"] for r in db.execute("PRAGMA table_info(chat_message)")}
+        assert "session_id" in columns
