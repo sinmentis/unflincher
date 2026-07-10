@@ -39,3 +39,42 @@ def test_timeline_shows_commentary_badge(client):
 
     assert "AI 已点评" in body
     assert "未点评" in body
+
+
+def test_timeline_provides_year_sidebar_data(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>a</p>', '<p>a</p>', 'a', '2024-03-01', 'import')"
+    )
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('b', '<p>b</p>', '<p>b</p>', 'b', '2024-08-01', 'import')"
+    )
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('c', '<p>c</p>', '<p>c</p>', 'c', '2023-01-01', 'import')"
+    )
+
+    body = client.get("/").text
+
+    # Sidebar shows newest year first, with a per-year entry count.
+    assert body.index("2024") < body.index("2023")
+    assert 'data-year-link="2024"' in body
+    assert 'data-year-count="2"' in body
+    assert 'data-year-link="2023"' in body
+    assert 'data-year-count="1"' in body
+    # Year-divider markup appears once per year, ahead of that year's entries.
+    assert body.count('class="year-divider"') == 2
+
+
+def test_timeline_tags_each_entry_row_with_its_year(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>a</p>', '<p>a</p>', 'a', '2024-03-01', 'import')"
+    )
+
+    body = client.get("/").text
+
+    assert 'data-year="2024"' in body

@@ -14,10 +14,18 @@ async def timeline(request: Request):
         "SELECT id, title, entry_date FROM diary_entry ORDER BY entry_date DESC"
     ).fetchall()
     entries = []
+    year_counts: dict[str, int] = {}
     for row in rows:
+        year = row["entry_date"][:4]
         commentary = get_current_commentary(db, row["id"])
         entries.append({
             "id": row["id"], "title": row["title"], "entry_date": row["entry_date"],
-            "has_commentary": commentary is not None,
+            "year": year, "has_commentary": commentary is not None,
         })
-    return templates.TemplateResponse(request, "timeline.html", {"entries": entries})
+        year_counts[year] = year_counts.get(year, 0) + 1
+    # dict preserves insertion order (Python 3.7+); rows are already newest-first, so the first
+    # time a year is seen is also its correct sidebar position (newest year first).
+    years = [{"year": y, "count": c} for y, c in year_counts.items()]
+    return templates.TemplateResponse(
+        request, "timeline.html", {"entries": entries, "years": years}
+    )

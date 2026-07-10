@@ -218,3 +218,50 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
 .diary-text img, .ai-card img{ max-width: 100%; outline: 1px solid rgba(255,255,255,0.1); outline-offset: -1px; }
 ::selection{ background: var(--gb-bg2); color: var(--ink-strong); }
 
+/* Shared left-margin sidebar widget base — timeline year filter (Task 1), entry-detail TOC
+   (Task 2), and chat session list (Task 7) all extend this. Anchored in the incidental
+   whitespace beside main's centered 760px column: main's own left edge sits at
+   `50vw - 380px`, so the sidebar's right edge is placed 20px before that, clamped so it never
+   overlaps main on narrower-but-still->1100px viewports. Hidden entirely below the 1100px
+   breakpoint rather than trying to reflow main narrower — this is chrome, not content. */
+.side-nav{
+  position: fixed;
+  top: 96px;
+  left: max(20px, calc(50vw - 380px - 220px));
+  width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+@media (max-width: 1100px){
+  .side-nav{ display: none; }
+}
+.side-nav-item{
+  display: flex; align-items: center; gap: 8px;
+  background: none; border: 0; box-shadow: none;
+  color: var(--muted); text-align: left;
+  padding: 6px 8px; border-radius: 6px; min-height: 0; font-size: 13px;
+  cursor: pointer;
+}
+.side-nav-item:hover{ background: var(--card); color: var(--ink-strong); }
+.side-nav-item.active{ background: var(--card); color: var(--accent); font-weight: 600; }
+.side-nav-item:disabled{ opacity: .5; cursor: default; }
+.side-nav-item:disabled:hover{ background: none; color: var(--muted); }
+
+/* Year sidebar specifics: a small dot scaled by that year's share of entries (--dot-scale is a
+   0..1 float set inline per item), so a busy year is visually heavier without needing a chart. */
+.side-nav--years .side-nav-item-year{ font-family: var(--font-mono); width: 40px; flex-shrink: 0; }
+.side-nav--years .side-nav-item-dot{
+  width: calc(6px + 8px * var(--dot-scale, 0));
+  height: calc(6px + 8px * var(--dot-scale, 0));
+  border-radius: 50%; background: var(--accent); opacity: .55; flex-shrink: 0;
+}
+.side-nav--years .side-nav-item-count{ margin-left: auto; color: var(--faint); font-family: var(--font-mono); font-size: 12px; }
+
+.year-divider{
+  font-family: var(--font-read); font-size: 28px; font-weight: 600; color: var(--ink-strong);
+  margin: 36px 0 4px; padding-top: 20px; border-top: 1px solid var(--border);
+}
+.year-divider:first-child{ margin-top: 0; padding-top: 0; border-top: 0; }
+
