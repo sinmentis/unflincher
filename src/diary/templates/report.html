@@ -2,16 +2,24 @@
 {% extends "base.html" %}
 {% block nav_report %}active{% endblock %}
 {% block content %}
-<h1>综合人生报告</h1>
-{% if versions|length > 1 %}
-<p class="entry-date">历史版本：
+{% if versions %}
+<nav class="side-nav side-nav--report-versions" aria-label="历史版本时间轴">
   {% for v in versions %}
-  <a href="/report/{{ v.id }}" style="{{ 'font-weight:bold' if v.id == viewing_version_id else '' }}">
-    {{ v.created_at[:16] }}{{ '（失败）' if v.status == 'failed' else '' }}
-  </a>{{ " · " if not loop.last }}
+  <a href="/report/{{ v.id }}" class="side-nav-item{{ ' active' if v.id == viewing_version_id else '' }}">
+    <span class="side-nav-item-dot {{ 'is-failed' if v.status == 'failed' else '' }} {{ 'is-current' if v.id == viewing_version_id else '' }}"></span>
+    <span class="side-nav-item-report-info">
+      <span class="side-nav-item-report-date">{{ v.created_at[:16] }}</span>
+      {% if v.status == 'failed' %}
+      <span class="side-nav-item-report-meta">失败</span>
+      {% else %}
+      <span class="side-nav-item-report-meta">{{ v.covered_entry_count }}</span>
+      {% endif %}
+    </span>
+  </a>
   {% endfor %}
-</p>
+</nav>
 {% endif %}
+<h1>综合人生报告</h1>
 {% if report_html %}
 <p class="entry-date">覆盖 {{ covered_count }} 篇 · {{ covered_from }} ~ {{ covered_to }}</p>
 <div class="ai-card">{{ report_html | safe }}</div>

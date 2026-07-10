@@ -259,6 +259,32 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
 }
 .side-nav--years .side-nav-item-count{ margin-left: auto; color: var(--faint); font-family: var(--font-mono); font-size: 12px; }
 
+/* Report-version sidebar: a vertical timeline (thin connecting line + one dot per version,
+   newest at top) reusing the same .side-nav base as the year filter / entry-detail TOC. Unlike
+   those two (short, fixed-length lists), report version counts can grow into the tens over time,
+   so this variant gets its own scroll region instead of assuming it always fits the viewport. */
+.side-nav--report-versions{
+  max-height: calc(100vh - 96px - 24px);
+  overflow-y: auto;
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  gap: 14px;
+}
+.side-nav--report-versions .side-nav-item{ padding: 0; margin-left: -19px; }
+.side-nav--report-versions .side-nav-item-dot{
+  width: 9px; height: 9px; border-radius: 50%; background: var(--border); flex-shrink: 0;
+  margin-left: 10px; margin-right: 8px;
+}
+.side-nav--report-versions .side-nav-item-dot.is-current{
+  width: 12px; height: 12px; background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(142,192,124,0.25);
+}
+.side-nav--report-versions .side-nav-item-dot.is-failed{ background: var(--danger); }
+.side-nav--report-versions .side-nav-item-report-info{ display: flex; flex-direction: column; gap: 1px; }
+.side-nav--report-versions .side-nav-item-report-date{ font-family: var(--font-mono); font-size: 12px; }
+.side-nav--report-versions .side-nav-item-report-meta{ color: var(--faint); font-size: 11px; }
+.side-nav--report-versions .side-nav-item.active .side-nav-item-report-meta{ color: var(--accent); }
+
 .year-divider{
   font-family: var(--font-read); font-size: 28px; font-weight: 600; color: var(--ink-strong);
   margin: 36px 0 4px; padding-top: 20px; border-top: 1px solid var(--border);

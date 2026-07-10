@@ -66,3 +66,31 @@ def test_view_specific_historical_report_version(client):
 
     assert response.status_code == 200
     assert "半年前的报告" in response.text
+
+
+def test_report_page_shows_sidebar_timeline_with_active_and_failed_states(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    old_failed_id = db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status, created_at) VALUES (?, 'm', '', 0, 'failed', '2026-06-28T21:40:00')",
+        (prompt_id,),
+    ).lastrowid
+    current_id = db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status, created_at) VALUES (?, 'm', '当前报告', 82, 'ok', '2026-07-10T14:20:00')",
+        (prompt_id,),
+    ).lastrowid
+
+    response = client.get(f"/report/{current_id}")
+
+    assert response.status_code == 200
+    assert 'class="side-nav side-nav--report-versions"' in response.text
+    assert "失败" in response.text
+    assert "82" in response.text
+    # the currently-viewed version's node carries the active-state class, matching the
+    # year-filter sidebar's .side-nav-item.active convention.
+    assert f'href="/report/{current_id}" class="side-nav-item active"' in response.text
+    assert f'href="/report/{old_failed_id}"' in response.text
