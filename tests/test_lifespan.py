@@ -48,6 +48,9 @@ async def test_startup_recovers_crashed_running_job(tmp_path, monkeypatch):
 
     # Module-reference monkeypatch (the worker calls llm.generate_commentary) so no real LLM hit.
     monkeypatch.setattr(llm_module, "generate_commentary", _fake_commentary)
+    async def _noop(): pass
+    monkeypatch.setattr(llm_module, "warm_up_client", _noop)
+    monkeypatch.setattr(llm_module, "shutdown_client", _noop)
     monkeypatch.setenv("DIARY_DB", db_path)
     monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
 
@@ -76,6 +79,10 @@ def test_startup_runs_chat_session_migration(tmp_path, monkeypatch):
     db_path = str(tmp_path / "migrate.db")
     monkeypatch.setenv("DIARY_DB", db_path)
     monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
+
+    async def _noop(): pass
+    monkeypatch.setattr(llm_module, "warm_up_client", _noop)
+    monkeypatch.setattr(llm_module, "shutdown_client", _noop)
 
     app = create_app()
     with TestClient(app) as c:

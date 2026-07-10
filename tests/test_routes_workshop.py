@@ -17,7 +17,11 @@ def _seed_entries(db):
     ]
 
 
-def test_workshop_page_shows_active_prompt_and_entry_dropdown(client):
+def test_workshop_page_shows_active_prompt_and_entry_dropdown(client, monkeypatch):
+    async def _fake_models():
+        return [("test-model", "Test Model")]
+    monkeypatch.setattr(llm_module, "list_available_models", _fake_models)
+
     db = client.app.state.db
     _seed_entries(db)
 
