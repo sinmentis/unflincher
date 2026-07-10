@@ -273,10 +273,10 @@ main:has(#chat-stream[data-streaming="1"])       #chat-send::after{
    without introducing a third hue the rest of the app doesn't already use.
    Contrast check (WCAG 2.x, computed against this file's actual color values):
    --mine (#fabd2f) as a body-text color would only be used at small/label sizes here, never as
-   large-block body text — .chat-bubble-label sits at 12px on --card (3c3836): #fabd2f on #3c3836
-   = 8.4:1, comfortably AA (and AAA) for text at any size. The bubble background itself is a
-   faint tint (rgba), so body text inside stays --ink (unchanged contrast from every other
-   .ai-card-family surface) rather than switching to yellow, which would fail AA on a light tint. */
+   large-block body text — .chat-bubble-label sits at 12px on --card (#3c3836): #fabd2f on #3c3836
+   = 6.84:1, passes AA at all sizes (4.5:1 threshold) but falls short of AAA for normal text (7:1
+   threshold). The bubble background itself is a faint tint (rgba), so body text inside stays --ink
+   (unchanged contrast from every other .ai-card-family surface) rather than switching to yellow. */
 :root{ --gb-yellow-mine: var(--gb-yellow); }
 
 .chat-bubble{
