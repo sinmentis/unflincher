@@ -2,7 +2,7 @@ def test_base_nav_switches_with_cookie(client):
     client.cookies.set("diary_lang", "ja")
     res = client.get("/")
     assert "タイムライン" in res.text
-    assert "人生レポート" in res.text
+    assert "じんせいレポート" in res.text
     assert "時間線" not in res.text  # old hardcoded Chinese must be gone
 
 

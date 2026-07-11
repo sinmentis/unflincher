@@ -27,7 +27,7 @@
     <select id="test-entry">
       {% for e in entries %}<option value="{{ e.id }}">{{ e.title }}</option>{% endfor %}
     </select>
-    <button id="run-test">Test Run</button>
+    <button id="run-test">{{ t("workshop.test_run_button") }}</button>
   </p>
   <div class="ai-card" id="preview-stream" style="display:none" aria-live="polite"></div>
 </section>

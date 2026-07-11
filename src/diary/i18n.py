@@ -19,9 +19,7 @@ SUPPORTED_LANGUAGES: list[tuple[str, str]] = [
 SUPPORTED_LANGUAGE_CODES: list[str] = [code for code, _ in SUPPORTED_LANGUAGES]
 DEFAULT_LANGUAGE = "en"
 
-TRANSLATIONS: dict[str, dict[str, str]] = {
-    "en": {
-        'nav.title': 'Diary — Grow, Improve, Enjoy Life',
+TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, Improve, Enjoy Life',
         'nav.timeline': 'Timeline',
         'nav.report': 'Life Report',
         'nav.chat': 'Chat',
@@ -91,7 +89,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'workshop.apply_section_label': 'Save / batch regenerate',
         'workshop.apply_button': 'Apply',
         'workshop.apply_all_button': 'Apply and regenerate all entries + reports',
-        'workshop.apply_hint': '"Apply" only saves this prompt/model version. "Apply and regenerate all" reruns commentary for every entry — much slower and more expensive.',
+        'workshop.apply_hint': '"Apply" only saves this prompt/model version. "Apply and regenerate all" reruns '
+                               'commentary for every entry — much slower and more expensive.',
         'workshop.apply_all_busy_alert': 'A batch job is already running, please wait for it to finish.',
         'workshop.language_label': 'Language:',
         'common.retry': 'Retry',
@@ -100,171 +99,231 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'common.send': 'Send',
         'common.busy_alert': 'A job is already running, please try again later.',
         'app_js.stream_interrupted': 'Generation interrupted',
-    },
-    "zh-Hans": {
-        'nav.title': '磨炼进步享受人生',
-        'nav.timeline': '时间线',
-        'nav.report': '综合人生报告',
-        'nav.chat': '跟AI聊聊',
-        'nav.new_entry': '写新日记',
-        'nav.workshop': 'Prompt 设置',
-        'timeline.filter_by_year_aria': '按年筛选',
-        'timeline.all_years': '全部年份',
-        'timeline.heading': '时间线',
-        'timeline.badge_generating': '点评中',
-        'timeline.badge_done': '已点评',
-        'timeline.badge_pending': '未点评',
-        'entry.toc_aria': '正文与对话跳转',
-        'entry.toc_body': '正文',
-        'entry.toc_commentary': 'AI 锐评',
-        'entry.toc_chat': '对话',
-        'entry.history_versions_label': '历史版本：',
-        'entry.version_failed_suffix': '（失败）',
-        'entry.commentary_label': 'AI 人生导师锐评',
-        'entry.no_commentary_yet': '还没有锐评。',
-        'entry.last_generation_failed': '上次生成失败',
-        'entry.run_commentary_button': 'AI 锐评',
-        'entry.chat_input_placeholder': '回复 AI 人生导师…',
-        'entry.chat_input_aria': '回复AI人生导师输入框',
-        'report.timeline_aria': '历史版本时间轴',
-        'report.failed_badge': '失败',
-        'report.heading': '综合人生报告',
-        'report.coverage': '覆盖 {count} 篇 · {range}',
-        'report.no_report_yet': '还没有生成过综合报告。',
-        'report.generate_button': '生成/重新生成报告',
-        'new_entry.heading': '写新日记',
-        'new_entry.autosave_hint': '保存后不会自动点评，可在时间线里手动触发。',
-        'new_entry.date_label': '日期：',
-        'new_entry.date_aria': '日记日期',
-        'new_entry.title_placeholder': '标题',
-        'new_entry.content_placeholder': '今天想写点什么……',
-        'new_entry.content_aria': '日记内容',
-        'new_entry.save_button': '保存日记',
-        'new_entry.draft_saved': '已保存草稿',
-        'new_entry.draft_saving': '正在保存草稿…',
-        'new_entry.save_failed_alert': '保存失败，请检查日期是否正确',
-        'chat.heading': '跟AI聊聊',
-        'chat.pick_or_new': '从左边选一个对话，或者点"+ 新对话"开始一个新的。',
-        'chat.no_conversations': '还没有任何对话，点左边"+ 新对话"开始第一次聊天。',
-        'chat.input_placeholder': '问点什么…',
-        'chat.input_aria': '跟AI聊天输入框',
-        'chat.send': '发送',
-        'chat.default_title': '新对话',
-        'chat_sidebar.aria': '对话列表',
-        'chat_sidebar.new': '+ 新对话',
-        'chat_sidebar.rename_title': '重命名',
-        'chat_sidebar.delete_title': '删除',
-        'chat_sidebar.rename_prompt': '重命名对话：',
-        'chat_sidebar.delete_confirm': '删除这个对话？不可恢复。',
-        'job.progress_summary': '完成 · {failed} 失败 · {pending} 排队中',
-        'job.item_failed': '条目 #{entry_id} 生成失败：{error}',
-        'job.item_failed_report': '综合报告生成失败：{error}',
-        'commentary_status.generating': '锐评生成中…',
-        'workshop.heading': 'Prompt 设置',
-        'workshop.persona_label': '人设 Prompt',
-        'workshop.content_placeholder': '内容',
-        'workshop.model_label': '生成用的模型：',
-        'workshop.model_load_error': '模型列表加载失败：{error}',
-        'workshop.model_select_aria': '生成用的模型',
-        'workshop.refresh_models': '刷新模型列表',
-        'workshop.preview_label': '预览 · 不会保存',
-        'workshop.test_run_label': '挑一篇日记试试上面这版草稿：',
-        'workshop.apply_section_label': '保存 / 批量重新生成',
-        'workshop.apply_button': '应用',
-        'workshop.apply_all_button': '应用并对全部历史日记+报告重新生成',
-        'workshop.apply_hint': '"应用"只保存这版 prompt 和模型；"应用并对全部历史日记+报告重新生成"会用它重新点评全部日记，成本和耗时高得多。',
-        'workshop.apply_all_busy_alert': '已经有一个批量任务在跑，请等它结束。',
-        'workshop.language_label': '语言：',
-        'common.retry': '重试',
-        'common.me': '我',
-        'common.mentor': 'AI 人生导师',
-        'common.send': '发送',
-        'common.busy_alert': '已经有任务在跑，请稍后再试',
-        'app_js.stream_interrupted': '生成中断',
-    },
-    "ja": {
-        'nav.title': '日記 — 成長し、向上し、人生を楽しむ',
+        'workshop.test_run_button': 'Test run',
+        'workshop.default_persona_prompt': 'You are the user\'s "life mentor". Read the user\'s private diary and help '
+                                           'them see recurring patterns, confusions, and goals instead of only '
+                                           'comforting or agreeing with them.\n'
+                                           '\n'
+                                           'Your default tone is gentle and restrained, like a friend who truly '
+                                           'understands and cares. But when you notice self-deception, avoidance, or '
+                                           'fear hidden behind "reasonable" excuses, say it plainly even if it feels '
+                                           'uncomfortable. Your value is helping the user see clearly, not just feel '
+                                           'good.\n'
+                                           '\n'
+                                           '- Avoid generic advice. Ground every point in concrete details from the '
+                                           'diary\n'
+                                           '- If you notice repeated patterns across other entries, point them out and '
+                                           'cite the dates\n'
+                                           '- Write naturally, like a real conversation, not a rigid template\n'
+                                           '- You do not need to end every reply with a question; only ask when it '
+                                           'genuinely helps\n'
+                                           '- Be sharp to increase clarity, never to shame the user',
+        'language.name.en': 'English',
+        'language.name.zh-Hans': 'Simplified Chinese',
+        'language.name.ja': 'Japanese',
+        'language.name.ko': 'Korean',
+        'language.name.es': 'Spanish',
+        'language.name.fr': 'French',
+        'language.name.de': 'German',
+        'language.name.ru': 'Russian',
+        'language.name.pt': 'Portuguese'},
+ 'zh-Hans': {'nav.title': '磨炼进步享受人生',
+             'nav.timeline': '时间线',
+             'nav.report': '综合人生报告',
+             'nav.chat': '跟AI聊聊',
+             'nav.new_entry': '写新日记',
+             'nav.workshop': 'Prompt 设置',
+             'timeline.filter_by_year_aria': '按年筛选',
+             'timeline.all_years': '全部年份',
+             'timeline.heading': '时间线',
+             'timeline.badge_generating': '点评中',
+             'timeline.badge_done': '已点评',
+             'timeline.badge_pending': '未点评',
+             'entry.toc_aria': '正文与对话跳转',
+             'entry.toc_body': '正文',
+             'entry.toc_commentary': 'AI 锐评',
+             'entry.toc_chat': '对话',
+             'entry.history_versions_label': '历史版本：',
+             'entry.version_failed_suffix': '（失败）',
+             'entry.commentary_label': 'AI 人生导师锐评',
+             'entry.no_commentary_yet': '还没有锐评。',
+             'entry.last_generation_failed': '上次生成失败',
+             'entry.run_commentary_button': 'AI 锐评',
+             'entry.chat_input_placeholder': '回复 AI 人生导师…',
+             'entry.chat_input_aria': '回复AI人生导师输入框',
+             'report.timeline_aria': '历史版本时间轴',
+             'report.failed_badge': '失败',
+             'report.heading': '综合人生报告',
+             'report.coverage': '覆盖 {count} 篇 · {range}',
+             'report.no_report_yet': '还没有生成过综合报告。',
+             'report.generate_button': '生成/重新生成报告',
+             'new_entry.heading': '写新日记',
+             'new_entry.autosave_hint': '保存后不会自动点评，可在时间线里手动触发。',
+             'new_entry.date_label': '日期：',
+             'new_entry.date_aria': '日记日期',
+             'new_entry.title_placeholder': '标题',
+             'new_entry.content_placeholder': '今天想写点什么……',
+             'new_entry.content_aria': '日记内容',
+             'new_entry.save_button': '保存日记',
+             'new_entry.draft_saved': '已保存草稿',
+             'new_entry.draft_saving': '正在保存草稿…',
+             'new_entry.save_failed_alert': '保存失败，请检查日期是否正确',
+             'chat.heading': '跟AI聊聊',
+             'chat.pick_or_new': '从左边选一个对话，或者点"+ 新对话"开始一个新的。',
+             'chat.no_conversations': '还没有任何对话，点左边"+ 新对话"开始第一次聊天。',
+             'chat.input_placeholder': '问点什么…',
+             'chat.input_aria': '跟AI聊天输入框',
+             'chat.send': '发送',
+             'chat.default_title': '新对话',
+             'chat_sidebar.aria': '对话列表',
+             'chat_sidebar.new': '+ 新对话',
+             'chat_sidebar.rename_title': '重命名',
+             'chat_sidebar.delete_title': '删除',
+             'chat_sidebar.rename_prompt': '重命名对话：',
+             'chat_sidebar.delete_confirm': '删除这个对话？不可恢复。',
+             'job.progress_summary': '完成 · {failed} 失败 · {pending} 排队中',
+             'job.item_failed': '条目 #{entry_id} 生成失败：{error}',
+             'job.item_failed_report': '综合报告生成失败：{error}',
+             'commentary_status.generating': '锐评生成中…',
+             'workshop.heading': 'Prompt 设置',
+             'workshop.persona_label': '人设 Prompt',
+             'workshop.content_placeholder': '内容',
+             'workshop.model_label': '生成用的模型：',
+             'workshop.model_load_error': '模型列表加载失败：{error}',
+             'workshop.model_select_aria': '生成用的模型',
+             'workshop.refresh_models': '刷新模型列表',
+             'workshop.preview_label': '预览 · 不会保存',
+             'workshop.test_run_label': '挑一篇日记试试上面这版草稿：',
+             'workshop.apply_section_label': '保存 / 批量重新生成',
+             'workshop.apply_button': '应用',
+             'workshop.apply_all_button': '应用并对全部历史日记+报告重新生成',
+             'workshop.apply_hint': '"应用"只保存这版 prompt 和模型；"应用并对全部历史日记+报告重新生成"会用它重新点评全部日记，成本和耗时高得多。',
+             'workshop.apply_all_busy_alert': '已经有一个批量任务在跑，请等它结束。',
+             'workshop.language_label': '语言：',
+             'common.retry': '重试',
+             'common.me': '我',
+             'common.mentor': 'AI 人生导师',
+             'common.send': '发送',
+             'common.busy_alert': '已经有任务在跑，请稍后再试',
+             'app_js.stream_interrupted': '生成中断',
+             'workshop.test_run_button': '试跑',
+             'workshop.default_persona_prompt': '你是用户的"人生导师"。你的任务是读用户的私人日记，帮TA看清自己的人生、反复出现的困惑和目标——而不是单纯地安慰或附和。\n'
+                                                '\n'
+                                                '你的语气默认温和克制，像一个真正了解TA、心疼TA的朋友；但当你从日记里察觉到自我欺骗、逃避，或者TA在用"看似合理的理由"包装自己真正害怕的东西时，直接说出来，哪怕会让TA不舒服。你的价值不在于让TA感觉良好，而在于让TA真的看清楚。\n'
+                                                '\n'
+                                                '- 不说空洞、放之四海而皆准的话，每句话都要扎根在TA写的具体内容里\n'
+                                                '- 如果看到其他日记里反复出现的模式（同样的纠结、同样的借口、同样的循环），直接指出来，并引用是哪个时间点写的\n'
+                                                '- 不套用固定结构，像朋友聊天一样自然行文即可\n'
+                                                '- 不需要每次都以提问收尾，只在你真心觉得有必要追问时才问\n'
+                                                '- 犀利是为了让TA清醒，不是为了羞辱TA',
+             'language.name.en': '英语',
+             'language.name.zh-Hans': '简体中文',
+             'language.name.ja': '日语',
+             'language.name.ko': '韩语',
+             'language.name.es': '西班牙语',
+             'language.name.fr': '法语',
+             'language.name.de': '德语',
+             'language.name.ru': '俄语',
+             'language.name.pt': '葡萄牙语'},
+ 'ja': {'nav.title': 'にっき — せいちょうして、こうじょうして、じんせいをたのしむ',
         'nav.timeline': 'タイムライン',
-        'nav.report': '人生レポート',
+        'nav.report': 'じんせいレポート',
         'nav.chat': 'チャット',
-        'nav.new_entry': '新規日記',
-        'nav.workshop': 'プロンプト設定',
-        'timeline.filter_by_year_aria': '年で絞り込む',
-        'timeline.all_years': 'すべての年',
+        'nav.new_entry': 'しんきにっき',
+        'nav.workshop': 'プロンプトせってい',
+        'timeline.filter_by_year_aria': 'ねんでしぼりこむ',
+        'timeline.all_years': 'すべてのねん',
         'timeline.heading': 'タイムライン',
-        'timeline.badge_generating': '生成中',
-        'timeline.badge_done': '講評済み',
-        'timeline.badge_pending': '未講評',
-        'entry.toc_aria': '本文・チャットへ移動',
-        'entry.toc_body': '本文',
-        'entry.toc_commentary': 'AI講評',
+        'timeline.badge_generating': 'せいせいちゅう',
+        'timeline.badge_done': 'こうひょうずみ',
+        'timeline.badge_pending': 'みこうひょう',
+        'entry.toc_aria': 'ほんぶん・チャットへいどう',
+        'entry.toc_body': 'ほんぶん',
+        'entry.toc_commentary': 'AIこうひょう',
         'entry.toc_chat': 'チャット',
-        'entry.history_versions_label': '履歴バージョン：',
-        'entry.version_failed_suffix': '（失敗）',
-        'entry.commentary_label': 'AIメンターの講評',
-        'entry.no_commentary_yet': 'まだ講評はありません。',
-        'entry.last_generation_failed': '前回の生成に失敗しました',
-        'entry.run_commentary_button': 'AI講評を実行',
-        'entry.chat_input_placeholder': 'AIメンターに返信…',
-        'entry.chat_input_aria': 'AIメンターへの返信入力欄',
-        'report.timeline_aria': 'レポートのバージョン履歴',
-        'report.failed_badge': '失敗',
-        'report.heading': '人生レポート',
-        'report.coverage': '{count} 件をカバー · {range}',
-        'report.no_report_yet': 'まだレポートは生成されていません。',
-        'report.generate_button': 'レポートを生成／再生成',
-        'new_entry.heading': '新規日記',
-        'new_entry.autosave_hint': '保存しても自動では講評されません。タイムラインから手動で実行してください。',
-        'new_entry.date_label': '日付：',
-        'new_entry.date_aria': '日記の日付',
+        'entry.history_versions_label': 'りれきバージョン:',
+        'entry.version_failed_suffix': ' (しっぱい)',
+        'entry.commentary_label': 'AIメンターのこうひょう',
+        'entry.no_commentary_yet': 'まだこうひょうはありません。',
+        'entry.last_generation_failed': 'まえのせいせいにしっぱいしました',
+        'entry.run_commentary_button': 'AIこうひょうをじっこう',
+        'entry.chat_input_placeholder': 'AIメンターにへんしん…',
+        'entry.chat_input_aria': 'AIメンターへのへんしんにゅうりょく',
+        'report.timeline_aria': 'レポートのバージョンりれき',
+        'report.failed_badge': 'しっぱい',
+        'report.heading': 'じんせいレポート',
+        'report.coverage': '{count}けんをカバー · {range}',
+        'report.no_report_yet': 'まだレポートはせいせいされていません。',
+        'report.generate_button': 'レポートをせいせい / さいせいせい',
+        'new_entry.heading': 'しんきにっき',
+        'new_entry.autosave_hint': 'ほぞんしてもじどうではこうひょうされません。タイムラインからてどうでじっこうしてください。',
+        'new_entry.date_label': 'ひづけ:',
+        'new_entry.date_aria': 'にっきのひづけ',
         'new_entry.title_placeholder': 'タイトル',
-        'new_entry.content_placeholder': '今日は何を書きますか……',
-        'new_entry.content_aria': '日記の内容',
-        'new_entry.save_button': '日記を保存',
-        'new_entry.draft_saved': '下書きを保存しました',
-        'new_entry.draft_saving': '下書きを保存中…',
-        'new_entry.save_failed_alert': '保存に失敗しました。日付を確認してください',
+        'new_entry.content_placeholder': 'きょうはなにをかきますか……',
+        'new_entry.content_aria': 'にっきのないよう',
+        'new_entry.save_button': 'にっきをほぞん',
+        'new_entry.draft_saved': 'したがきをほぞんしました',
+        'new_entry.draft_saving': 'したがきをほぞんちゅう…',
+        'new_entry.save_failed_alert': 'ほぞんにしっぱいしました。ひづけをかくにんしてください',
         'chat.heading': 'チャット',
-        'chat.pick_or_new': '左側で会話を選ぶか、「+ 新規」をクリックして始めてください。',
-        'chat.no_conversations': 'まだ会話がありません。左側の「+ 新規」から最初のチャットを始めましょう。',
-        'chat.input_placeholder': '何でも聞いてください…',
-        'chat.input_aria': 'AIとのチャット入力欄',
-        'chat.send': '送信',
-        'chat.default_title': '新しい会話',
-        'chat_sidebar.aria': '会話一覧',
-        'chat_sidebar.new': '+ 新規',
-        'chat_sidebar.rename_title': '名前を変更',
-        'chat_sidebar.delete_title': '削除',
-        'chat_sidebar.rename_prompt': '会話の名前を変更：',
-        'chat_sidebar.delete_confirm': 'この会話を削除しますか？元に戻せません。',
-        'job.progress_summary': '完了 · 失敗 {failed} · 待機 {pending}',
-        'job.item_failed': 'エントリー #{entry_id} の生成に失敗：{error}',
-        'job.item_failed_report': 'レポート生成に失敗：{error}',
-        'commentary_status.generating': '講評を生成中…',
-        'workshop.heading': 'プロンプト設定',
+        'chat.pick_or_new': 'ひだりがわでかいわをえらぶか、「+ しんき」をクリックしてはじめてください。',
+        'chat.no_conversations': 'まだかいわがありません。ひだりがわの「+ しんき」からさいしょのチャットをはじめましょう。',
+        'chat.input_placeholder': 'なんでもきいてください…',
+        'chat.input_aria': 'AIとのチャットにゅうりょく',
+        'chat.send': 'そうしん',
+        'chat.default_title': 'あたらしいかいわ',
+        'chat_sidebar.aria': 'かいわいちらん',
+        'chat_sidebar.new': '+ しんき',
+        'chat_sidebar.rename_title': 'なまえをへんこう',
+        'chat_sidebar.delete_title': 'さくじょ',
+        'chat_sidebar.rename_prompt': 'かいわのなまえをへんこう:',
+        'chat_sidebar.delete_confirm': 'このかいわをさくじょしますか? もとにもどせません。',
+        'job.progress_summary': 'かんりょう · しっぱい {failed} · たいき {pending}',
+        'job.item_failed': 'エントリー #{entry_id} のせいせいにしっぱい: {error}',
+        'job.item_failed_report': 'レポートせいせいにしっぱい: {error}',
+        'commentary_status.generating': 'こうひょうをせいせいちゅう…',
+        'workshop.heading': 'プロンプトせってい',
         'workshop.persona_label': 'ペルソナプロンプト',
-        'workshop.content_placeholder': '内容',
-        'workshop.model_label': '生成モデル：',
-        'workshop.model_load_error': 'モデル一覧の読み込みに失敗：{error}',
-        'workshop.model_select_aria': '生成モデル',
-        'workshop.refresh_models': 'モデル一覧を更新',
-        'workshop.preview_label': 'プレビュー · 保存されません',
-        'workshop.test_run_label': 'この下書きを1件の日記で試す：',
-        'workshop.apply_section_label': '保存 / 一括再生成',
-        'workshop.apply_button': '適用',
-        'workshop.apply_all_button': '適用して全日記・レポートを再生成',
-        'workshop.apply_hint': '「適用」はこのプロンプトとモデルを保存するだけです。「適用して全て再生成」は全日記を再講評するため、時間もコストもはるかにかかります。',
-        'workshop.apply_all_busy_alert': 'すでに一括処理が実行中です。終了までお待ちください。',
-        'workshop.language_label': '言語：',
-        'common.retry': '再試行',
-        'common.me': '自分',
+        'workshop.content_placeholder': 'ないよう',
+        'workshop.model_label': 'せいせいモデル:',
+        'workshop.model_load_error': 'モデルいちらんのよみこみにしっぱい: {error}',
+        'workshop.model_select_aria': 'せいせいモデル',
+        'workshop.refresh_models': 'モデルいちらんをこうしん',
+        'workshop.preview_label': 'プレビュー · ほぞんされません',
+        'workshop.test_run_label': 'このしたがきを1けんのにっきでためす:',
+        'workshop.apply_section_label': 'ほぞん / いっかつさいせいせい',
+        'workshop.apply_button': 'てきよう',
+        'workshop.apply_all_button': 'てきようしてすべてのにっき・レポートをさいせいせい',
+        'workshop.apply_hint': '「てきよう」はこのプロンプトとモデルをほぞんするだけです。「てきようしてすべてさいせいせい」はすべてのにっきをさいこうひょうするため、じかんもコストもずっとおおきくなります。',
+        'workshop.apply_all_busy_alert': 'すでにいっかつしょりがじっこうちゅうです。おわるまでまってください。',
+        'workshop.language_label': 'げんご:',
+        'common.retry': 'さいしこう',
+        'common.me': 'じぶん',
         'common.mentor': 'AIメンター',
-        'common.send': '送信',
-        'common.busy_alert': 'すでにタスクが実行中です。しばらくしてから再試行してください',
-        'app_js.stream_interrupted': '生成が中断されました',
-    },
-    "ko": {
-        'nav.title': '일기 — 성장하고, 발전하고, 인생을 즐기다',
+        'common.send': 'そうしん',
+        'common.busy_alert': 'すでにタスクがじっこうちゅうです。しばらくしてからさいしこうしてください',
+        'app_js.stream_interrupted': 'せいせいがちゅうだんされました',
+        'workshop.test_run_button': 'ためす',
+        'workshop.default_persona_prompt': 'あなたはユーザーの「ライフメンター」です。ユーザーのひみつのにっきをよみ、くりかえしあらわれるなやみやもくひょうをみえるようにし、ただなぐさめたりあわせたりするだけにはしないでください。\n'
+                                           '\n'
+                                           'きほんのトーンはやさしくおちついていて、ほんとうにりかいしてくれるともだちのようでいてください。ですが、じこまかし、にげ、あるいは「もっともらしいりゆう」のうらにあるこわさがみえたら、ここちよくなくてもはっきりつたえてください。たいせつなのは、きぶんをよくすることより、はっきりみえるようにすることです。\n'
+                                           '\n'
+                                           '- ありきたりなことばはさけ、かならずにっきのぐたいてきなないようにねざしてください\n'
+                                           '- ほかのにっきにもくりかえしのパターンがあれば、ひづけをそえてゆびさしてください\n'
+                                           '- ぶんしょうはかたいテンプレートではなく、しぜんなかいわのようにしてください\n'
+                                           '- まいかいさいごをしつもんでおえるひつようはありません。ほんとうにひつようなときだけきいてください\n'
+                                           '- するどさははっきりみえるようにするためで、はじをかかせるためではありません',
+        'language.name.en': 'えいご',
+        'language.name.zh-Hans': 'かんたいちゅうごくご',
+        'language.name.ja': 'にほんご',
+        'language.name.ko': 'かんこくご',
+        'language.name.es': 'スペインご',
+        'language.name.fr': 'フランスご',
+        'language.name.de': 'ドイツご',
+        'language.name.ru': 'ロシアご',
+        'language.name.pt': 'ポルトガルご'},
+ 'ko': {'nav.title': '일기 — 성장하고, 발전하고, 인생을 즐기다',
         'nav.timeline': '타임라인',
         'nav.report': '인생 리포트',
         'nav.chat': 'AI와 대화',
@@ -343,9 +402,29 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'common.send': '보내기',
         'common.busy_alert': '이미 작업이 실행 중입니다. 잠시 후 다시 시도해 주세요',
         'app_js.stream_interrupted': '생성이 중단되었습니다',
-    },
-    "es": {
-        'nav.title': 'Diario — Crecer, mejorar, disfrutar la vida',
+        'workshop.test_run_button': '테스트 실행',
+        'workshop.default_persona_prompt': '당신은 사용자의 "라이프 멘토"입니다. 사용자의 개인 일기를 읽고 반복되는 패턴, 혼란, 목표를 보게 도와주세요. 단순히 위로하거나 '
+                                           '맞장구만 치지 마세요.\n'
+                                           '\n'
+                                           '기본 톤은 다정하고 절제되어, 정말 이해하고 아껴 주는 친구 같아야 합니다. 하지만 자기기만, 회피, 또는 "그럴듯한 이유" 뒤에 '
+                                           '숨은 두려움이 보이면 불편하더라도 분명하게 말하세요. 당신의 가치는 기분만 좋게 만드는 데 있지 않고, 더 분명히 보게 만드는 데 '
+                                           '있습니다.\n'
+                                           '\n'
+                                           '- 공허한 조언은 피하고, 모든 포인트를 일기의 구체적인 내용에 붙이세요\n'
+                                           '- 다른 일기에도 반복되는 패턴이 보이면 날짜를 인용해 짚어 주세요\n'
+                                           '- 딱딱한 템플릿보다 자연스러운 대화처럼 쓰세요\n'
+                                           '- 매번 질문으로 끝낼 필요는 없습니다. 정말 도움이 될 때만 물어보세요\n'
+                                           '- 날카로움은 더 또렷하게 보게 하기 위한 것이지, 부끄럽게 만들기 위한 것이 아닙니다',
+        'language.name.en': '영어',
+        'language.name.zh-Hans': '중국어(간체)',
+        'language.name.ja': '일본어',
+        'language.name.ko': '한국어',
+        'language.name.es': '스페인어',
+        'language.name.fr': '프랑스어',
+        'language.name.de': '독일어',
+        'language.name.ru': '러시아어',
+        'language.name.pt': '포르투갈어'},
+ 'es': {'nav.title': 'Diario — Crecer, mejorar, disfrutar la vida',
         'nav.timeline': 'Cronología',
         'nav.report': 'Informe de vida',
         'nav.chat': 'Chat',
@@ -376,7 +455,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'report.no_report_yet': 'Todavía no se ha generado ningún informe.',
         'report.generate_button': 'Generar / regenerar informe',
         'new_entry.heading': 'Nueva entrada',
-        'new_entry.autosave_hint': 'No se comentará automáticamente al guardar; actívalo manualmente desde la cronología.',
+        'new_entry.autosave_hint': 'No se comentará automáticamente al guardar; actívalo manualmente desde la '
+                                   'cronología.',
         'new_entry.date_label': 'Fecha:',
         'new_entry.date_aria': 'Fecha de la entrada',
         'new_entry.title_placeholder': 'Título',
@@ -415,7 +495,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'workshop.apply_section_label': 'Guardar / regenerar en lote',
         'workshop.apply_button': 'Aplicar',
         'workshop.apply_all_button': 'Aplicar y regenerar todas las entradas e informes',
-        'workshop.apply_hint': '"Aplicar" solo guarda esta versión del prompt y el modelo. "Aplicar y regenerar todo" vuelve a comentar todas las entradas, lo que es mucho más lento y costoso.',
+        'workshop.apply_hint': '"Aplicar" solo guarda esta versión del prompt y el modelo. "Aplicar y regenerar todo" '
+                               'vuelve a comentar todas las entradas, lo que es mucho más lento y costoso.',
         'workshop.apply_all_busy_alert': 'Ya hay un trabajo en lote en curso, espera a que termine.',
         'workshop.language_label': 'Idioma:',
         'common.retry': 'Reintentar',
@@ -424,9 +505,36 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'common.send': 'Enviar',
         'common.busy_alert': 'Ya hay una tarea en curso, inténtalo de nuevo más tarde',
         'app_js.stream_interrupted': 'Generación interrumpida',
-    },
-    "fr": {
-        'nav.title': 'Journal — Grandir, progresser, profiter de la vie',
+        'workshop.test_run_button': 'Probar',
+        'workshop.default_persona_prompt': 'Eres el "mentor de vida" del usuario. Lee su diario privado y ayúdale a '
+                                           'ver patrones repetidos, confusiones y metas, en vez de limitarte a '
+                                           'consolarle o darle la razón.\n'
+                                           '\n'
+                                           'Tu tono por defecto debe ser amable y sobrio, como el de una amistad que '
+                                           'de verdad comprende y se preocupa. Pero si detectas autoengaño, evasión o '
+                                           'miedo escondido detrás de excusas "razonables", dilo con claridad aunque '
+                                           'incomode. Tu valor está en ayudar a ver con claridad, no solo en hacer '
+                                           'sentir bien.\n'
+                                           '\n'
+                                           '- Evita los consejos vacíos; apoya cada idea en detalles concretos del '
+                                           'diario\n'
+                                           '- Si ves patrones repetidos en otras entradas, señálalos y cita las '
+                                           'fechas\n'
+                                           '- Escribe con naturalidad, como una conversación real, no como una '
+                                           'plantilla rígida\n'
+                                           '- No hace falta terminar cada respuesta con una pregunta; hazlo solo '
+                                           'cuando de verdad ayude\n'
+                                           '- Sé incisivo para dar claridad, nunca para avergonzar',
+        'language.name.en': 'inglés',
+        'language.name.zh-Hans': 'chino simplificado',
+        'language.name.ja': 'japonés',
+        'language.name.ko': 'coreano',
+        'language.name.es': 'español',
+        'language.name.fr': 'francés',
+        'language.name.de': 'alemán',
+        'language.name.ru': 'ruso',
+        'language.name.pt': 'portugués'},
+ 'fr': {'nav.title': 'Journal — Grandir, progresser, profiter de la vie',
         'nav.timeline': 'Chronologie',
         'nav.report': 'Rapport de vie',
         'nav.chat': 'Discussion',
@@ -457,7 +565,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'report.no_report_yet': 'Aucun rapport généré pour le moment.',
         'report.generate_button': 'Générer / régénérer le rapport',
         'new_entry.heading': 'Nouvelle entrée',
-        'new_entry.autosave_hint': "Aucun commentaire automatique après l'enregistrement : déclenchez-le manuellement depuis la chronologie.",
+        'new_entry.autosave_hint': "Aucun commentaire automatique après l'enregistrement : déclenchez-le manuellement "
+                                   'depuis la chronologie.',
         'new_entry.date_label': 'Date :',
         'new_entry.date_aria': "Date de l'entrée",
         'new_entry.title_placeholder': 'Titre',
@@ -469,7 +578,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'new_entry.save_failed_alert': "Échec de l'enregistrement, vérifiez la date",
         'chat.heading': 'Discussion',
         'chat.pick_or_new': 'Choisissez une conversation à gauche, ou cliquez sur "+ Nouvelle" pour en démarrer une.',
-        'chat.no_conversations': 'Aucune conversation pour l\'instant : cliquez sur "+ Nouvelle" à gauche pour commencer.',
+        'chat.no_conversations': 'Aucune conversation pour l\'instant : cliquez sur "+ Nouvelle" à gauche pour '
+                                 'commencer.',
         'chat.input_placeholder': 'Posez-moi une question…',
         'chat.input_aria': "Champ de discussion avec l'IA",
         'chat.send': 'Envoyer',
@@ -496,7 +606,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'workshop.apply_section_label': 'Enregistrer / régénérer en masse',
         'workshop.apply_button': 'Appliquer',
         'workshop.apply_all_button': 'Appliquer et régénérer toutes les entrées et rapports',
-        'workshop.apply_hint': '« Appliquer » enregistre uniquement ce prompt et ce modèle. « Appliquer et tout régénérer » recommente toutes les entrées : bien plus long et coûteux.',
+        'workshop.apply_hint': '« Appliquer » enregistre uniquement ce prompt et ce modèle. « Appliquer et tout '
+                               'régénérer » recommente toutes les entrées : bien plus long et coûteux.',
         'workshop.apply_all_busy_alert': "Une tâche en masse est déjà en cours, veuillez attendre qu'elle se termine.",
         'workshop.language_label': 'Langue :',
         'common.retry': 'Réessayer',
@@ -505,9 +616,36 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'common.send': 'Envoyer',
         'common.busy_alert': 'Une tâche est déjà en cours, réessayez plus tard',
         'app_js.stream_interrupted': 'Génération interrompue',
-    },
-    "de": {
-        'nav.title': 'Tagebuch — Wachsen, sich verbessern, das Leben genießen',
+        'workshop.test_run_button': 'Tester',
+        'workshop.default_persona_prompt': 'Tu es le "mentor de vie" de l\'utilisateur. Lis son journal privé et '
+                                           'aide-le à voir les schémas qui reviennent, ses confusions et ses '
+                                           "objectifs, au lieu de simplement le réconforter ou d'aller dans son sens.\n"
+                                           '\n'
+                                           "Ton ton par défaut doit être doux et retenu, comme celui d'un ami qui "
+                                           'comprend vraiment et qui tient à lui. Mais si tu repères de '
+                                           "l'auto-illusion, de l'évitement ou une peur cachée derrière des excuses "
+                                           '"raisonnables", dis-le clairement même si c\'est inconfortable. Ta valeur '
+                                           "est d'aider à voir clair, pas seulement à faire du bien.\n"
+                                           '\n'
+                                           '- Évite les conseils creux ; ancre chaque point dans des détails concrets '
+                                           'du journal\n'
+                                           "- Si tu vois des schémas répétés dans d'autres entrées, signale-les et "
+                                           'cite les dates\n'
+                                           '- Écris naturellement, comme une vraie conversation, pas comme un modèle '
+                                           'rigide\n'
+                                           "- Tu n'as pas besoin de finir chaque réponse par une question ; fais-le "
+                                           'seulement quand cela aide vraiment\n'
+                                           '- Sois incisif pour apporter de la clarté, jamais pour humilier',
+        'language.name.en': 'anglais',
+        'language.name.zh-Hans': 'chinois simplifié',
+        'language.name.ja': 'japonais',
+        'language.name.ko': 'coréen',
+        'language.name.es': 'espagnol',
+        'language.name.fr': 'français',
+        'language.name.de': 'allemand',
+        'language.name.ru': 'russe',
+        'language.name.pt': 'portugais'},
+ 'de': {'nav.title': 'Tagebuch — Wachsen, sich verbessern, das Leben genießen',
         'nav.timeline': 'Zeitleiste',
         'nav.report': 'Lebensbericht',
         'nav.chat': 'Chat',
@@ -538,7 +676,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'report.no_report_yet': 'Es wurde noch kein Bericht erstellt.',
         'report.generate_button': 'Bericht erstellen / neu erstellen',
         'new_entry.heading': 'Neuer Eintrag',
-        'new_entry.autosave_hint': 'Wird nach dem Speichern nicht automatisch kommentiert – in der Zeitleiste manuell auslösen.',
+        'new_entry.autosave_hint': 'Wird nach dem Speichern nicht automatisch kommentiert – in der Zeitleiste manuell '
+                                   'auslösen.',
         'new_entry.date_label': 'Datum:',
         'new_entry.date_aria': 'Datum des Eintrags',
         'new_entry.title_placeholder': 'Titel',
@@ -577,7 +716,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'workshop.apply_section_label': 'Speichern / Stapel neu generieren',
         'workshop.apply_button': 'Anwenden',
         'workshop.apply_all_button': 'Anwenden und alle Einträge + Berichte neu generieren',
-        'workshop.apply_hint': '„Anwenden“ speichert nur diesen Prompt und dieses Modell. „Anwenden und alles neu generieren“ kommentiert alle Einträge neu – deutlich langsamer und teurer.',
+        'workshop.apply_hint': '„Anwenden“ speichert nur diesen Prompt und dieses Modell. „Anwenden und alles neu '
+                               'generieren“ kommentiert alle Einträge neu – deutlich langsamer und teurer.',
         'workshop.apply_all_busy_alert': 'Es läuft bereits ein Stapel-Job, bitte warte, bis er fertig ist.',
         'workshop.language_label': 'Sprache:',
         'common.retry': 'Erneut versuchen',
@@ -586,9 +726,36 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'common.send': 'Senden',
         'common.busy_alert': 'Es läuft bereits ein Job, bitte später erneut versuchen',
         'app_js.stream_interrupted': 'Generierung unterbrochen',
-    },
-    "ru": {
-        'nav.title': 'Дневник — расти, развивайся, наслаждайся жизнью',
+        'workshop.test_run_button': 'Testen',
+        'workshop.default_persona_prompt': 'Du bist der "Lebensmentor" des Nutzers. Lies sein privates Tagebuch und '
+                                           'hilf ihm, wiederkehrende Muster, Verwirrungen und Ziele zu erkennen, statt '
+                                           'ihn nur zu trösten oder ihm zuzustimmen.\n'
+                                           '\n'
+                                           'Dein Grundton soll freundlich und zurückhaltend sein, wie ein Freund, der '
+                                           'wirklich versteht und mitfühlt. Wenn du aber Selbsttäuschung, Vermeidung '
+                                           'oder Angst hinter "vernünftigen" Ausreden bemerkst, sprich es klar aus, '
+                                           'auch wenn es unangenehm ist. Dein Wert liegt darin, Klarheit zu schaffen, '
+                                           'nicht nur ein gutes Gefühl.\n'
+                                           '\n'
+                                           '- Vermeide leere Ratschläge; verankere jeden Punkt in konkreten Details '
+                                           'aus dem Tagebuch\n'
+                                           '- Wenn du wiederkehrende Muster in anderen Einträgen siehst, benenne sie '
+                                           'und nenne die Daten\n'
+                                           '- Schreibe natürlich, wie in einem echten Gespräch, nicht wie in einer '
+                                           'starren Vorlage\n'
+                                           '- Du musst nicht jede Antwort mit einer Frage beenden; frage nur, wenn es '
+                                           'wirklich hilft\n'
+                                           '- Sei scharf, um Klarheit zu schaffen, niemals um den Nutzer zu beschämen',
+        'language.name.en': 'Englisch',
+        'language.name.zh-Hans': 'vereinfachtes Chinesisch',
+        'language.name.ja': 'Japanisch',
+        'language.name.ko': 'Koreanisch',
+        'language.name.es': 'Spanisch',
+        'language.name.fr': 'Französisch',
+        'language.name.de': 'Deutsch',
+        'language.name.ru': 'Russisch',
+        'language.name.pt': 'Portugiesisch'},
+ 'ru': {'nav.title': 'Дневник — расти, развивайся, наслаждайся жизнью',
         'nav.timeline': 'Хронология',
         'nav.report': 'Отчёт о жизни',
         'nav.chat': 'Чат',
@@ -619,7 +786,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'report.no_report_yet': 'Отчёт ещё не создан.',
         'report.generate_button': 'Создать / пересоздать отчёт',
         'new_entry.heading': 'Новая запись',
-        'new_entry.autosave_hint': 'После сохранения комментарий не создаётся автоматически — запустите вручную на хронологии.',
+        'new_entry.autosave_hint': 'После сохранения комментарий не создаётся автоматически — запустите вручную на '
+                                   'хронологии.',
         'new_entry.date_label': 'Дата:',
         'new_entry.date_aria': 'Дата записи',
         'new_entry.title_placeholder': 'Заголовок',
@@ -658,7 +826,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'workshop.apply_section_label': 'Сохранить / массово пересоздать',
         'workshop.apply_button': 'Применить',
         'workshop.apply_all_button': 'Применить и пересоздать все записи и отчёты',
-        'workshop.apply_hint': '«Применить» сохраняет только этот промпт и модель. «Применить и пересоздать всё» заново комментирует все записи — значительно дольше и дороже.',
+        'workshop.apply_hint': '«Применить» сохраняет только этот промпт и модель. «Применить и пересоздать всё» '
+                               'заново комментирует все записи — значительно дольше и дороже.',
         'workshop.apply_all_busy_alert': 'Массовая задача уже выполняется, дождитесь её завершения.',
         'workshop.language_label': 'Язык:',
         'common.retry': 'Повторить',
@@ -667,9 +836,35 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'common.send': 'Отправить',
         'common.busy_alert': 'Задача уже выполняется, повторите попытку позже',
         'app_js.stream_interrupted': 'Генерация прервана',
-    },
-    "pt": {
-        'nav.title': 'Diário — crescer, melhorar, aproveitar a vida',
+        'workshop.test_run_button': 'Проверить',
+        'workshop.default_persona_prompt': 'Ты "наставник по жизни" для пользователя. Читай его личный дневник и '
+                                           'помогай увидеть повторяющиеся паттерны, запутанности и цели, а не просто '
+                                           'утешай или соглашайся.\n'
+                                           '\n'
+                                           'Твой обычный тон должен быть мягким и сдержанным, как у друга, который '
+                                           'правда понимает и заботится. Но если ты замечаешь самообман, избегание или '
+                                           'страх, спрятанный за "разумными" оправданиями, говори об этом прямо, даже '
+                                           'если это неприятно. Твоя ценность в ясности, а не только в том, чтобы '
+                                           'человеку стало легче.\n'
+                                           '\n'
+                                           '- Избегай пустых советов; опирай каждый вывод на конкретные детали из '
+                                           'дневника\n'
+                                           '- Если видишь повторяющиеся паттерны в других записях, укажи на них и '
+                                           'назови даты\n'
+                                           '- Пиши естественно, как в настоящем разговоре, а не по жёсткому шаблону\n'
+                                           '- Не нужно заканчивать каждый ответ вопросом; спрашивай только тогда, '
+                                           'когда это действительно помогает\n'
+                                           '- Будь острым ради ясности, а не ради унижения пользователя',
+        'language.name.en': 'английский',
+        'language.name.zh-Hans': 'упрощённый китайский',
+        'language.name.ja': 'японский',
+        'language.name.ko': 'корейский',
+        'language.name.es': 'испанский',
+        'language.name.fr': 'французский',
+        'language.name.de': 'немецкий',
+        'language.name.ru': 'русский',
+        'language.name.pt': 'португальский'},
+ 'pt': {'nav.title': 'Diário — crescer, melhorar, aproveitar a vida',
         'nav.timeline': 'Linha do tempo',
         'nav.report': 'Relatório de vida',
         'nav.chat': 'Conversa',
@@ -700,7 +895,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'report.no_report_yet': 'Ainda não foi gerado nenhum relatório.',
         'report.generate_button': 'Gerar / regenerar relatório',
         'new_entry.heading': 'Nova entrada',
-        'new_entry.autosave_hint': 'Não será comentado automaticamente após salvar; acione manualmente na linha do tempo.',
+        'new_entry.autosave_hint': 'Não será comentado automaticamente após salvar; acione manualmente na linha do '
+                                   'tempo.',
         'new_entry.date_label': 'Data:',
         'new_entry.date_aria': 'Data da entrada',
         'new_entry.title_placeholder': 'Título',
@@ -739,7 +935,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'workshop.apply_section_label': 'Salvar / regenerar em lote',
         'workshop.apply_button': 'Aplicar',
         'workshop.apply_all_button': 'Aplicar e regenerar todas as entradas e relatórios',
-        'workshop.apply_hint': '"Aplicar" apenas salva este prompt e modelo. "Aplicar e regenerar tudo" recomenta todas as entradas — muito mais lento e caro.',
+        'workshop.apply_hint': '"Aplicar" apenas salva este prompt e modelo. "Aplicar e regenerar tudo" recomenta '
+                               'todas as entradas — muito mais lento e caro.',
         'workshop.apply_all_busy_alert': 'Já existe um job em lote em execução, aguarde terminar.',
         'workshop.language_label': 'Idioma:',
         'common.retry': 'Tentar novamente',
@@ -748,8 +945,35 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'common.send': 'Enviar',
         'common.busy_alert': 'Já existe uma tarefa em execução, tente novamente mais tarde',
         'app_js.stream_interrupted': 'Geração interrompida',
-    },
-}
+        'workshop.test_run_button': 'Testar',
+        'workshop.default_persona_prompt': 'Você é o "mentor de vida" do usuário. Leia o diário privado dele e ajude-o '
+                                           'a enxergar padrões recorrentes, confusões e objetivos, em vez de apenas '
+                                           'consolar ou concordar.\n'
+                                           '\n'
+                                           'Seu tom padrão deve ser gentil e contido, como o de um amigo que realmente '
+                                           'entende e se importa. Mas, se você notar autoengano, evasão ou medo '
+                                           'escondido atrás de desculpas "razoáveis", diga isso com clareza mesmo que '
+                                           'seja desconfortável. Seu valor está em ajudar a ver com nitidez, não '
+                                           'apenas em fazer a pessoa se sentir bem.\n'
+                                           '\n'
+                                           '- Evite conselhos vazios; prenda cada ponto a detalhes concretos do '
+                                           'diário\n'
+                                           '- Se notar padrões repetidos em outras entradas, aponte-os e cite as '
+                                           'datas\n'
+                                           '- Escreva com naturalidade, como uma conversa real, não como um modelo '
+                                           'rígido\n'
+                                           '- Você não precisa terminar toda resposta com uma pergunta; faça isso só '
+                                           'quando realmente ajudar\n'
+                                           '- Seja incisivo para trazer clareza, nunca para envergonhar o usuário',
+        'language.name.en': 'inglês',
+        'language.name.zh-Hans': 'chinês simplificado',
+        'language.name.ja': 'japonês',
+        'language.name.ko': 'coreano',
+        'language.name.es': 'espanhol',
+        'language.name.fr': 'francês',
+        'language.name.de': 'alemão',
+        'language.name.ru': 'russo',
+        'language.name.pt': 'português'}}
 
 def _assert_translation_key_parity() -> None:
     """Runs once at import time (not per-request): every language dict must have exactly the

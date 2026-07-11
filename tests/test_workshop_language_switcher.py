@@ -1,10 +1,11 @@
 def test_workshop_renders_language_select_with_all_supported_languages(client):
-    from diary.i18n import SUPPORTED_LANGUAGES
+    from diary.i18n import SUPPORTED_LANGUAGE_CODES, t
 
+    client.cookies.set("diary_lang", "en")
     res = client.get("/workshop")
-    for code, display_name in SUPPORTED_LANGUAGES:
+    for code in SUPPORTED_LANGUAGE_CODES:
         assert f'value="{code}"' in res.text
-        assert display_name in res.text
+        assert t("en", f"language.name.{code}") in res.text
 
 
 def test_workshop_language_select_marks_current_language_selected(client):
