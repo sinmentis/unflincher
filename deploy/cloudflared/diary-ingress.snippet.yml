@@ -1,6 +1,6 @@
 # deploy/cloudflared/diary-ingress.snippet.yml
-# diary cloudflared ingress — MERGE this ONE block into ~/.cloudflared/config.yml (owned by
-# shunlyu-infra). Place it ABOVE the final `- service: http_status:404` catch-all.
+# diary cloudflared ingress — MERGE this ONE block into your own cloudflared config.yml.
+# Place it ABOVE the final `- service: http_status:404` catch-all.
 #
 #   PRIVATE hostname — it MUST be paired with the Access application created by
 #   create-access-diary-app.sh below. diary has no login of its own; Access is the only

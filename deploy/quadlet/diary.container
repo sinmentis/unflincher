@@ -12,23 +12,22 @@ PublishPort=127.0.0.1:8096:8000
 
 Volume=diary-data.volume:/data
 
-# Shared secret — the SAME fine-grained GitHub PAT trading's and News Center's Copilot SDK
-# wrappers use (same GitHub account, same Copilot subscription). See website/README.md's secrets
-# section; don't fork a diary-only copy. CopilotClient() auto-detects this env var.
+# If you already run other apps on this host that use the GitHub Copilot SDK, they can all
+# share ONE podman secret (same GitHub account, same Copilot subscription) rather than each
+# minting their own. CopilotClient() auto-detects this env var.
 Secret=unflincher-copilot-github-token,type=env,target=COPILOT_GITHUB_TOKEN
 
 Environment=DIARY_DB=/data/diary.db
 Environment=DIARY_LLM_MODEL=claude-sonnet-4.6
 Environment=DIARY_BATCH_CONCURRENCY=3
 Environment=DIARY_LLM_CONCURRENCY=4
-# OPERATOR_EMAIL matches shunlyu-infra/deploy/infra.env's shared, non-secret account facts.
 # CF_TEAM_DOMAIN is the SHORT team name only (this app's own auth.py appends
-# ".cloudflareaccess.com" itself for both the JWKS URL and the issuer check) -- infra.env's
-# CF_TEAM_DOMAIN stores the full "your-team-name.cloudflareaccess.com" form instead (that's the
-# directly curl-able JWKS host), so don't copy it verbatim here; strip the suffix.
+# ".cloudflareaccess.com" itself for both the JWKS URL and the issuer check) -- if you're
+# copying this value from Cloudflare's own dashboard/JWKS URL, that shows the full
+# "<team>.cloudflareaccess.com" form instead, so strip the suffix before pasting it here.
 # AUD is the one value that's genuinely per-app -- only known after running
 # deploy/create-access-diary-app.sh below.
-Environment=DIARY_CF_TEAM_DOMAIN=shunlyu
+Environment=DIARY_CF_TEAM_DOMAIN=your-team-name
 Environment=DIARY_CF_ACCESS_AUD=REPLACE_WITH_YOUR_ACCESS_APP_AUD
 Environment=DIARY_OPERATOR_EMAIL=your-email@example.com
 Environment=DIARY_REQUIRE_ACCESS_AUTH=true
