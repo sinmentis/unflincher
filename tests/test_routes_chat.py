@@ -19,7 +19,7 @@ async def _failing_title(first_message, model):
 def test_chat_list_empty_state(client):
     response = client.get("/chat")
     assert response.status_code == 200
-    assert "还没有任何对话" in response.text
+    assert "No conversations yet" in response.text
 
 
 def test_chat_list_shows_existing_sessions(client):

@@ -4,18 +4,18 @@
 {% block content %}
 <script src="/static/app.js"></script>
 {% include "partials/chat_sidebar.html" %}
-<h1>{{ active_session_title or "新对话" }}</h1>
+<h1>{{ active_session_title or t("chat.default_title") }}</h1>
 <div id="chat-thread">
   {% for msg in history %}
   <div class="chat-bubble {{ 'mine' if msg.role == 'user' else 'mentor' }}">
-    <div class="chat-bubble-label">{{ "我" if msg.role == "user" else "AI 人生导师" }}</div>
+    <div class="chat-bubble-label">{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</div>
     {% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}
   </div>
   {% endfor %}
 </div>
 <div id="chat-stream" class="ai-card" style="display:none" aria-live="polite"></div>
-<input type="text" id="chat-input" placeholder="问点什么…" aria-label="跟AI聊天输入框">
-<button id="chat-send">发送</button>
+<input type="text" id="chat-input" placeholder="{{ t('chat.input_placeholder') }}" aria-label="{{ t('chat.input_aria') }}">
+<button id="chat-send">{{ t("chat.send") }}</button>
 <script>
 document.getElementById("chat-send").addEventListener("click", () => {
   const input = document.getElementById("chat-input");

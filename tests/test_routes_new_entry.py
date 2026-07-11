@@ -1,7 +1,7 @@
 def test_new_entry_form_renders(client):
     response = client.get("/new")
     assert response.status_code == 200
-    assert "写新日记" in response.text
+    assert "New Entry" in response.text
 
 
 def test_new_entry_saves_as_manual_and_does_not_trigger_commentary(client):

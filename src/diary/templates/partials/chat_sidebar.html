@@ -1,11 +1,11 @@
 <!-- src/diary/templates/partials/chat_sidebar.html -->
-<nav class="side-nav side-nav--sessions" aria-label="对话列表">
-  <a href="/chat/new" class="side-nav-item side-nav-new">+ 新对话</a>
+<nav class="side-nav side-nav--sessions" aria-label="{{ t('chat_sidebar.aria') }}">
+  <a href="/chat/new" class="side-nav-item side-nav-new">{{ t("chat_sidebar.new") }}</a>
   {% for s in sessions %}
   <div class="side-nav-session{{ ' active' if active_session_id == s.id else '' }}">
     <a href="/chat/{{ s.id }}" class="side-nav-item side-nav-session-link">{{ s.title }}</a>
-    <button type="button" class="side-nav-session-action" data-rename-session="{{ s.id }}" title="重命名">✎</button>
-    <button type="button" class="side-nav-session-action" data-delete-session="{{ s.id }}" title="删除">🗑</button>
+    <button type="button" class="side-nav-session-action" data-rename-session="{{ s.id }}" title="{{ t('chat_sidebar.rename_title') }}">✎</button>
+    <button type="button" class="side-nav-session-action" data-delete-session="{{ s.id }}" title="{{ t('chat_sidebar.delete_title') }}">🗑</button>
   </div>
   {% endfor %}
 </nav>
@@ -13,7 +13,7 @@
 document.querySelectorAll("[data-rename-session]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const id = btn.dataset.renameSession;
-    const title = prompt("重命名对话：");
+    const title = prompt({{ t("chat_sidebar.rename_prompt") | tojson }});
     if (!title) return;
     await fetch(`/chat/${id}/rename`, {
       method: "POST",
@@ -26,7 +26,7 @@ document.querySelectorAll("[data-rename-session]").forEach((btn) => {
 document.querySelectorAll("[data-delete-session]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const id = btn.dataset.deleteSession;
-    if (!confirm("删除这个对话？不可恢复。")) return;
+    if (!confirm({{ t("chat_sidebar.delete_confirm") | tojson }})) return;
     await fetch(`/chat/${id}/delete`, {
       method: "POST",
       headers: {"X-CSRF-Token": getCsrfToken()},

@@ -9,7 +9,7 @@ async def _fake_report_tokens(*args, **kwargs):
 def test_report_page_shows_no_report_state(client):
     response = client.get("/report")
     assert response.status_code == 200
-    assert "还没有生成过综合报告" in response.text
+    assert "No report generated yet." in response.text
 
 
 def test_generate_report_streams_and_persists_with_coverage(client, monkeypatch):
@@ -88,7 +88,7 @@ def test_report_page_shows_sidebar_timeline_with_active_and_failed_states(client
 
     assert response.status_code == 200
     assert 'class="side-nav side-nav--report-versions"' in response.text
-    assert "失败" in response.text
+    assert "Failed" in response.text
     assert "82" in response.text
     # the currently-viewed version's node carries the active-state class, matching the
     # year-filter sidebar's .side-nav-item.active convention.

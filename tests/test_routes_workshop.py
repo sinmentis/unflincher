@@ -183,8 +183,8 @@ def test_job_progress_reports_counts_and_failed_items(client, monkeypatch):
     job_id = client.post("/workshop/apply-all").json()["job_id"]
     body = client.get(f"/workshop/jobs/{job_id}/progress").text
 
-    assert "1 失败" in body
-    assert "重试" in body
+    assert "1 failed" in body
+    assert "Retry" in body
 
 
 def test_retry_failed_item_reopens_job_and_succeeds(client, monkeypatch):
@@ -254,7 +254,7 @@ def test_retry_returns_progress_fragment_not_json(client, monkeypatch):
     assert "hx-trigger" in response.text
     assert "every 2s" in response.text
     # Structural parity with the GET progress fragment (same counts line), never raw JSON.
-    assert "排队中" in response.text
+    assert "queued" in response.text
     assert '"status"' not in response.text
 
 

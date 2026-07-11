@@ -1,10 +1,10 @@
 <div id="regen-progress" {% if job_status == 'running' %}hx-get="/workshop/jobs/{{ job_id }}/progress" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
-  <p><strong>{{ done }}/{{ total }}</strong> 完成 · {{ failed_count }} 失败 · {{ pending }} 排队中</p>
+  <p><strong>{{ done }}/{{ total }}</strong> {{ t("job.progress_summary", done=done, failed=failed_count, pending=pending) }}</p>
   {% if failed_items %}
   <ul>
     {% for item in failed_items %}
-    <li>条目 #{{ item.entry_id or "综合报告" }} 生成失败：{{ item.error }}
-      <button hx-post="/workshop/jobs/{{ job_id }}/item/{{ item.id }}/retry" hx-target="#regen-progress" hx-swap="outerHTML">重试</button>
+    <li>{{ t("job.item_failed", entry_id=item.entry_id, error=item.error) if item.entry_id else t("job.item_failed_report", error=item.error) }}
+      <button hx-post="/workshop/jobs/{{ job_id }}/item/{{ item.id }}/retry" hx-target="#regen-progress" hx-swap="outerHTML">{{ t("common.retry") }}</button>
     </li>
     {% endfor %}
   </ul>
