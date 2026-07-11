@@ -26,9 +26,6 @@ async def workshop_page(request: Request):
     db = request.app.state.db
     current_lang = get_current_language(request)
     active_prompt = get_active_prompt(db)
-    active_prompt_text = active_prompt["body_text"] if active_prompt else ""
-    if active_prompt_text == llm.DEFAULT_PERSONA_PROMPT:
-        active_prompt_text = t(current_lang, "workshop.default_persona_prompt")
     entries = db.execute("SELECT id, title FROM diary_entry ORDER BY entry_date").fetchall()
     models: list[tuple[str, str]] = []
     models_error: str | None = None
@@ -40,7 +37,7 @@ async def workshop_page(request: Request):
         request,
         "workshop.html",
         {
-            "active_prompt": active_prompt_text,
+            "active_prompt": active_prompt["body_text"] if active_prompt else "",
             "active_model": active_prompt["model"] if active_prompt else DEFAULT_MODEL,
             "models": models,
             "models_error": models_error,

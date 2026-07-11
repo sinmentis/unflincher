@@ -100,24 +100,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
         'common.busy_alert': 'A job is already running, please try again later.',
         'app_js.stream_interrupted': 'Generation interrupted',
         'workshop.test_run_button': 'Test run',
-        'workshop.default_persona_prompt': 'You are the user\'s "life mentor". Read the user\'s private diary and help '
-                                           'them see recurring patterns, confusions, and goals instead of only '
-                                           'comforting or agreeing with them.\n'
-                                           '\n'
-                                           'Your default tone is gentle and restrained, like a friend who truly '
-                                           'understands and cares. But when you notice self-deception, avoidance, or '
-                                           'fear hidden behind "reasonable" excuses, say it plainly even if it feels '
-                                           'uncomfortable. Your value is helping the user see clearly, not just feel '
-                                           'good.\n'
-                                           '\n'
-                                           '- Avoid generic advice. Ground every point in concrete details from the '
-                                           'diary\n'
-                                           '- If you notice repeated patterns across other entries, point them out and '
-                                           'cite the dates\n'
-                                           '- Write naturally, like a real conversation, not a rigid template\n'
-                                           '- You do not need to end every reply with a question; only ask when it '
-                                           'genuinely helps\n'
-                                           '- Be sharp to increase clarity, never to shame the user',
         'language.name.en': 'English',
         'language.name.zh-Hans': 'Simplified Chinese',
         'language.name.ja': 'Japanese',
@@ -207,15 +189,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
              'common.busy_alert': '已经有任务在跑，请稍后再试',
              'app_js.stream_interrupted': '生成中断',
              'workshop.test_run_button': '试跑',
-             'workshop.default_persona_prompt': '你是用户的"人生导师"。你的任务是读用户的私人日记，帮TA看清自己的人生、反复出现的困惑和目标——而不是单纯地安慰或附和。\n'
-                                                '\n'
-                                                '你的语气默认温和克制，像一个真正了解TA、心疼TA的朋友；但当你从日记里察觉到自我欺骗、逃避，或者TA在用"看似合理的理由"包装自己真正害怕的东西时，直接说出来，哪怕会让TA不舒服。你的价值不在于让TA感觉良好，而在于让TA真的看清楚。\n'
-                                                '\n'
-                                                '- 不说空洞、放之四海而皆准的话，每句话都要扎根在TA写的具体内容里\n'
-                                                '- 如果看到其他日记里反复出现的模式（同样的纠结、同样的借口、同样的循环），直接指出来，并引用是哪个时间点写的\n'
-                                                '- 不套用固定结构，像朋友聊天一样自然行文即可\n'
-                                                '- 不需要每次都以提问收尾，只在你真心觉得有必要追问时才问\n'
-                                                '- 犀利是为了让TA清醒，不是为了羞辱TA',
              'language.name.en': '英语',
              'language.name.zh-Hans': '简体中文',
              'language.name.ja': '日语',
@@ -225,104 +198,95 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
              'language.name.de': '德语',
              'language.name.ru': '俄语',
              'language.name.pt': '葡萄牙语'},
- 'ja': {'nav.title': 'にっき — せいちょうして、こうじょうして、じんせいをたのしむ',
+ 'ja': {'nav.title': '日記 — 成長し、向上し、人生を楽しむ',
         'nav.timeline': 'タイムライン',
-        'nav.report': 'じんせいレポート',
+        'nav.report': '人生レポート',
         'nav.chat': 'チャット',
-        'nav.new_entry': 'しんきにっき',
-        'nav.workshop': 'プロンプトせってい',
-        'timeline.filter_by_year_aria': 'ねんでしぼりこむ',
-        'timeline.all_years': 'すべてのねん',
+        'nav.new_entry': '新規日記',
+        'nav.workshop': 'プロンプト設定',
+        'timeline.filter_by_year_aria': '年で絞り込む',
+        'timeline.all_years': 'すべての年',
         'timeline.heading': 'タイムライン',
-        'timeline.badge_generating': 'せいせいちゅう',
-        'timeline.badge_done': 'こうひょうずみ',
-        'timeline.badge_pending': 'みこうひょう',
-        'entry.toc_aria': 'ほんぶん・チャットへいどう',
-        'entry.toc_body': 'ほんぶん',
-        'entry.toc_commentary': 'AIこうひょう',
+        'timeline.badge_generating': '生成中',
+        'timeline.badge_done': '講評済み',
+        'timeline.badge_pending': '未講評',
+        'entry.toc_aria': '本文・チャットへ移動',
+        'entry.toc_body': '本文',
+        'entry.toc_commentary': 'AI講評',
         'entry.toc_chat': 'チャット',
-        'entry.history_versions_label': 'りれきバージョン:',
-        'entry.version_failed_suffix': ' (しっぱい)',
-        'entry.commentary_label': 'AIメンターのこうひょう',
-        'entry.no_commentary_yet': 'まだこうひょうはありません。',
-        'entry.last_generation_failed': 'まえのせいせいにしっぱいしました',
-        'entry.run_commentary_button': 'AIこうひょうをじっこう',
-        'entry.chat_input_placeholder': 'AIメンターにへんしん…',
-        'entry.chat_input_aria': 'AIメンターへのへんしんにゅうりょく',
-        'report.timeline_aria': 'レポートのバージョンりれき',
-        'report.failed_badge': 'しっぱい',
-        'report.heading': 'じんせいレポート',
-        'report.coverage': '{count}けんをカバー · {range}',
-        'report.no_report_yet': 'まだレポートはせいせいされていません。',
-        'report.generate_button': 'レポートをせいせい / さいせいせい',
-        'new_entry.heading': 'しんきにっき',
-        'new_entry.autosave_hint': 'ほぞんしてもじどうではこうひょうされません。タイムラインからてどうでじっこうしてください。',
-        'new_entry.date_label': 'ひづけ:',
-        'new_entry.date_aria': 'にっきのひづけ',
+        'entry.history_versions_label': '履歴バージョン：',
+        'entry.version_failed_suffix': '（失敗）',
+        'entry.commentary_label': 'AIメンターの講評',
+        'entry.no_commentary_yet': 'まだ講評はありません。',
+        'entry.last_generation_failed': '前回の生成に失敗しました',
+        'entry.run_commentary_button': 'AI講評を実行',
+        'entry.chat_input_placeholder': 'AIメンターに返信…',
+        'entry.chat_input_aria': 'AIメンターへの返信入力欄',
+        'report.timeline_aria': 'レポートのバージョン履歴',
+        'report.failed_badge': '失敗',
+        'report.heading': '人生レポート',
+        'report.coverage': '{count} 件をカバー · {range}',
+        'report.no_report_yet': 'まだレポートは生成されていません。',
+        'report.generate_button': 'レポートを生成／再生成',
+        'new_entry.heading': '新規日記',
+        'new_entry.autosave_hint': '保存しても自動では講評されません。タイムラインから手動で実行してください。',
+        'new_entry.date_label': '日付：',
+        'new_entry.date_aria': '日記の日付',
         'new_entry.title_placeholder': 'タイトル',
-        'new_entry.content_placeholder': 'きょうはなにをかきますか……',
-        'new_entry.content_aria': 'にっきのないよう',
-        'new_entry.save_button': 'にっきをほぞん',
-        'new_entry.draft_saved': 'したがきをほぞんしました',
-        'new_entry.draft_saving': 'したがきをほぞんちゅう…',
-        'new_entry.save_failed_alert': 'ほぞんにしっぱいしました。ひづけをかくにんしてください',
+        'new_entry.content_placeholder': '今日は何を書きますか……',
+        'new_entry.content_aria': '日記の内容',
+        'new_entry.save_button': '日記を保存',
+        'new_entry.draft_saved': '下書きを保存しました',
+        'new_entry.draft_saving': '下書きを保存中…',
+        'new_entry.save_failed_alert': '保存に失敗しました。日付を確認してください',
         'chat.heading': 'チャット',
-        'chat.pick_or_new': 'ひだりがわでかいわをえらぶか、「+ しんき」をクリックしてはじめてください。',
-        'chat.no_conversations': 'まだかいわがありません。ひだりがわの「+ しんき」からさいしょのチャットをはじめましょう。',
-        'chat.input_placeholder': 'なんでもきいてください…',
-        'chat.input_aria': 'AIとのチャットにゅうりょく',
-        'chat.send': 'そうしん',
-        'chat.default_title': 'あたらしいかいわ',
-        'chat_sidebar.aria': 'かいわいちらん',
-        'chat_sidebar.new': '+ しんき',
-        'chat_sidebar.rename_title': 'なまえをへんこう',
-        'chat_sidebar.delete_title': 'さくじょ',
-        'chat_sidebar.rename_prompt': 'かいわのなまえをへんこう:',
-        'chat_sidebar.delete_confirm': 'このかいわをさくじょしますか? もとにもどせません。',
-        'job.progress_summary': 'かんりょう · しっぱい {failed} · たいき {pending}',
-        'job.item_failed': 'エントリー #{entry_id} のせいせいにしっぱい: {error}',
-        'job.item_failed_report': 'レポートせいせいにしっぱい: {error}',
-        'commentary_status.generating': 'こうひょうをせいせいちゅう…',
-        'workshop.heading': 'プロンプトせってい',
+        'chat.pick_or_new': '左側で会話を選ぶか、「+ 新規」をクリックして始めてください。',
+        'chat.no_conversations': 'まだ会話がありません。左側の「+ 新規」から最初のチャットを始めましょう。',
+        'chat.input_placeholder': '何でも聞いてください…',
+        'chat.input_aria': 'AIとのチャット入力欄',
+        'chat.send': '送信',
+        'chat.default_title': '新しい会話',
+        'chat_sidebar.aria': '会話一覧',
+        'chat_sidebar.new': '+ 新規',
+        'chat_sidebar.rename_title': '名前を変更',
+        'chat_sidebar.delete_title': '削除',
+        'chat_sidebar.rename_prompt': '会話の名前を変更：',
+        'chat_sidebar.delete_confirm': 'この会話を削除しますか？元に戻せません。',
+        'job.progress_summary': '完了 {done} · 失敗 {failed} · 待機 {pending}',
+        'job.item_failed': 'エントリー #{entry_id} の生成に失敗：{error}',
+        'job.item_failed_report': 'レポート生成に失敗：{error}',
+        'commentary_status.generating': '講評を生成中…',
+        'workshop.heading': 'プロンプト設定',
         'workshop.persona_label': 'ペルソナプロンプト',
-        'workshop.content_placeholder': 'ないよう',
-        'workshop.model_label': 'せいせいモデル:',
-        'workshop.model_load_error': 'モデルいちらんのよみこみにしっぱい: {error}',
-        'workshop.model_select_aria': 'せいせいモデル',
-        'workshop.refresh_models': 'モデルいちらんをこうしん',
-        'workshop.preview_label': 'プレビュー · ほぞんされません',
-        'workshop.test_run_label': 'このしたがきを1けんのにっきでためす:',
-        'workshop.apply_section_label': 'ほぞん / いっかつさいせいせい',
-        'workshop.apply_button': 'てきよう',
-        'workshop.apply_all_button': 'てきようしてすべてのにっき・レポートをさいせいせい',
-        'workshop.apply_hint': '「てきよう」はこのプロンプトとモデルをほぞんするだけです。「てきようしてすべてさいせいせい」はすべてのにっきをさいこうひょうするため、じかんもコストもずっとおおきくなります。',
-        'workshop.apply_all_busy_alert': 'すでにいっかつしょりがじっこうちゅうです。おわるまでまってください。',
-        'workshop.language_label': 'げんご:',
-        'common.retry': 'さいしこう',
-        'common.me': 'じぶん',
+        'workshop.content_placeholder': '内容',
+        'workshop.model_label': '生成モデル：',
+        'workshop.model_load_error': 'モデル一覧の読み込みに失敗：{error}',
+        'workshop.model_select_aria': '生成モデル',
+        'workshop.refresh_models': 'モデル一覧を更新',
+        'workshop.preview_label': 'プレビュー · 保存されません',
+        'workshop.test_run_label': 'この下書きを1件の日記で試す：',
+        'workshop.apply_section_label': '保存 / 一括再生成',
+        'workshop.apply_button': '適用',
+        'workshop.apply_all_button': '適用して全日記・レポートを再生成',
+        'workshop.apply_hint': '「適用」はこのプロンプトとモデルを保存するだけです。「適用して全て再生成」は全日記を再講評するため、時間もコストもはるかにかかります。',
+        'workshop.apply_all_busy_alert': 'すでに一括処理が実行中です。終了までお待ちください。',
+        'workshop.language_label': '言語：',
+        'common.retry': '再試行',
+        'common.me': '自分',
         'common.mentor': 'AIメンター',
-        'common.send': 'そうしん',
-        'common.busy_alert': 'すでにタスクがじっこうちゅうです。しばらくしてからさいしこうしてください',
-        'app_js.stream_interrupted': 'せいせいがちゅうだんされました',
-        'workshop.test_run_button': 'ためす',
-        'workshop.default_persona_prompt': 'あなたはユーザーの「ライフメンター」です。ユーザーのひみつのにっきをよみ、くりかえしあらわれるなやみやもくひょうをみえるようにし、ただなぐさめたりあわせたりするだけにはしないでください。\n'
-                                           '\n'
-                                           'きほんのトーンはやさしくおちついていて、ほんとうにりかいしてくれるともだちのようでいてください。ですが、じこまかし、にげ、あるいは「もっともらしいりゆう」のうらにあるこわさがみえたら、ここちよくなくてもはっきりつたえてください。たいせつなのは、きぶんをよくすることより、はっきりみえるようにすることです。\n'
-                                           '\n'
-                                           '- ありきたりなことばはさけ、かならずにっきのぐたいてきなないようにねざしてください\n'
-                                           '- ほかのにっきにもくりかえしのパターンがあれば、ひづけをそえてゆびさしてください\n'
-                                           '- ぶんしょうはかたいテンプレートではなく、しぜんなかいわのようにしてください\n'
-                                           '- まいかいさいごをしつもんでおえるひつようはありません。ほんとうにひつようなときだけきいてください\n'
-                                           '- するどさははっきりみえるようにするためで、はじをかかせるためではありません',
-        'language.name.en': 'えいご',
-        'language.name.zh-Hans': 'かんたいちゅうごくご',
-        'language.name.ja': 'にほんご',
-        'language.name.ko': 'かんこくご',
-        'language.name.es': 'スペインご',
-        'language.name.fr': 'フランスご',
-        'language.name.de': 'ドイツご',
-        'language.name.ru': 'ロシアご',
-        'language.name.pt': 'ポルトガルご'},
+        'common.send': '送信',
+        'common.busy_alert': 'すでにタスクが実行中です。しばらくしてから再試行してください',
+        'app_js.stream_interrupted': '生成が中断されました',
+        'workshop.test_run_button': '実行',
+        'language.name.en': '英語',
+        'language.name.zh-Hans': '簡体字中国語',
+        'language.name.ja': '日本語',
+        'language.name.ko': '韓国語',
+        'language.name.es': 'スペイン語',
+        'language.name.fr': 'フランス語',
+        'language.name.de': 'ドイツ語',
+        'language.name.ru': 'ロシア語',
+        'language.name.pt': 'ポルトガル語'},
  'ko': {'nav.title': '일기 — 성장하고, 발전하고, 인생을 즐기다',
         'nav.timeline': '타임라인',
         'nav.report': '인생 리포트',
@@ -403,18 +367,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
         'common.busy_alert': '이미 작업이 실행 중입니다. 잠시 후 다시 시도해 주세요',
         'app_js.stream_interrupted': '생성이 중단되었습니다',
         'workshop.test_run_button': '테스트 실행',
-        'workshop.default_persona_prompt': '당신은 사용자의 "라이프 멘토"입니다. 사용자의 개인 일기를 읽고 반복되는 패턴, 혼란, 목표를 보게 도와주세요. 단순히 위로하거나 '
-                                           '맞장구만 치지 마세요.\n'
-                                           '\n'
-                                           '기본 톤은 다정하고 절제되어, 정말 이해하고 아껴 주는 친구 같아야 합니다. 하지만 자기기만, 회피, 또는 "그럴듯한 이유" 뒤에 '
-                                           '숨은 두려움이 보이면 불편하더라도 분명하게 말하세요. 당신의 가치는 기분만 좋게 만드는 데 있지 않고, 더 분명히 보게 만드는 데 '
-                                           '있습니다.\n'
-                                           '\n'
-                                           '- 공허한 조언은 피하고, 모든 포인트를 일기의 구체적인 내용에 붙이세요\n'
-                                           '- 다른 일기에도 반복되는 패턴이 보이면 날짜를 인용해 짚어 주세요\n'
-                                           '- 딱딱한 템플릿보다 자연스러운 대화처럼 쓰세요\n'
-                                           '- 매번 질문으로 끝낼 필요는 없습니다. 정말 도움이 될 때만 물어보세요\n'
-                                           '- 날카로움은 더 또렷하게 보게 하기 위한 것이지, 부끄럽게 만들기 위한 것이 아닙니다',
         'language.name.en': '영어',
         'language.name.zh-Hans': '중국어(간체)',
         'language.name.ja': '일본어',
@@ -506,25 +458,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
         'common.busy_alert': 'Ya hay una tarea en curso, inténtalo de nuevo más tarde',
         'app_js.stream_interrupted': 'Generación interrumpida',
         'workshop.test_run_button': 'Probar',
-        'workshop.default_persona_prompt': 'Eres el "mentor de vida" del usuario. Lee su diario privado y ayúdale a '
-                                           'ver patrones repetidos, confusiones y metas, en vez de limitarte a '
-                                           'consolarle o darle la razón.\n'
-                                           '\n'
-                                           'Tu tono por defecto debe ser amable y sobrio, como el de una amistad que '
-                                           'de verdad comprende y se preocupa. Pero si detectas autoengaño, evasión o '
-                                           'miedo escondido detrás de excusas "razonables", dilo con claridad aunque '
-                                           'incomode. Tu valor está en ayudar a ver con claridad, no solo en hacer '
-                                           'sentir bien.\n'
-                                           '\n'
-                                           '- Evita los consejos vacíos; apoya cada idea en detalles concretos del '
-                                           'diario\n'
-                                           '- Si ves patrones repetidos en otras entradas, señálalos y cita las '
-                                           'fechas\n'
-                                           '- Escribe con naturalidad, como una conversación real, no como una '
-                                           'plantilla rígida\n'
-                                           '- No hace falta terminar cada respuesta con una pregunta; hazlo solo '
-                                           'cuando de verdad ayude\n'
-                                           '- Sé incisivo para dar claridad, nunca para avergonzar',
         'language.name.en': 'inglés',
         'language.name.zh-Hans': 'chino simplificado',
         'language.name.ja': 'japonés',
@@ -617,25 +550,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
         'common.busy_alert': 'Une tâche est déjà en cours, réessayez plus tard',
         'app_js.stream_interrupted': 'Génération interrompue',
         'workshop.test_run_button': 'Tester',
-        'workshop.default_persona_prompt': 'Tu es le "mentor de vie" de l\'utilisateur. Lis son journal privé et '
-                                           'aide-le à voir les schémas qui reviennent, ses confusions et ses '
-                                           "objectifs, au lieu de simplement le réconforter ou d'aller dans son sens.\n"
-                                           '\n'
-                                           "Ton ton par défaut doit être doux et retenu, comme celui d'un ami qui "
-                                           'comprend vraiment et qui tient à lui. Mais si tu repères de '
-                                           "l'auto-illusion, de l'évitement ou une peur cachée derrière des excuses "
-                                           '"raisonnables", dis-le clairement même si c\'est inconfortable. Ta valeur '
-                                           "est d'aider à voir clair, pas seulement à faire du bien.\n"
-                                           '\n'
-                                           '- Évite les conseils creux ; ancre chaque point dans des détails concrets '
-                                           'du journal\n'
-                                           "- Si tu vois des schémas répétés dans d'autres entrées, signale-les et "
-                                           'cite les dates\n'
-                                           '- Écris naturellement, comme une vraie conversation, pas comme un modèle '
-                                           'rigide\n'
-                                           "- Tu n'as pas besoin de finir chaque réponse par une question ; fais-le "
-                                           'seulement quand cela aide vraiment\n'
-                                           '- Sois incisif pour apporter de la clarté, jamais pour humilier',
         'language.name.en': 'anglais',
         'language.name.zh-Hans': 'chinois simplifié',
         'language.name.ja': 'japonais',
@@ -727,25 +641,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
         'common.busy_alert': 'Es läuft bereits ein Job, bitte später erneut versuchen',
         'app_js.stream_interrupted': 'Generierung unterbrochen',
         'workshop.test_run_button': 'Testen',
-        'workshop.default_persona_prompt': 'Du bist der "Lebensmentor" des Nutzers. Lies sein privates Tagebuch und '
-                                           'hilf ihm, wiederkehrende Muster, Verwirrungen und Ziele zu erkennen, statt '
-                                           'ihn nur zu trösten oder ihm zuzustimmen.\n'
-                                           '\n'
-                                           'Dein Grundton soll freundlich und zurückhaltend sein, wie ein Freund, der '
-                                           'wirklich versteht und mitfühlt. Wenn du aber Selbsttäuschung, Vermeidung '
-                                           'oder Angst hinter "vernünftigen" Ausreden bemerkst, sprich es klar aus, '
-                                           'auch wenn es unangenehm ist. Dein Wert liegt darin, Klarheit zu schaffen, '
-                                           'nicht nur ein gutes Gefühl.\n'
-                                           '\n'
-                                           '- Vermeide leere Ratschläge; verankere jeden Punkt in konkreten Details '
-                                           'aus dem Tagebuch\n'
-                                           '- Wenn du wiederkehrende Muster in anderen Einträgen siehst, benenne sie '
-                                           'und nenne die Daten\n'
-                                           '- Schreibe natürlich, wie in einem echten Gespräch, nicht wie in einer '
-                                           'starren Vorlage\n'
-                                           '- Du musst nicht jede Antwort mit einer Frage beenden; frage nur, wenn es '
-                                           'wirklich hilft\n'
-                                           '- Sei scharf, um Klarheit zu schaffen, niemals um den Nutzer zu beschämen',
         'language.name.en': 'Englisch',
         'language.name.zh-Hans': 'vereinfachtes Chinesisch',
         'language.name.ja': 'Japanisch',
@@ -837,24 +732,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
         'common.busy_alert': 'Задача уже выполняется, повторите попытку позже',
         'app_js.stream_interrupted': 'Генерация прервана',
         'workshop.test_run_button': 'Проверить',
-        'workshop.default_persona_prompt': 'Ты "наставник по жизни" для пользователя. Читай его личный дневник и '
-                                           'помогай увидеть повторяющиеся паттерны, запутанности и цели, а не просто '
-                                           'утешай или соглашайся.\n'
-                                           '\n'
-                                           'Твой обычный тон должен быть мягким и сдержанным, как у друга, который '
-                                           'правда понимает и заботится. Но если ты замечаешь самообман, избегание или '
-                                           'страх, спрятанный за "разумными" оправданиями, говори об этом прямо, даже '
-                                           'если это неприятно. Твоя ценность в ясности, а не только в том, чтобы '
-                                           'человеку стало легче.\n'
-                                           '\n'
-                                           '- Избегай пустых советов; опирай каждый вывод на конкретные детали из '
-                                           'дневника\n'
-                                           '- Если видишь повторяющиеся паттерны в других записях, укажи на них и '
-                                           'назови даты\n'
-                                           '- Пиши естественно, как в настоящем разговоре, а не по жёсткому шаблону\n'
-                                           '- Не нужно заканчивать каждый ответ вопросом; спрашивай только тогда, '
-                                           'когда это действительно помогает\n'
-                                           '- Будь острым ради ясности, а не ради унижения пользователя',
         'language.name.en': 'английский',
         'language.name.zh-Hans': 'упрощённый китайский',
         'language.name.ja': 'японский',
@@ -946,25 +823,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Diary — Grow, 
         'common.busy_alert': 'Já existe uma tarefa em execução, tente novamente mais tarde',
         'app_js.stream_interrupted': 'Geração interrompida',
         'workshop.test_run_button': 'Testar',
-        'workshop.default_persona_prompt': 'Você é o "mentor de vida" do usuário. Leia o diário privado dele e ajude-o '
-                                           'a enxergar padrões recorrentes, confusões e objetivos, em vez de apenas '
-                                           'consolar ou concordar.\n'
-                                           '\n'
-                                           'Seu tom padrão deve ser gentil e contido, como o de um amigo que realmente '
-                                           'entende e se importa. Mas, se você notar autoengano, evasão ou medo '
-                                           'escondido atrás de desculpas "razoáveis", diga isso com clareza mesmo que '
-                                           'seja desconfortável. Seu valor está em ajudar a ver com nitidez, não '
-                                           'apenas em fazer a pessoa se sentir bem.\n'
-                                           '\n'
-                                           '- Evite conselhos vazios; prenda cada ponto a detalhes concretos do '
-                                           'diário\n'
-                                           '- Se notar padrões repetidos em outras entradas, aponte-os e cite as '
-                                           'datas\n'
-                                           '- Escreva com naturalidade, como uma conversa real, não como um modelo '
-                                           'rígido\n'
-                                           '- Você não precisa terminar toda resposta com uma pergunta; faça isso só '
-                                           'quando realmente ajudar\n'
-                                           '- Seja incisivo para trazer clareza, nunca para envergonhar o usuário',
         'language.name.en': 'inglês',
         'language.name.zh-Hans': 'chinês simplificado',
         'language.name.ja': 'japonês',

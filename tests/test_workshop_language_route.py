@@ -14,4 +14,4 @@ def test_set_language_persists_across_subsequent_pages(client):
     client.post("/workshop/language", json={"lang": "ja"})
     res = client.get("/")
     assert "タイムライン" in res.text
-    assert "じんせいレポート" in res.text
+    assert "人生レポート" in res.text
