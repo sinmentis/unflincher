@@ -1,6 +1,6 @@
 {% if busy %}
 <div class="ai-card" id="commentary-status" hx-get="/entry/{{ entry_id }}/commentary-status" hx-trigger="load, every 3s" hx-swap="outerHTML">
-  <span class="ai-label">锐评生成中…</span>
+  <span class="ai-label">{{ t("commentary_status.generating") }}</span>
 </div>
 {% else %}
 <script>location.reload();</script>

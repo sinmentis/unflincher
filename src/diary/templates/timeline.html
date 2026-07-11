@@ -2,8 +2,8 @@
 {% extends "base.html" %}
 {% block nav_timeline %}active{% endblock %}
 {% block content %}
-<nav class="side-nav side-nav--years" aria-label="按年筛选">
-  <button type="button" class="side-nav-item side-nav-clear" data-year-clear disabled>全部年份</button>
+<nav class="side-nav side-nav--years" aria-label="{{ t('timeline.filter_by_year_aria') }}">
+  <button type="button" class="side-nav-item side-nav-clear" data-year-clear disabled>{{ t("timeline.all_years") }}</button>
   {% for y in years %}
   <button type="button" class="side-nav-item" data-year-link="{{ y.year }}" data-year-count="{{ y.count }}">
     <span class="side-nav-item-year">{{ y.year }}</span>
@@ -12,7 +12,7 @@
   </button>
   {% endfor %}
 </nav>
-<h1>时间线</h1>
+<h1>{{ t("timeline.heading") }}</h1>
 <div id="timeline-entries">
 {% set ns = namespace(last_year=None) %}
 {% for entry in entries %}
@@ -26,11 +26,11 @@
       <p class="entry-title"><a href="/entry/{{ entry.id }}">{{ entry.title }}</a></p>
     </div>
     {% if entry.is_generating %}
-      <span class="badge generating">点评中</span>
+      <span class="badge generating">{{ t("timeline.badge_generating") }}</span>
     {% elif entry.has_commentary %}
-      <span class="badge done">AI 已点评</span>
+      <span class="badge done">{{ t("timeline.badge_done") }}</span>
     {% else %}
-      <span class="badge pending">未点评</span>
+      <span class="badge pending">{{ t("timeline.badge_pending") }}</span>
     {% endif %}
   </div>
 {% endfor %}

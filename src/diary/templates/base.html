@@ -1,19 +1,19 @@
 <!-- src/diary/templates/base.html -->
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
-  <title>{% block title %}磨炼进步享受人生{% endblock %}</title>
+  <title>{% block title %}{{ t("nav.title") }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/theme.css">
   <script src="/static/vendor/htmx.min.js"></script>
 </head>
 <body>
   <nav class="nav">
-    <a href="/" class="{% block nav_timeline %}{% endblock %}">时间线</a>
-    <a href="/report" class="{% block nav_report %}{% endblock %}">综合人生报告</a>
-    <a href="/chat" class="{% block nav_chat %}{% endblock %}">跟AI聊聊</a>
-    <a href="/new" class="{% block nav_new %}{% endblock %}">写新日记</a>
-    <a href="/workshop" class="{% block nav_workshop %}{% endblock %}">Prompt 设置</a>
+    <a href="/" class="{% block nav_timeline %}{% endblock %}">{{ t("nav.timeline") }}</a>
+    <a href="/report" class="{% block nav_report %}{% endblock %}">{{ t("nav.report") }}</a>
+    <a href="/chat" class="{% block nav_chat %}{% endblock %}">{{ t("nav.chat") }}</a>
+    <a href="/new" class="{% block nav_new %}{% endblock %}">{{ t("nav.new_entry") }}</a>
+    <a href="/workshop" class="{% block nav_workshop %}{% endblock %}">{{ t("nav.workshop") }}</a>
   </nav>
   <main>
     {% block content %}{% endblock %}

@@ -37,8 +37,8 @@ def test_timeline_shows_commentary_badge(client):
 
     body = client.get("/").text
 
-    assert "AI 已点评" in body
-    assert "未点评" in body
+    assert "Reviewed" in body
+    assert "Not reviewed" in body
 
 
 def test_timeline_provides_year_sidebar_data(client):
@@ -123,4 +123,4 @@ def test_timeline_shows_generating_badge_for_entry_with_active_job(client):
 
     body = client.get("/").text
 
-    assert "点评中" in body
+    assert "Generating" in body

@@ -91,7 +91,7 @@ def test_entry_detail_shows_pending_state_when_no_commentary(client):
 
     response = client.get(f"/entry/{entry_id}")
 
-    assert "还没有锐评" in response.text
+    assert "No commentary yet." in response.text
 
 
 def test_entry_detail_404_for_missing_entry(client):
@@ -274,7 +274,7 @@ def test_entry_detail_shows_busy_state_when_job_is_running(client):
     response = client.get(f"/entry/{entry_id}")
 
     assert response.status_code == 200
-    assert "生成中" in response.text
+    assert "Generating commentary…" in response.text
     assert 'id="run-commentary"' not in response.text
 
 
