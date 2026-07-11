@@ -2,28 +2,28 @@
 {% extends "base.html" %}
 {% block nav_workshop %}active{% endblock %}
 {% block content %}
-<h1>Prompt 设置</h1>
+<h1>{{ t("workshop.heading") }}</h1>
 
 <section class="ws-section">
-  <div class="ai-label">人设 Prompt</div>
-  <textarea id="prompt-draft" aria-label="Persona prompt 内容" style="width:100%;min-height:280px;padding:10px;font-family:var(--font-mono)">{{ active_prompt }}</textarea>
+  <div class="ai-label">{{ t("workshop.persona_label") }}</div>
+  <textarea id="prompt-draft" aria-label="{{ t('workshop.persona_label') }}" style="width:100%;min-height:280px;padding:10px;font-family:var(--font-mono)">{{ active_prompt }}</textarea>
 
-  <p><label for="model-select">生成用的模型：</label>
+  <p><label for="model-select">{{ t("workshop.model_label") }}</label>
     {% if models_error %}
-    <span class="stream-err">模型列表加载失败：{{ models_error }}</span>
+    <span class="stream-err">{{ t("workshop.model_load_error", error=models_error) }}</span>
     <input type="hidden" id="model-select" value="{{ active_model }}">
     {% else %}
-    <select id="model-select" aria-label="生成用的模型">
+    <select id="model-select" aria-label="{{ t('workshop.model_select_aria') }}">
       {% for mid, mname in models %}<option value="{{ mid }}"{% if mid == active_model %} selected{% endif %}>{{ mname }}</option>{% endfor %}
     </select>
     {% endif %}
-    <button type="button" id="refresh-models" style="margin-left:8px">刷新模型列表</button>
+    <button type="button" id="refresh-models" style="margin-left:8px">{{ t("workshop.refresh_models") }}</button>
   </p>
 </section>
 
 <section class="ws-section">
-  <div class="ai-label">Test Run 预览 · 不会保存</div>
-  <p><label for="test-entry">挑一篇日记试试上面这版草稿：</label>
+  <div class="ai-label">{{ t("workshop.preview_label") }}</div>
+  <p><label for="test-entry">{{ t("workshop.test_run_label") }}</label>
     <select id="test-entry">
       {% for e in entries %}<option value="{{ e.id }}">{{ e.title }}</option>{% endfor %}
     </select>
@@ -33,11 +33,18 @@
 </section>
 
 <section class="ws-section">
-  <div class="ai-label">保存 / 批量重新生成</div>
-  <p class="entry-date">"应用"只保存这版 prompt 和模型；"应用并对全部历史日记+报告重新生成"会用它重新点评全部日记，成本和耗时高得多。</p>
-  <button id="apply-btn" class="btn-primary">应用</button>
-  <button id="apply-all-btn" class="btn-danger">应用并对全部历史日记+报告重新生成</button>
+  <div class="ai-label">{{ t("workshop.apply_section_label") }}</div>
+  <p class="entry-date">{{ t("workshop.apply_hint") }}</p>
+  <button id="apply-btn" class="btn-primary">{{ t("workshop.apply_button") }}</button>
+  <button id="apply-all-btn" class="btn-danger">{{ t("workshop.apply_all_button") }}</button>
   <div id="regen-progress-holder"></div>
+</section>
+
+<section class="ws-section">
+  <div class="ai-label">{{ t("workshop.language_label") }}</div>
+  <select id="lang-select">
+    {% for code, display_name in supported_languages %}<option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ display_name }}</option>{% endfor %}
+  </select>
 </section>
 
 <script src="/static/app.js"></script>
@@ -61,6 +68,14 @@ document.getElementById("refresh-models").addEventListener("click", async () => 
     btn.disabled = false;
   }
 });
+document.getElementById("lang-select").addEventListener("change", async (e) => {
+  await fetch("/workshop/language", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
+    body: JSON.stringify({lang: e.target.value}),
+  });
+  location.reload();
+});
 document.getElementById("run-test").addEventListener("click", () => {
   const target = document.getElementById("preview-stream");
   streamInto("/workshop/test-run", {
@@ -81,7 +96,7 @@ document.getElementById("apply-btn").addEventListener("click", async () => {
 });
 document.getElementById("apply-all-btn").addEventListener("click", async () => {
   const res = await fetch("/workshop/apply-all", {method: "POST", headers: {"X-CSRF-Token": getCsrfToken()}});
-  if (res.status === 409) { alert("已经有一个批量任务在跑，请等它结束。"); return; }
+  if (res.status === 409) { alert({{ t("workshop.apply_all_busy_alert") | tojson }}); return; }
   const {job_id} = await res.json();
   const holder = document.getElementById("regen-progress-holder");
   holder.innerHTML = `<div id="regen-progress" hx-get="/workshop/jobs/${job_id}/progress" hx-trigger="load, every 2s" hx-swap="outerHTML"></div>`;

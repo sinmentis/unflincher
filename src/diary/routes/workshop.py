@@ -9,7 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 from diary import llm
 from diary.config import load_settings
 from diary.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt, start_regen_job
-from diary.i18n import SUPPORTED_LANGUAGE_CODES
+from diary.i18n import SUPPORTED_LANGUAGE_CODES, SUPPORTED_LANGUAGES
 from diary.sanitize import render_ai_markdown
 from diary.templates_env import LANG_COOKIE_NAME, templates
 from diary.worker import BatchWorker
@@ -41,6 +41,7 @@ async def workshop_page(request: Request):
             "models": models,
             "models_error": models_error,
             "entries": entries,
+            "supported_languages": SUPPORTED_LANGUAGES,
         },
     )
 

@@ -8,6 +8,7 @@
   <script src="/static/vendor/htmx.min.js"></script>
 </head>
 <body>
+  <script>window.I18N = {streamInterrupted: {{ t("app_js.stream_interrupted") | tojson }}};</script>
   <nav class="nav">
     <a href="/" class="{% block nav_timeline %}{% endblock %}">{{ t("nav.timeline") }}</a>
     <a href="/report" class="{% block nav_report %}{% endblock %}">{{ t("nav.report") }}</a>

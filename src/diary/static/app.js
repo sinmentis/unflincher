@@ -53,7 +53,7 @@ async function streamInto(url, body, targetEl, onDone) {
       buf = buf.slice(i + 2);
       const {ev, data} = parseSseFrame(frame);
       if (ev === "token") targetEl.textContent += data;
-      else if (ev === "error") targetEl.insertAdjacentHTML("beforeend", '<span class="stream-err">生成中断</span>');
+      else if (ev === "error") targetEl.insertAdjacentHTML("beforeend", `<span class="stream-err">${window.I18N.streamInterrupted}</span>`);
       else if (ev === "done") {
         // Persisted surfaces (entry commentary/chat, general chat, report) call
         // location.reload() from their onDone callback, which replaces this whole element with a
