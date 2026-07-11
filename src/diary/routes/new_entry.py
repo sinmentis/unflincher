@@ -2,12 +2,11 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
 
 from diary.sanitize import plain_text_to_safe_html
+from diary.templates_env import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="src/diary/templates")
 
 
 @router.get("/new")

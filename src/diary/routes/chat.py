@@ -8,7 +8,6 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
@@ -22,9 +21,9 @@ from diary.db import (
     touch_chat_session,
 )
 from diary.sanitize import render_ai_markdown
+from diary.templates_env import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="src/diary/templates")
 
 _TITLE_MODEL = "gpt-5.4-mini"
 

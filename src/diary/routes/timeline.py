@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Request
-from fastapi.templating import Jinja2Templates
 
 from diary.db import get_current_commentary, get_entries_with_active_commentary_job
+from diary.templates_env import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="src/diary/templates")
 
 
 @router.get("/")

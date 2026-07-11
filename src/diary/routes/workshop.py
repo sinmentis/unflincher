@@ -3,17 +3,22 @@ import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
 from diary.config import load_settings
 from diary.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt, start_regen_job
+from diary.i18n import SUPPORTED_LANGUAGE_CODES
 from diary.sanitize import render_ai_markdown
+from diary.templates_env import LANG_COOKIE_NAME, templates
 from diary.worker import BatchWorker
 
 router = APIRouter()
-templates = Jinja2Templates(directory="src/diary/templates")
+
+
+class SetLanguageRequest(BaseModel):
+    lang: str
 
 
 @router.get("/workshop")
@@ -47,6 +52,15 @@ async def refresh_models(request: Request):
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     return {"ok": True}
+
+
+@router.post("/workshop/language")
+async def set_language(request: Request, body: SetLanguageRequest):
+    if body.lang not in SUPPORTED_LANGUAGE_CODES:
+        raise HTTPException(status_code=400, detail=f"unsupported language: {body.lang}")
+    response = JSONResponse({"ok": True})
+    response.set_cookie(LANG_COOKIE_NAME, body.lang, httponly=False, samesite="strict")
+    return response
 
 
 @router.post("/workshop/test-run")

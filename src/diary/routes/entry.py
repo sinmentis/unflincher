@@ -1,7 +1,6 @@
 import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
 from diary import llm
@@ -15,10 +14,10 @@ from diary.db import (
     start_single_entry_commentary_job,
 )
 from diary.sanitize import render_ai_markdown
+from diary.templates_env import templates
 from diary.worker import BatchWorker
 
 router = APIRouter()
-templates = Jinja2Templates(directory="src/diary/templates")
 
 
 @router.get("/entry/{entry_id}")
