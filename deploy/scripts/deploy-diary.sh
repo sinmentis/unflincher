@@ -12,15 +12,20 @@
 # auth on the next restart. If you actually change the .container/.volume unit files
 # themselves (not just application code), copy and edit them into
 # ~/.config/containers/systemd/ by hand, once, deliberately -- not via this script.
+#
+# DIARY_COPILOT_SECRET lets you rename the shared podman secret without editing this
+# script -- just make sure it matches the Secret= line in your deployed diary.container.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+SECRET_NAME="${DIARY_COPILOT_SECRET:-diary-copilot-github-token}"
+
 podman build -t localhost/diary:latest .
 
-if ! podman secret exists unflincher-copilot-github-token 2>/dev/null; then
-  echo "Missing shared secret 'unflincher-copilot-github-token'. Create it first:"
+if ! podman secret exists "$SECRET_NAME" 2>/dev/null; then
+  echo "Missing shared secret '$SECRET_NAME'. Create it first:"
   # shellcheck disable=SC2016  # literal help text; $COPILOT_GITHUB_TOKEN must not expand here
-  echo '  podman secret create unflincher-copilot-github-token <(printf "%s" "$COPILOT_GITHUB_TOKEN")'
+  echo "  podman secret create $SECRET_NAME <(printf \"%s\" \"\$COPILOT_GITHUB_TOKEN\")"
   exit 1
 fi
 

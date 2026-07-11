@@ -5,4 +5,8 @@ After=diary.service
 Wants=diary.service
 [Service]
 Type=oneshot
-ExecStart=%h/work/website/diary/deploy/scripts/diary-backup.sh
+# %h/.local/bin/diary-backup.sh is a COPY of deploy/scripts/diary-backup.sh, installed once
+# during setup (see README's "Backups & recovery" section) -- referencing a fixed,
+# repo-checkout-independent path here means this unit keeps working even if you later move
+# or re-clone the repo itself. Re-copy it after pulling a change to diary-backup.sh.
+ExecStart=%h/.local/bin/diary-backup.sh

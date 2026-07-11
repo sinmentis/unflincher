@@ -14,8 +14,10 @@ Volume=diary-data.volume:/data
 
 # If you already run other apps on this host that use the GitHub Copilot SDK, they can all
 # share ONE podman secret (same GitHub account, same Copilot subscription) rather than each
-# minting their own. CopilotClient() auto-detects this env var.
-Secret=unflincher-copilot-github-token,type=env,target=COPILOT_GITHUB_TOKEN
+# minting their own. CopilotClient() auto-detects this env var. If you rename this secret,
+# also update DIARY_COPILOT_SECRET when running deploy/scripts/deploy-diary.sh so the two
+# stay in sync (see that script's own comment).
+Secret=diary-copilot-github-token,type=env,target=COPILOT_GITHUB_TOKEN
 
 Environment=DIARY_DB=/data/diary.db
 Environment=DIARY_LLM_MODEL=claude-sonnet-4.6
