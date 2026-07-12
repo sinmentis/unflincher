@@ -54,7 +54,7 @@ generic provider API.
    authenticate to the Copilot SDK's backend, not to access any repo.
 3. Set it as `COPILOT_GITHUB_TOKEN` in your environment (local dev) or as the podman secret
    described in the deployment steps below (production). `CopilotClient()` (in
-   `src/diary/llm.py`) auto-detects this env var — you don't pass it explicitly anywhere else.
+   `src/unflincher/llm.py`) auto-detects this env var — you don't pass it explicitly anywhere else.
 4. To sanity-check the token works before wiring up the whole app: `COPILOT_GITHUB_TOKEN=... \
    python -c "from copilot import CopilotClient; import asyncio; asyncio.run(CopilotClient().start())"`
    should exit without an auth error.
@@ -147,7 +147,7 @@ systemctl --user start diary.service
 
 ## Configuration reference
 
-All settings are environment variables, read by `src/diary/config.py`:
+All settings are environment variables, read by `src/unflincher/config.py`:
 
 | Variable | Default | Description |
 |---|---|---|

@@ -1,4 +1,4 @@
-/* src/diary/static/theme.css — gruvbox dark, see technical design §5.1 for the full rationale */
+/* src/unflincher/static/theme.css — gruvbox dark, see technical design §5.1 for the full rationale */
 :root{
   --gb-bg0-hard:#1d2021; --gb-bg0:#282828; --gb-bg1:#3c3836; --gb-bg2:#504945;
   --gb-fg0:#fbf1c7; --gb-fg1:#ebdbb2; --gb-fg3:#bdae93; --gb-fg4:#a89984; --gb-gray:#928374;
