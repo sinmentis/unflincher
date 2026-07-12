@@ -1,8 +1,8 @@
 import openpyxl
 import pytest
 
-from diary.db import get_connection, init_schema
-from diary.importer import MissingColumnsError, import_excel
+from unflincher.db import get_connection, init_schema
+from unflincher.importer import MissingColumnsError, import_excel
 
 
 def _make_workbook(path, header, rows):

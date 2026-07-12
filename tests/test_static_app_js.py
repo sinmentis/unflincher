@@ -1,4 +1,4 @@
-"""Directly unit-tests the shipped src/diary/static/app.js SSE frame parser (parseSseFrame) via
+"""Directly unit-tests the shipped src/unflincher/static/app.js SSE frame parser (parseSseFrame) via
 Node, closing the multi-line streamed-text corruption bug at the exact layer it lives.
 
 The Python-side persistence test in test_routes_entry.py proves the DB stays clean, but the bug
@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from sse_starlette.sse import ServerSentEvent
 
-APP_JS = Path(__file__).resolve().parents[1] / "src" / "diary" / "static" / "app.js"
+APP_JS = Path(__file__).resolve().parents[1] / "src" / "unflincher" / "static" / "app.js"
 
 # Stub the browser globals app.js touches at load time, then hand a real server frame to the
 # actual parseSseFrame and print its result as JSON for the Python side to assert on.

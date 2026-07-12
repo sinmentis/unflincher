@@ -1,4 +1,4 @@
-import diary.llm as llm_module
+import unflincher.llm as llm_module
 
 
 async def _fake_preview_tokens(*args, **kwargs):
@@ -161,7 +161,7 @@ def test_apply_all_rejects_concurrent_job(client):
 
     # Directly create a running job to simulate "one already in flight" — start_regen_job
     # alone is enough to hold the single-flight lock; no need to race a real background task.
-    from diary.db import get_active_prompt, start_regen_job
+    from unflincher.db import get_active_prompt, start_regen_job
     active_prompt = get_active_prompt(db)
     start_regen_job(db, active_prompt["id"], [1])
 
@@ -265,7 +265,7 @@ def test_workshop_page_shows_model_select_with_active_model_selected(client, mon
 
     db = client.app.state.db
     _seed_entries(db)
-    from diary.db import set_active_prompt
+    from unflincher.db import set_active_prompt
     set_active_prompt(db, "人设", "gpt-5.5")
 
     response = client.get("/workshop")
@@ -365,7 +365,7 @@ def test_test_run_falls_back_to_active_model_when_not_specified(client, monkeypa
     monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
     db = client.app.state.db
     entry_ids = _seed_entries(db)
-    from diary.db import set_active_prompt
+    from unflincher.db import set_active_prompt
     set_active_prompt(db, "人设", "claude-opus-4.8")
 
     client.post("/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": entry_ids[0]})
@@ -379,7 +379,7 @@ def test_apply_all_uses_active_persona_model(client, monkeypatch):
     monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
     db = client.app.state.db
     entry_ids = _seed_entries(db)
-    from diary.db import set_active_prompt
+    from unflincher.db import set_active_prompt
     set_active_prompt(db, "人设X", "gpt-5.4-mini")
 
     client.post("/workshop/apply-all")
@@ -408,7 +408,7 @@ def test_retry_uses_original_job_model_not_current_active(client, monkeypatch):
     db = client.app.state.db
     _seed_entries(db)
 
-    from diary.db import set_active_prompt
+    from unflincher.db import set_active_prompt
     # The job runs under this persona/model...
     set_active_prompt(db, "人设A", "gpt-5.4")
     job_id = client.post("/workshop/apply-all").json()["job_id"]

@@ -3,9 +3,9 @@ import sqlite3
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from diary import llm
-from diary.config import load_settings
-from diary.db import (
+from unflincher import llm
+from unflincher.config import load_settings
+from unflincher.db import (
     get_active_prompt,
     get_commentary_by_id,
     get_current_commentary,
@@ -13,9 +13,9 @@ from diary.db import (
     list_commentary_versions,
     start_single_entry_commentary_job,
 )
-from diary.sanitize import render_ai_markdown
-from diary.templates_env import templates
-from diary.worker import BatchWorker
+from unflincher.sanitize import render_ai_markdown
+from unflincher.templates_env import templates
+from unflincher.worker import BatchWorker
 
 router = APIRouter()
 

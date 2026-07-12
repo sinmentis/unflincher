@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from diary import llm
-from diary.db import (
+from unflincher import llm
+from unflincher.db import (
     create_chat_session,
     delete_chat_session,
     get_active_prompt,
@@ -20,8 +20,8 @@ from diary.db import (
     rename_chat_session,
     touch_chat_session,
 )
-from diary.sanitize import render_ai_markdown
-from diary.templates_env import templates
+from unflincher.sanitize import render_ai_markdown
+from unflincher.templates_env import templates
 
 router = APIRouter()
 

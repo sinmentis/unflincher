@@ -1,7 +1,7 @@
-"""Unit tests for diary.llm.stream_completion against a FAKE Copilot SDK.
+"""Unit tests for unflincher.llm.stream_completion against a FAKE Copilot SDK.
 
 These never spawn the real Copilot CLI subprocess, touch the network, or need a real
-COPILOT_GITHUB_TOKEN. We monkeypatch `diary.llm.CopilotClient` (the module-level SDK entry point)
+COPILOT_GITHUB_TOKEN. We monkeypatch `unflincher.llm.CopilotClient` (the module-level SDK entry point)
 with a fake that emits a scripted sequence of REAL session event-data objects, then assert
 stream_completion translates them into the right yields, errors, and cleanup. Using the real
 event-data classes keeps the `isinstance` dispatch in the implementation honest — only the
@@ -17,8 +17,8 @@ from copilot.generated.session_events import (
     SessionErrorData,
 )
 
-import diary.llm as llm_module
-from diary.llm import stream_completion
+import unflincher.llm as llm_module
+from unflincher.llm import stream_completion
 
 
 @pytest.fixture(autouse=True)
@@ -107,7 +107,7 @@ async def test_streams_deltas_in_order_then_ends(monkeypatch):
         AssistantMessageDeltaData(delta_content="好", message_id="m1"),
         AssistantIdleData(),
     ])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
 
     tokens = await _collect(user="问题")
 
@@ -128,13 +128,13 @@ async def test_empty_deltas_are_skipped(monkeypatch):
         AssistantMessageDeltaData(delta_content="B", message_id="m1"),
         AssistantIdleData(),
     ])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
     assert await _collect() == ["A", "B"]
 
 
 async def test_model_passed_through_to_create_session(monkeypatch):
     FakeClient, record = _make_fake_copilot([AssistantIdleData()])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
     await _collect(model="claude-sonnet-4.6")
     assert record["create_kwargs"]["model"] == "claude-sonnet-4.6"
 
@@ -143,7 +143,7 @@ async def test_system_message_replace_mode_passed(monkeypatch):
     # Locks in the anti-contamination behavior: diary's own persona text replaces the SDK's
     # default coding-agent system prompt.
     FakeClient, record = _make_fake_copilot([AssistantIdleData()])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
     await _collect(system="扮演人生导师")
     assert record["create_kwargs"]["system_message"] == {
         "mode": "replace",
@@ -154,7 +154,7 @@ async def test_system_message_replace_mode_passed(monkeypatch):
 async def test_available_tools_empty_disables_all_tools(monkeypatch):
     # Locks in the "no tool access" security property.
     FakeClient, record = _make_fake_copilot([AssistantIdleData()])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
     await _collect()
     assert record["create_kwargs"]["available_tools"] == []
 
@@ -163,7 +163,7 @@ async def test_session_error_raises_model_session_error_with_message(monkeypatch
     FakeClient, _ = _make_fake_copilot([
         SessionErrorData(error_type="model_error", message="rate limited"),
     ])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
     # ModelSessionError is a RuntimeError subclass, so callers using RuntimeError still work.
     with pytest.raises(RuntimeError, match="rate limited"):
         await _collect()
@@ -171,7 +171,7 @@ async def test_session_error_raises_model_session_error_with_message(monkeypatch
         FakeClient2, _ = _make_fake_copilot([
             SessionErrorData(error_type="model_error", message="rate limited"),
         ])
-        monkeypatch.setattr("diary.llm.CopilotClient", FakeClient2)
+        monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient2)
         monkeypatch.setattr(llm_module, "_client", None)
         await _collect()
 
@@ -181,7 +181,7 @@ async def test_client_not_stopped_when_session_error_raises_midstream(monkeypatc
         AssistantMessageDeltaData(delta_content="partial", message_id="m1"),
         SessionErrorData(error_type="model_error", message="boom"),
     ])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
     with pytest.raises(RuntimeError, match="boom"):
         await _collect()
     # Shared client is NOT stopped for model-level errors (not a transport problem).
@@ -199,10 +199,10 @@ async def test_stall_timeout_raises_and_cleans_up(monkeypatch):
     FakeClient, record = _make_fake_copilot([
         AssistantMessageDeltaData(delta_content="partial", message_id="m1"),
     ])
-    monkeypatch.setattr("diary.llm.CopilotClient", FakeClient)
+    monkeypatch.setattr("unflincher.llm.CopilotClient", FakeClient)
     # Inject a tiny stall timeout so the suite doesn't wait the real 120s (matches this codebase's
     # monkeypatch-heavy test style; stream_completion reads the module constant at runtime).
-    monkeypatch.setattr("diary.llm._STALL_TIMEOUT_SECONDS", 0.02)
+    monkeypatch.setattr("unflincher.llm._STALL_TIMEOUT_SECONDS", 0.02)
 
     # Timeout-specific error, distinct from the "session error" message, and it arrives fast.
     with pytest.raises(llm_module.TransportStalledError, match="stall") as excinfo:

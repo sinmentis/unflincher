@@ -7,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from diary.config import Settings
+from unflincher.config import Settings
 
 CLOCK_SKEW_LEEWAY_SECONDS = 60
 

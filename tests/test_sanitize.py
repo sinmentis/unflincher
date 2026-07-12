@@ -1,4 +1,4 @@
-from diary.sanitize import plain_text_to_safe_html, render_ai_markdown, sanitize_diary_html
+from unflincher.sanitize import plain_text_to_safe_html, render_ai_markdown, sanitize_diary_html
 
 
 def test_sanitize_strips_script_tags():

@@ -1,6 +1,6 @@
 import json
 
-import diary.llm as llm_module
+import unflincher.llm as llm_module
 
 
 async def _fake_general_tokens(*args, **kwargs):

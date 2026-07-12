@@ -1,5 +1,5 @@
 def test_base_nav_switches_with_cookie(client):
-    client.cookies.set("diary_lang", "ja")
+    client.cookies.set("unflincher_lang", "ja")
     res = client.get("/")
     assert "タイムライン" in res.text
     assert "人生レポート" in res.text
@@ -21,7 +21,7 @@ def test_timeline_badges_translate(client, tmp_path):
         "VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2024-01-01T00:00:00', 'manual')"
     )
     conn.commit()
-    client.cookies.set("diary_lang", "fr")
+    client.cookies.set("unflincher_lang", "fr")
     res = client.get("/")
     assert "Non commenté" in res.text
 
@@ -36,7 +36,7 @@ def test_entry_detail_translates(client):
     )
     conn.commit()
     entry_id = cur.lastrowid
-    client.cookies.set("diary_lang", "de")
+    client.cookies.set("unflincher_lang", "de")
     res = client.get(f"/entry/{entry_id}")
     assert "Noch kein Kommentar." in res.text
     assert "KI-Kommentar" in res.text

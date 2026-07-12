@@ -2,7 +2,7 @@ def test_set_language_sets_cookie_and_returns_ok(client):
     res = client.post("/workshop/language", json={"lang": "zh-Hans"})
     assert res.status_code == 200
     assert res.json() == {"ok": True}
-    assert client.cookies.get("diary_lang") == "zh-Hans"
+    assert client.cookies.get("unflincher_lang") == "zh-Hans"
 
 
 def test_set_language_rejects_unsupported_code(client):

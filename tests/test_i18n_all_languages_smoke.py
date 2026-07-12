@@ -1,6 +1,6 @@
 import re
 
-from diary.i18n import SUPPORTED_LANGUAGE_CODES
+from unflincher.i18n import SUPPORTED_LANGUAGE_CODES
 
 CJK_RANGE = re.compile(r"[\u4e00-\u9fff]")
 # Strips the persona-prompt <textarea>'s inner content before the CJK scan. The persona
@@ -16,7 +16,7 @@ PAGES = ["/", "/report", "/chat", "/new", "/workshop"]
 
 def test_every_page_renders_without_error_in_every_language(client):
     for lang in SUPPORTED_LANGUAGE_CODES:
-        client.cookies.set("diary_lang", lang)
+        client.cookies.set("unflincher_lang", lang)
         for page in PAGES:
             res = client.get(page)
             assert res.status_code == 200, f"{page} failed to render for lang={lang}"
@@ -35,7 +35,7 @@ def test_non_chinese_languages_have_no_leftover_hardcoded_chinese_chrome(client)
     # regression here has to be caught by eye (Task 6's Step 4 spot-check) or by a
     # dedicated per-key diff review, not by this blanket script-range assertion.
     for lang in [l for l in SUPPORTED_LANGUAGE_CODES if l not in ("zh-Hans", "ja")]:
-        client.cookies.set("diary_lang", lang)
+        client.cookies.set("unflincher_lang", lang)
         for page in PAGES:
             res = client.get(page)
             text = PERSONA_TEXTAREA.sub("", res.text)

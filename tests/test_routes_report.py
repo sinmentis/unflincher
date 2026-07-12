@@ -1,4 +1,4 @@
-import diary.llm as llm_module
+import unflincher.llm as llm_module
 
 
 async def _fake_report_tokens(*args, **kwargs):

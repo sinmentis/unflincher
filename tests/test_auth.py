@@ -6,8 +6,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from diary.auth import AccessJWTMiddleware
-from diary.config import Settings
+from unflincher.auth import AccessJWTMiddleware
+from unflincher.config import Settings
 
 
 @pytest.fixture

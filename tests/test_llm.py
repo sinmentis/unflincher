@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-import diary.llm as llm_module
-from diary.llm import chat_reply, generate_commentary, generate_report, generate_session_title
+import unflincher.llm as llm_module
+from unflincher.llm import chat_reply, generate_commentary, generate_report, generate_session_title
 from copilot.generated.session_events import (
     AssistantIdleData,
     AssistantMessageDeltaData,
@@ -123,7 +123,7 @@ async def test_shutdown_client_stops_the_current_client():
 
 
 class _FakeStream:
-    """Replaces diary.llm.stream_completion in tests — yields fixed tokens and records
+    """Replaces unflincher.llm.stream_completion in tests — yields fixed tokens and records
     the (system, user_content, model) it was called with, so tests can assert on prompt
     assembly without a real network call."""
     def __init__(self, tokens):
@@ -356,15 +356,15 @@ async def test_stream_completion_never_retries_a_model_level_session_error():
 # ---------------------------------------------------------------------------
 
 def test_settings_default_llm_concurrency(monkeypatch):
-    from diary.config import load_settings
-    monkeypatch.delenv("DIARY_LLM_CONCURRENCY", raising=False)
+    from unflincher.config import load_settings
+    monkeypatch.delenv("UNFLINCHER_LLM_CONCURRENCY", raising=False)
     settings = load_settings()
     assert settings.llm_concurrency == 4
 
 
 def test_settings_llm_concurrency_from_env(monkeypatch):
-    from diary.config import load_settings
-    monkeypatch.setenv("DIARY_LLM_CONCURRENCY", "7")
+    from unflincher.config import load_settings
+    monkeypatch.setenv("UNFLINCHER_LLM_CONCURRENCY", "7")
     settings = load_settings()
     assert settings.llm_concurrency == 7
 

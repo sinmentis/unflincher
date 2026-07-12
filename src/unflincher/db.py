@@ -10,7 +10,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 # Fallback model for a brand-new install and for rows that predate the persona_prompt.model
-# column (see migrate_persona_prompt_model). Kept in sync with config.py's DIARY_LLM_MODEL
+# column (see migrate_persona_prompt_model). Kept in sync with config.py's UNFLINCHER_LLM_MODEL
 # default so upgrading an existing deployment leaves generation behaviour unchanged.
 DEFAULT_MODEL = "claude-sonnet-4.6"
 

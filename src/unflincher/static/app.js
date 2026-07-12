@@ -1,4 +1,4 @@
-// src/diary/static/app.js — shared SSE-consumer, reused by Task 10 (chat) and Task 14 (test-run)
+// src/unflincher/static/app.js — shared SSE-consumer, reused by Task 10 (chat) and Task 14 (test-run)
 function getCsrfToken() {
   const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
   return match ? match[1] : "";

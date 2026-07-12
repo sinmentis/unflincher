@@ -4,9 +4,9 @@ Drives create_app()'s lifespan directly (no TestClient) so we can pre-seed a cra
 disk BEFORE the lifespan runs, then await app.state.recovery_task to force the relaunched
 worker to finish deterministically — proving the resume path end-to-end at app startup.
 """
-import diary.llm as llm_module
-from diary.app import create_app
-from diary.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model
+import unflincher.llm as llm_module
+from unflincher.app import create_app
+from unflincher.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model
 
 
 async def _fake_commentary(entry, all_entries, persona_text, model):
@@ -51,8 +51,8 @@ async def test_startup_recovers_crashed_running_job(tmp_path, monkeypatch):
     async def _noop(): pass
     monkeypatch.setattr(llm_module, "warm_up_client", _noop)
     monkeypatch.setattr(llm_module, "shutdown_client", _noop)
-    monkeypatch.setenv("DIARY_DB", db_path)
-    monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
 
     app = create_app()
     async with app.router.lifespan_context(app):
@@ -77,8 +77,8 @@ def test_startup_runs_chat_session_migration(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
     db_path = str(tmp_path / "migrate.db")
-    monkeypatch.setenv("DIARY_DB", db_path)
-    monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
 
     async def _noop(): pass
     monkeypatch.setattr(llm_module, "warm_up_client", _noop)
@@ -94,7 +94,7 @@ def test_startup_runs_chat_session_migration(tmp_path, monkeypatch):
 
 def test_startup_and_shutdown_call_client_warm_up_and_shutdown(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
-    import diary.llm as llm_module
+    import unflincher.llm as llm_module
 
     calls = []
 
@@ -108,8 +108,8 @@ def test_startup_and_shutdown_call_client_warm_up_and_shutdown(tmp_path, monkeyp
     monkeypatch.setattr(llm_module, "shutdown_client", _fake_shutdown)
 
     db_path = str(tmp_path / "lifespan-client.db")
-    monkeypatch.setenv("DIARY_DB", db_path)
-    monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
 
     app = create_app()
     with TestClient(app) as c:

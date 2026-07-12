@@ -9,7 +9,7 @@ import re
 import openpyxl
 from bs4 import BeautifulSoup
 
-from diary.sanitize import sanitize_diary_html
+from unflincher.sanitize import sanitize_diary_html
 
 REQUIRED_COLUMNS = ["标题", "链接", "创建时间", "修改时间", "内容"]
 SHEET_NAME = "日记"

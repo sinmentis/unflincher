@@ -9,7 +9,7 @@ import logging
 from collections.abc import AsyncIterator
 
 from copilot import CopilotClient
-from diary.config import load_settings
+from unflincher.config import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ _STALL_TIMEOUT_SECONDS = 120.0
 
 def ensure_default_persona_prompt(conn) -> None:
     """Seed the default persona on first startup — a no-op if a version already exists."""
-    from diary.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt
+    from unflincher.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt
     if get_active_prompt(conn) is None:
         set_active_prompt(conn, DEFAULT_PERSONA_PROMPT, DEFAULT_MODEL)
 

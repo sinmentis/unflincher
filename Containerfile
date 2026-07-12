@@ -14,12 +14,12 @@ RUN pip install --no-cache-dir .
 # mirroring how this repo vendors htmx.min.js instead of hitting a CDN at runtime.
 RUN python -m copilot download-runtime
 
-ENV DIARY_DB=/data/diary.db
+ENV UNFLINCHER_DB=/data/unflincher.db
 VOLUME ["/data"]
 EXPOSE 8000
 
 ENTRYPOINT ["tini", "--"]
 # --workers 1 is mandatory: single SQLite writer + single in-process batch worker (see
 # Global Constraints and technical design §7.6 point 1). Never change this.
-CMD ["uvicorn", "diary.app:app", "--host", "0.0.0.0", "--port", "8000", \
+CMD ["uvicorn", "unflincher.app:app", "--host", "0.0.0.0", "--port", "8000", \
      "--workers", "1", "--timeout-graceful-shutdown", "30"]

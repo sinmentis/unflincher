@@ -6,14 +6,14 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from diary.auth import AccessJWTMiddleware
-from diary.config import load_settings
-from diary.csrf import CSRFMiddleware
-from diary.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model, resume_sweep
-from diary import llm as _llm
-from diary.llm import ensure_default_persona_prompt
-from diary.routes import chat, entry, new_entry, report, timeline, workshop
-from diary.worker import BatchWorker
+from unflincher.auth import AccessJWTMiddleware
+from unflincher.config import load_settings
+from unflincher.csrf import CSRFMiddleware
+from unflincher.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model, resume_sweep
+from unflincher import llm as _llm
+from unflincher.llm import ensure_default_persona_prompt
+from unflincher.routes import chat, entry, new_entry, report, timeline, workshop
+from unflincher.worker import BatchWorker
 
 
 def create_app() -> FastAPI:
@@ -58,7 +58,7 @@ def create_app() -> FastAPI:
         await _llm.shutdown_client()
         conn.close()
 
-    app = FastAPI(title="diary", lifespan=lifespan)
+    app = FastAPI(title="unflincher", lifespan=lifespan)
     app.add_middleware(AccessJWTMiddleware, settings=settings)
     app.add_middleware(CSRFMiddleware)
 
@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
             response.headers["Cache-Control"] = "no-cache"
         return response
 
-    app.mount("/static", StaticFiles(directory="src/diary/static"), name="static")
+    app.mount("/static", StaticFiles(directory="src/unflincher/static"), name="static")
     app.include_router(timeline.router)
     app.include_router(entry.router)
     app.include_router(report.router)

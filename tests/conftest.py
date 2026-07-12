@@ -1,15 +1,15 @@
 import pytest
 from fastapi.testclient import TestClient
 
-import diary.llm as llm_module
-from diary.app import create_app
+import unflincher.llm as llm_module
+from unflincher.app import create_app
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     db_path = str(tmp_path / "test.db")
-    monkeypatch.setenv("DIARY_DB", db_path)
-    monkeypatch.setenv("DIARY_REQUIRE_ACCESS_AUTH", "false")
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
 
     async def _noop():
         pass

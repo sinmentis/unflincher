@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from diary.csrf import CSRFMiddleware
+from unflincher.csrf import CSRFMiddleware
 
 
 def _make_app():

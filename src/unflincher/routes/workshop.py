@@ -6,13 +6,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from diary import llm
-from diary.config import load_settings
-from diary.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt, start_regen_job
-from diary.i18n import SUPPORTED_LANGUAGE_CODES, t
-from diary.sanitize import render_ai_markdown
-from diary.templates_env import LANG_COOKIE_NAME, get_current_language, templates
-from diary.worker import BatchWorker
+from unflincher import llm
+from unflincher.config import load_settings
+from unflincher.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt, start_regen_job
+from unflincher.i18n import SUPPORTED_LANGUAGE_CODES, t
+from unflincher.sanitize import render_ai_markdown
+from unflincher.templates_env import LANG_COOKIE_NAME, get_current_language, templates
+from unflincher.worker import BatchWorker
 
 router = APIRouter()
 

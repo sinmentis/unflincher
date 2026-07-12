@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from diary import llm
-from diary.db import get_active_prompt, get_current_report, get_report_by_id, list_report_versions
-from diary.sanitize import render_ai_markdown
-from diary.templates_env import templates
+from unflincher import llm
+from unflincher.db import get_active_prompt, get_current_report, get_report_by_id, list_report_versions
+from unflincher.sanitize import render_ai_markdown
+from unflincher.templates_env import templates
 
 router = APIRouter()
 

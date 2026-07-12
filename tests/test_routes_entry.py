@@ -1,11 +1,11 @@
-import diary.llm as llm_module
+import unflincher.llm as llm_module
 
 
 def test_trigger_commentary_creates_background_job(client, monkeypatch):
     async def _fake_run_job(self, job_id, persona_text, model):
         pass  # don't actually run the worker in this test -- only the job creation is under test
 
-    monkeypatch.setattr("diary.worker.BatchWorker.run_job", _fake_run_job)
+    monkeypatch.setattr("unflincher.worker.BatchWorker.run_job", _fake_run_job)
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -39,7 +39,7 @@ def test_trigger_commentary_409_when_a_job_is_already_running(client):
     # established pattern in test_routes_workshop.py's test_apply_all_rejects_concurrent_job:
     # inserting the job row alone is enough to hold the single-flight lock; no need to race a
     # real background task through the TestClient (which blocks on BackgroundTasks completion).
-    from diary.db import get_active_prompt, start_single_entry_commentary_job
+    from unflincher.db import get_active_prompt, start_single_entry_commentary_job
     active_prompt = get_active_prompt(db)
     start_single_entry_commentary_job(db, active_prompt["id"], entry_id)
 
@@ -294,7 +294,7 @@ def test_entry_detail_shows_failure_state_and_retry_button(client):
         "INSERT INTO regen_job_item (job_id, target_type, entry_id, status) "
         "VALUES (?, 'entry_commentary', ?, 'failed')", (job_id, entry_id),
     ).lastrowid
-    from diary.db import fail_job_item
+    from unflincher.db import fail_job_item
     fail_job_item(db, item_id, "模型报错了")
 
     response = client.get(f"/entry/{entry_id}")

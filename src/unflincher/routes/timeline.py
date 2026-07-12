@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 
-from diary.db import get_current_commentary, get_entries_with_active_commentary_job
-from diary.templates_env import templates
+from unflincher.db import get_current_commentary, get_entries_with_active_commentary_job
+from unflincher.templates_env import templates
 
 router = APIRouter()
 

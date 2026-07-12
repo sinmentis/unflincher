@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from diary.db import (
+from unflincher.db import (
     complete_job_item,
     create_chat_session,
     delete_chat_session,

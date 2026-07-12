@@ -15,11 +15,11 @@ def _make_workbook(path):
 
 def test_cli_import_reports_count(tmp_path):
     xlsx_path = tmp_path / "export.xlsx"
-    db_path = tmp_path / "diary.db"
+    db_path = tmp_path / "unflincher.db"
     _make_workbook(xlsx_path)
 
     result = subprocess.run(
-        [sys.executable, "-m", "diary.cli", "import", "--excel", str(xlsx_path), "--db", str(db_path)],
+        [sys.executable, "-m", "unflincher.cli", "import", "--excel", str(xlsx_path), "--db", str(db_path)],
         capture_output=True, text=True,
     )
 
@@ -29,7 +29,7 @@ def test_cli_import_reports_count(tmp_path):
 
 def test_cli_import_missing_columns_exits_nonzero(tmp_path):
     xlsx_path = tmp_path / "bad.xlsx"
-    db_path = tmp_path / "diary.db"
+    db_path = tmp_path / "unflincher.db"
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "日记"
@@ -38,7 +38,7 @@ def test_cli_import_missing_columns_exits_nonzero(tmp_path):
     wb.save(xlsx_path)
 
     result = subprocess.run(
-        [sys.executable, "-m", "diary.cli", "import", "--excel", str(xlsx_path), "--db", str(db_path)],
+        [sys.executable, "-m", "unflincher.cli", "import", "--excel", str(xlsx_path), "--db", str(db_path)],
         capture_output=True, text=True,
     )
 

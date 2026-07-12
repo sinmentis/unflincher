@@ -3,12 +3,12 @@ before the web service is first started, per technical design §7.4)."""
 import argparse
 import sys
 
-from diary.db import get_connection, init_schema
-from diary.importer import MissingColumnsError, import_excel
+from unflincher.db import get_connection, init_schema
+from unflincher.importer import MissingColumnsError, import_excel
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="python -m diary.cli")
+    parser = argparse.ArgumentParser(prog="python -m unflincher.cli")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     import_parser = subparsers.add_parser("import", help="import a 豆伴 Excel export")

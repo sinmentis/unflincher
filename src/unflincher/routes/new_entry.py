@@ -3,8 +3,8 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from diary.sanitize import plain_text_to_safe_html
-from diary.templates_env import templates
+from unflincher.sanitize import plain_text_to_safe_html
+from unflincher.templates_env import templates
 
 router = APIRouter()
 

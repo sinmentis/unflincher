@@ -1,8 +1,8 @@
 import pytest
 
-import diary.llm as llm_module
-from diary.db import get_connection, get_current_commentary, init_schema, migrate_persona_prompt_model, resume_sweep, set_active_prompt, start_regen_job
-from diary.worker import BatchWorker
+import unflincher.llm as llm_module
+from unflincher.db import get_connection, get_current_commentary, init_schema, migrate_persona_prompt_model, resume_sweep, set_active_prompt, start_regen_job
+from unflincher.worker import BatchWorker
 
 
 @pytest.fixture

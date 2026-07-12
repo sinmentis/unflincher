@@ -1,7 +1,7 @@
 # tests/test_i18n.py
 import pytest
 
-from diary.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES, SUPPORTED_LANGUAGES, TRANSLATIONS, t
+from unflincher.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES, SUPPORTED_LANGUAGES, TRANSLATIONS, t
 
 
 def test_supported_languages_exact_set():
@@ -61,7 +61,7 @@ def test_startup_key_parity_assertion_actually_fires_on_a_broken_catalog():
     # Exercises the exact _assert_translation_key_parity() check that runs at import time --
     # simulates a translator accidentally deleting a key from one language's dict and confirms
     # the guard function (not just this test's own duplicate check) catches it.
-    import diary.i18n as i18n_module
+    import unflincher.i18n as i18n_module
 
     broken = {lang: dict(cat) for lang, cat in i18n_module.TRANSLATIONS.items()}
     del broken["ja"]["nav.timeline"]

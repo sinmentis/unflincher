@@ -3,8 +3,8 @@ per-item failure isolation; every successful item is persisted atomically (see
 db.complete_job_item) so a crash mid-item can never produce a duplicate on resume."""
 import asyncio
 
-from diary import llm
-from diary.db import complete_job_item, fail_job_item
+from unflincher import llm
+from unflincher.db import complete_job_item, fail_job_item
 
 
 class BatchWorker:

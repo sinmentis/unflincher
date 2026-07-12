@@ -838,7 +838,7 @@ def _assert_translation_key_parity() -> None:
     same key set as English. A missing key would otherwise only surface as a runtime KeyError
     the first time some unlucky request hits that specific template+language combination --
     catching it at boot instead means a broken translation fails the very first `import
-    diary.i18n` (which every test and the app's own startup already does), not a random
+    unflincher.i18n` (which every test and the app's own startup already does), not a random
     production request days later."""
     reference_keys = set(TRANSLATIONS[DEFAULT_LANGUAGE].keys())
     for lang, catalog in TRANSLATIONS.items():
@@ -847,7 +847,7 @@ def _assert_translation_key_parity() -> None:
         extra = lang_keys - reference_keys
         if missing or extra:
             raise RuntimeError(
-                f"diary.i18n.TRANSLATIONS['{lang}'] is out of sync with "
+                f"unflincher.i18n.TRANSLATIONS['{lang}'] is out of sync with "
                 f"TRANSLATIONS['{DEFAULT_LANGUAGE}']: missing={sorted(missing)} extra={sorted(extra)}"
             )
 
