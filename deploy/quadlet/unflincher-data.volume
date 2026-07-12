@@ -1,0 +1,9 @@
+# deploy/quadlet/unflincher-data.volume
+[Unit]
+Description=unflincher SQLite data volume
+
+[Volume]
+VolumeName=unflincher-data
+
+[Install]
+WantedBy=default.target

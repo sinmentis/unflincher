@@ -10,7 +10,7 @@ data/
 *.key
 .superpowers/
 
-# Import scratch dir (deploy/scripts/import-diary.sh copies your real export .xlsx here)
+# Import scratch dir (deploy/scripts/import-unflincher.sh copies your real export .xlsx here)
 /import/
 
 # Python

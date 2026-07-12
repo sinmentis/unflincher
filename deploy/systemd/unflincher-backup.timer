@@ -1,0 +1,9 @@
+# deploy/systemd/unflincher-backup.timer
+[Unit]
+Description=Run the unflincher SQLite backup nightly
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+Unit=unflincher-backup.service
+[Install]
+WantedBy=timers.target

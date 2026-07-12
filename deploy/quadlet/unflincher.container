@@ -1,38 +1,44 @@
-# deploy/quadlet/diary.container
+# deploy/quadlet/unflincher.container
 [Unit]
-Description=diary.yourdomain.com — AI-annotated diary (FastAPI + htmx + SSE, in-process async batch worker)
+Description=unflincher.yourdomain.com — AI-annotated diary (FastAPI + htmx + SSE, in-process async batch worker)
 
 [Container]
-Image=localhost/diary:latest
-ContainerName=diary
+Image=localhost/unflincher:latest
+ContainerName=unflincher
 
-# Loopback only. cloudflared maps diary.yourdomain.com -> http://localhost:8096 (see
-# deploy/cloudflared/diary-ingress.snippet.yml, Task 20). PRIVATE behind Cloudflare Access.
+# Loopback only. cloudflared maps unflincher.yourdomain.com -> http://localhost:8096 (see
+# deploy/cloudflared/unflincher-ingress.snippet.yml). PRIVATE behind Cloudflare Access.
 PublishPort=127.0.0.1:8096:8000
 
-Volume=diary-data.volume:/data
+Volume=unflincher-data.volume:/data
 
 # If you already run other apps on this host that use the GitHub Copilot SDK, they can all
 # share ONE podman secret (same GitHub account, same Copilot subscription) rather than each
 # minting their own. CopilotClient() auto-detects this env var. If you rename this secret,
-# also update DIARY_COPILOT_SECRET when running deploy/scripts/deploy-diary.sh so the two
-# stay in sync (see that script's own comment).
+# also update UNFLINCHER_COPILOT_SECRET when running deploy/scripts/deploy-unflincher.sh so
+# the two stay in sync.
+#
+# NOTE: this project was renamed from "diary" to "unflincher"; the podman secret name below
+# deliberately was NOT renamed along with everything else, because podman secrets are
+# write-only (there is no way to read the token back out to recreate it under a new name
+# without the owner re-supplying the raw token). "diary-copilot-github-token" is the correct,
+# intentional value here even in an otherwise fully-renamed project.
 Secret=diary-copilot-github-token,type=env,target=COPILOT_GITHUB_TOKEN
 
-Environment=DIARY_DB=/data/diary.db
-Environment=DIARY_LLM_MODEL=claude-sonnet-4.6
-Environment=DIARY_BATCH_CONCURRENCY=3
-Environment=DIARY_LLM_CONCURRENCY=4
+Environment=UNFLINCHER_DB=/data/unflincher.db
+Environment=UNFLINCHER_LLM_MODEL=claude-sonnet-4.6
+Environment=UNFLINCHER_BATCH_CONCURRENCY=3
+Environment=UNFLINCHER_LLM_CONCURRENCY=4
 # CF_TEAM_DOMAIN is the SHORT team name only (this app's own auth.py appends
 # ".cloudflareaccess.com" itself for both the JWKS URL and the issuer check) -- if you're
 # copying this value from Cloudflare's own dashboard/JWKS URL, that shows the full
 # "<team>.cloudflareaccess.com" form instead, so strip the suffix before pasting it here.
 # AUD is the one value that's genuinely per-app -- only known after running
-# deploy/create-access-diary-app.sh below.
-Environment=DIARY_CF_TEAM_DOMAIN=your-team-name
-Environment=DIARY_CF_ACCESS_AUD=REPLACE_WITH_YOUR_ACCESS_APP_AUD
-Environment=DIARY_OPERATOR_EMAIL=your-email@example.com
-Environment=DIARY_REQUIRE_ACCESS_AUTH=true
+# deploy/create-access-unflincher-app.sh below.
+Environment=UNFLINCHER_CF_TEAM_DOMAIN=your-team-name
+Environment=UNFLINCHER_CF_ACCESS_AUD=REPLACE_WITH_YOUR_ACCESS_APP_AUD
+Environment=UNFLINCHER_OPERATOR_EMAIL=your-email@example.com
+Environment=UNFLINCHER_REQUIRE_ACCESS_AUTH=true
 
 HealthCmd=python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=5).status==200 else 1)"
 HealthInterval=60s
@@ -40,7 +46,7 @@ HealthTimeout=10s
 HealthRetries=3
 HealthStartPeriod=30s
 # Deliberately NO HealthOnFailure=kill — a health blip must never interrupt an in-flight
-# apply-to-all batch (technical design §7.4/§7.6). Restart=always below covers real crashes.
+# apply-to-all batch job. Restart=always below covers real crashes.
 
 PodmanArgs=--stop-timeout=30
 

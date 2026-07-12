@@ -1,9 +1,0 @@
-# deploy/systemd/diary-backup.timer
-[Unit]
-Description=Run the diary SQLite backup nightly
-[Timer]
-OnCalendar=*-*-* 03:15:00
-Persistent=true
-Unit=diary-backup.service
-[Install]
-WantedBy=timers.target

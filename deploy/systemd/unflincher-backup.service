@@ -1,0 +1,12 @@
+# deploy/systemd/unflincher-backup.service
+[Unit]
+Description=unflincher nightly SQLite backup
+After=unflincher.service
+Wants=unflincher.service
+[Service]
+Type=oneshot
+# %h/.local/bin/unflincher-backup.sh is a COPY of deploy/scripts/unflincher-backup.sh,
+# installed once during setup (see README's "Backups & recovery" section) -- referencing a
+# fixed, repo-checkout-independent path here means this unit keeps working even if you later
+# move or re-clone the repo itself. Re-copy it after pulling a change to unflincher-backup.sh.
+ExecStart=%h/.local/bin/unflincher-backup.sh
