@@ -85,64 +85,69 @@ new entries can always be typed directly into the app's "写新日记" ("New Ent
 
 ## Deployment (Podman + Quadlet + Cloudflare Access)
 
-1. `podman build -t localhost/diary:latest .`
+1. `podman build -t localhost/unflincher:latest .`
 2. Create the podman secret containing a GitHub personal access token with Copilot SDK
    access (see "Getting a Copilot token" above). The default name expected by
-   `deploy/quadlet/diary.container` and `deploy/scripts/deploy-diary.sh` is
-   `diary-copilot-github-token`:
+   `deploy/quadlet/unflincher.container` and `deploy/scripts/deploy-unflincher.sh` is
+   `diary-copilot-github-token` (this specific name is unchanged from before this project's
+   rename — see that file's own comments for why):
    `podman secret create diary-copilot-github-token <(printf "%s" "$YOUR_GITHUB_TOKEN")`
-   If you rename it, update BOTH `diary.container`'s `Secret=` line AND set
-   `DIARY_COPILOT_SECRET=your-name` when running `deploy/scripts/deploy-diary.sh` — the two
-   must stay in sync or repeat deploys will fail with "Missing shared secret".
-3. `deploy/scripts/import-diary.sh /path/to/your-export.xlsx` (if migrating existing entries).
-4. Edit `deploy/quadlet/diary.container`'s placeholder values (`your-email@example.com`,
-   `diary.yourdomain.com`, `your-team-name`, `REPLACE_WITH_YOUR_ACCESS_APP_AUD` — the last one
-   comes from step 6 below), then:
-   `cp deploy/quadlet/diary-data.volume deploy/quadlet/diary.container ~/.config/containers/systemd/`
-   `systemctl --user daemon-reload && systemctl --user start diary.service`
-5. Merge `deploy/cloudflared/diary-ingress.snippet.yml` into your own `~/.cloudflared/config.yml`,
-   then `cloudflared tunnel route dns <your-tunnel-name> diary.yourdomain.com && systemctl --user
-   restart cloudflared`. (This assumes you already have a named Cloudflare Tunnel set up — see
-   [Cloudflare's tunnel docs](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
+   If you rename it, update BOTH `unflincher.container`'s `Secret=` line AND set
+   `UNFLINCHER_COPILOT_SECRET=your-name` when running `deploy/scripts/deploy-unflincher.sh` —
+   the two must stay in sync or repeat deploys will fail with "Missing shared secret".
+3. `deploy/scripts/import-unflincher.sh /path/to/your-export.xlsx` (if migrating existing entries).
+4. Edit `deploy/quadlet/unflincher.container`'s placeholder values (`your-email@example.com`,
+   `unflincher.yourdomain.com`, `your-team-name`, `REPLACE_WITH_YOUR_ACCESS_APP_AUD` — the last
+   one comes from step 6 below), then:
+   `cp deploy/quadlet/unflincher-data.volume deploy/quadlet/unflincher.container ~/.config/containers/systemd/`
+   `systemctl --user daemon-reload && systemctl --user start unflincher.service`
+5. Merge `deploy/cloudflared/unflincher-ingress.snippet.yml` into your own
+   `~/.cloudflared/config.yml`, then `cloudflared tunnel route dns <your-tunnel-name>
+   unflincher.yourdomain.com && systemctl --user restart cloudflared`. (This assumes you already
+   have a named Cloudflare Tunnel set up — see [Cloudflare's tunnel
+   docs](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
    if not.)
-6. `CF_ACCOUNT_ID=... DIARY_DOMAIN=diary.yourdomain.com DIARY_OPERATOR_EMAIL=you@example.com
-   CF_TOKEN=... ./deploy/create-access-diary-app.sh` — prints the AUD to put into step 4's
-   `diary.container`. `CF_ACCOUNT_ID` is the 32-char hex ID shown on your Cloudflare dashboard's
-   account home page (also in the URL after `/accounts/`); `CF_TOKEN` needs an API token with
-   `Account.Access: Apps and Policies — Edit` permission.
+6. `CF_ACCOUNT_ID=... UNFLINCHER_DOMAIN=unflincher.yourdomain.com
+   UNFLINCHER_OPERATOR_EMAIL=you@example.com CF_TOKEN=... ./deploy/create-access-unflincher-app.sh`
+   — prints the AUD to put into step 4's `unflincher.container`. `CF_ACCOUNT_ID` is the 32-char
+   hex ID shown on your Cloudflare dashboard's account home page (also in the URL after
+   `/accounts/`); `CF_TOKEN` needs an API token with `Account.Access: Apps and Policies — Edit`
+   permission.
 7. Install the backup script once to a fixed, repo-checkout-independent location, then enable the
-   timer: `mkdir -p ~/.local/bin && cp deploy/scripts/diary-backup.sh ~/.local/bin/ && chmod +x
-   ~/.local/bin/diary-backup.sh && cp deploy/systemd/diary-backup.* ~/.config/systemd/user/ &&
-   systemctl --user daemon-reload && systemctl --user enable --now diary-backup.timer`
+   timer: `mkdir -p ~/.local/bin && cp deploy/scripts/unflincher-backup.sh ~/.local/bin/ &&
+   chmod +x ~/.local/bin/unflincher-backup.sh && cp deploy/systemd/unflincher-backup.*
+   ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now
+   unflincher-backup.timer`
 
-If you troubleshoot a failed start: `systemctl --user status diary.service` and
-`journalctl --user -u diary.service` show the container's logs and exit status.
+If you troubleshoot a failed start: `systemctl --user status unflincher.service` and
+`journalctl --user -u unflincher.service` show the container's logs and exit status.
 
 ## Repeat deploys
 
-`deploy/scripts/deploy-diary.sh` — rebuilds the image and restarts the service. It deliberately
+`deploy/scripts/deploy-unflincher.sh` — rebuilds the image and restarts the service. It deliberately
 does **not** re-copy `deploy/quadlet/*.container` into `~/.config/containers/systemd/`, since that
 template only holds placeholder values and blindly overwriting your already-deployed, filled-in
 unit file would silently replace your real Cloudflare Access settings. If you change the unit
 files themselves (not just application code), re-copy and re-edit them into
-`~/.config/containers/systemd/` by hand, then `systemctl --user daemon-reload`.
+`~/.config/containers/systemd/` by hand, then `systemctl --user daemon-reload`. The live service
+unit is `unflincher.service`.
 
 ## Backups & recovery
 
-`deploy/scripts/diary-backup.sh` (installed to `~/.local/bin/`, run nightly by
-`diary-backup.timer`) takes a WAL-safe SQLite online backup — it uses `sqlite3 .backup`, never a
-raw file copy, so it can't catch the database mid-write — and gzips it to `~/backups/diary/`
-(override with `DIARY_BACKUP_DIR`) with `0600` permissions. Backups older than 30 days are
-auto-pruned (override with `DIARY_BACKUP_RETENTION_DAYS`).
+`deploy/scripts/unflincher-backup.sh` (installed to `~/.local/bin/`, run nightly by
+`unflincher-backup.timer`) takes a WAL-safe SQLite online backup — it uses `sqlite3 .backup`,
+never a raw file copy, so it can't catch the database mid-write — and gzips it to
+`~/backups/unflincher/` (override with `UNFLINCHER_BACKUP_DIR`) with `0600` permissions. Backups
+older than 30 days are auto-pruned (override with `UNFLINCHER_BACKUP_RETENTION_DAYS`).
 
 To restore from a backup:
 
 ```bash
-systemctl --user stop diary.service
-gunzip -c ~/backups/diary/diary-YYYYMMDD-HHMMSS.db.gz > /tmp/diary-restore.db
-podman volume mount diary-data   # or: run a throwaway container with the volume mounted
-cp /tmp/diary-restore.db <volume-mountpoint>/diary.db
-systemctl --user start diary.service
+systemctl --user stop unflincher.service
+gunzip -c ~/backups/unflincher/unflincher-YYYYMMDD-HHMMSS.db.gz > /tmp/unflincher-restore.db
+podman volume mount unflincher-data   # or: run a throwaway container with the volume mounted
+cp /tmp/unflincher-restore.db <volume-mountpoint>/unflincher.db
+systemctl --user start unflincher.service
 ```
 
 ## Configuration reference
