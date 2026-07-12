@@ -212,3 +212,89 @@ def test_backup_script_has_valid_bash_syntax():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def _write_fake_restore_commands(fake_bin: Path) -> Path:
+    log_path = fake_bin / "podman.log"
+    _write_executable(
+        fake_bin / "podman",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$FAKE_PODMAN_LOG"
+if [[ "$*" == *"SELECT COUNT(*) FROM "* ]]; then
+  printf '%s\n' "$FAKE_RESTORED_COUNT"
+elif [[ "$*" == *"SELECT id FROM diary_entry ORDER BY id LIMIT 1;"* ]]; then
+  printf '1\n'
+elif [[ "${1:-}" == "run" && "$*" == *" -d "* ]]; then
+  printf 'fake-container-id\n'
+fi
+""",
+    )
+    _write_executable(
+        fake_bin / "curl",
+        """#!/usr/bin/env bash
+exit 0
+""",
+    )
+    return log_path
+
+
+def _run_restore_drill(
+    tmp_path: Path, archive: Path, restored_count: int
+) -> tuple[subprocess.CompletedProcess, str]:
+    fake_bin = tmp_path / "restore-fake-bin"
+    fake_bin.mkdir()
+    log_path = _write_fake_restore_commands(fake_bin)
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{fake_bin}:{env['PATH']}",
+            "FAKE_PODMAN_LOG": str(log_path),
+            "FAKE_RESTORED_COUNT": str(restored_count),
+            "UNFLINCHER_BACKUP_VERIFY_SCRIPT": str(VERIFY_SCRIPT),
+            "UNFLINCHER_RESTORE_PORT": "18097",
+        }
+    )
+    result = subprocess.run(
+        ["bash", str(RESTORE_SCRIPT), str(archive), "2"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    return result, log_path.read_text()
+
+
+def test_restore_drill_checks_pages_and_cleans_disposable_resources(tmp_path):
+    archive = _write_backup_archive(tmp_path, entry_count=2)
+
+    result, podman_log = _run_restore_drill(tmp_path, archive, restored_count=2)
+
+    assert result.returncode == 0
+    assert "restore drill passed: entries=2" in result.stdout
+    assert "volume create unflincher-restore-drill-" in podman_log
+    assert "rm -f unflincher-restore-drill-" in podman_log
+    assert "volume rm -f unflincher-restore-drill-" in podman_log
+
+
+def test_restore_drill_fails_count_check_and_still_cleans_up(tmp_path):
+    archive = _write_backup_archive(tmp_path, entry_count=2)
+
+    result, podman_log = _run_restore_drill(tmp_path, archive, restored_count=3)
+
+    assert result.returncode != 0
+    assert (
+        "restored table count mismatch: table=diary_entry archive=2 container=3"
+        in result.stderr
+    )
+    assert "rm -f unflincher-restore-drill-" in podman_log
+    assert "volume rm -f unflincher-restore-drill-" in podman_log
+
+
+def test_restore_drill_has_valid_bash_syntax():
+    result = subprocess.run(
+        ["bash", "-n", str(RESTORE_SCRIPT)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
