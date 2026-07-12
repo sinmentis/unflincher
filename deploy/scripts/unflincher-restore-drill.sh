@@ -75,7 +75,6 @@ for _ in {1..60}; do
 done
 if [[ "$HEALTHY" != "1" ]]; then
   echo "restore drill failed: disposable app did not become healthy" >&2
-  podman logs "$CONTAINER" >&2 || true
   exit 1
 fi
 
