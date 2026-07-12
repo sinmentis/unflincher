@@ -79,7 +79,7 @@ diary (Douban is a Chinese social/review/journaling platform; 豆伴 is a third-
 extension that exports its diary entries to Excel — this is not an official Douban export
 feature): the exported `.xlsx` file has a sheet named 日记 with columns 标题 (title) / 链接 (link)
 / 创建时间 (created) / 修改时间 (modified) / 内容 (content). Run
-`deploy/scripts/import-diary.sh /path/to/your-export.xlsx` — do this **before** starting the
+`deploy/scripts/import-unflincher.sh /path/to/your-export.xlsx` — do this **before** starting the
 service for the first time. If you're not migrating from Douban, skip this section entirely —
 new entries can always be typed directly into the app's "写新日记" ("New Entry") page.
 
@@ -179,4 +179,4 @@ summary below is plain-English orientation, not legal advice.
   **not** qualify, even without reselling anything — when in doubt, ask first.
 
 **Want a commercial license, or have a licensing question?** Open a
-[Discussion](https://github.com/sinmentis/diary/discussions) on this repository.
+[Discussion](https://github.com/sinmentis/unflincher/discussions) on this repository.
