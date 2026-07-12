@@ -113,11 +113,19 @@ new entries can always be typed directly into the app's "写新日记" ("New Ent
    hex ID shown on your Cloudflare dashboard's account home page (also in the URL after
    `/accounts/`); `CF_TOKEN` needs an API token with `Account.Access: Apps and Policies — Edit`
    permission.
-7. Install the backup script once to a fixed, repo-checkout-independent location, then enable the
-   timer: `mkdir -p ~/.local/bin && cp deploy/scripts/unflincher-backup.sh ~/.local/bin/ &&
-   chmod +x ~/.local/bin/unflincher-backup.sh && cp deploy/systemd/unflincher-backup.*
-   ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now
-   unflincher-backup.timer`
+7. Install the backup and verifier scripts once to a fixed, repo-checkout-independent location,
+   then enable the timer:
+
+   ```bash
+   install -d -m 0755 ~/.local/bin
+   install -m 0755 \
+     deploy/scripts/unflincher-backup.sh \
+     deploy/scripts/verify-unflincher-backup.py \
+     ~/.local/bin/
+   cp deploy/systemd/unflincher-backup.* ~/.config/systemd/user/
+   systemctl --user daemon-reload
+   systemctl --user enable --now unflincher-backup.timer
+   ```
 
 If you troubleshoot a failed start: `systemctl --user status unflincher.service` and
 `journalctl --user -u unflincher.service` show the container's logs and exit status.
@@ -134,20 +142,82 @@ unit is `unflincher.service`.
 
 ## Backups & recovery
 
-`deploy/scripts/unflincher-backup.sh` (installed to `~/.local/bin/`, run nightly by
-`unflincher-backup.timer`) takes a WAL-safe SQLite online backup — it uses `sqlite3 .backup`,
-never a raw file copy, so it can't catch the database mid-write — and gzips it to
-`~/backups/unflincher/` (override with `UNFLINCHER_BACKUP_DIR`) with `0600` permissions. Backups
-older than 30 days are auto-pruned (override with `UNFLINCHER_BACKUP_RETENTION_DAYS`).
+`unflincher-backup.timer` runs `~/.local/bin/unflincher-backup.sh` nightly. The script uses
+SQLite's online `.backup` command, so it is safe while the WAL-mode application is running. It
+writes a hidden `.partial` gzip first, verifies that the archive decompresses, runs
+`PRAGMA integrity_check`, and checks its entry count against the live count before atomically
+publishing `unflincher-*.db.gz` with `0600` permissions. Failed checks leave no final-looking
+artifact. Backups go to `~/backups/unflincher/` by default and are pruned after 30 days; override
+these with `UNFLINCHER_BACKUP_DIR` and `UNFLINCHER_BACKUP_RETENTION_DAYS`.
 
-To restore from a backup:
+These are still backups on the same host. A passing check or drill does not provide an off-host
+copy.
+
+### Test a backup without touching production
+
+Run the disposable restore drill before relying on an artifact. It verifies all application-table
+row counts, starts the real image against a uniquely named temporary volume on loopback port
+`18096`, and checks health, timeline, report, chat, workshop, and one entry page. It never mounts
+the production `unflincher-data` volume and removes its temporary container, volume, and database
+on success or failure. Set `UNFLINCHER_RESTORE_PORT` if `18096` is occupied.
 
 ```bash
+LATEST="$(ls -1t "$HOME"/backups/unflincher/unflincher-*.db.gz | head -1)"
+EXPECTED="$(
+  podman exec unflincher sqlite3 /data/unflincher.db \
+    "SELECT COUNT(*) FROM diary_entry;"
+)"
+deploy/scripts/unflincher-restore-drill.sh "$LATEST" "$EXPECTED"
+```
+
+### Restore production
+
+This procedure overwrites the production database. First run the disposable drill above, then take
+one final verified backup of the current state. Keep the staged database until the restarted
+service and representative pages have been checked.
+
+```bash
+# 1. Preserve and verify the current production state.
+PRE_RESTORE_DIR="$HOME/backups/unflincher/pre-restore"
+UNFLINCHER_BACKUP_DIR="$PRE_RESTORE_DIR" \
+  ~/.local/bin/unflincher-backup.sh
+
+# 2. Select and verify the artifact to restore. This example selects the latest normal backup.
+RESTORE_ARCHIVE="$(
+  ls -1t "$HOME"/backups/unflincher/unflincher-*.db.gz | head -1
+)"
+RESTORE_COUNT="$(
+  python3 ~/.local/bin/verify-unflincher-backup.py "$RESTORE_ARCHIVE"
+)"
+
+# 3. Stop writes and stage the verified database.
 systemctl --user stop unflincher.service
-gunzip -c ~/backups/unflincher/unflincher-YYYYMMDD-HHMMSS.db.gz > /tmp/unflincher-restore.db
-podman volume mount unflincher-data   # or: run a throwaway container with the volume mounted
-cp /tmp/unflincher-restore.db <volume-mountpoint>/unflincher.db
+RESTORE_TMP="$(mktemp -d)"
+gunzip -c "$RESTORE_ARCHIVE" > "$RESTORE_TMP/unflincher.db"
+
+# 4. Replace the database and remove WAL/SHM files from the superseded database state.
+podman run --rm --pull=never \
+  -v unflincher-data:/data:Z \
+  -v "$RESTORE_TMP:/restore:ro,Z" \
+  --entrypoint sh \
+  localhost/unflincher:latest \
+  -c "rm -f /data/unflincher.db-wal /data/unflincher.db-shm && cp /restore/unflincher.db /data/unflincher.db && sqlite3 /data/unflincher.db 'PRAGMA integrity_check; SELECT COUNT(*) FROM diary_entry;'"
+
+# 5. Restart and require the running container to see the restored row count.
 systemctl --user start unflincher.service
+RUNNING_COUNT="$(
+  podman exec unflincher sqlite3 /data/unflincher.db \
+    "SELECT COUNT(*) FROM diary_entry;"
+)"
+test "$RUNNING_COUNT" = "$RESTORE_COUNT"
+curl -fsS http://127.0.0.1:8096/healthz
+```
+
+After the service and representative pages are verified, remove only the staged copy:
+
+```bash
+rm -f "$RESTORE_TMP/unflincher.db"
+rmdir "$RESTORE_TMP"
 ```
 
 ## Configuration reference

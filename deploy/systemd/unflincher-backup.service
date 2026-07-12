@@ -5,8 +5,7 @@ After=unflincher.service
 Wants=unflincher.service
 [Service]
 Type=oneshot
-# %h/.local/bin/unflincher-backup.sh is a COPY of deploy/scripts/unflincher-backup.sh,
-# installed once during setup (see README's "Backups & recovery" section) -- referencing a
-# fixed, repo-checkout-independent path here means this unit keeps working even if you later
-# move or re-clone the repo itself. Re-copy it after pulling a change to unflincher-backup.sh.
+# unflincher-backup.sh and verify-unflincher-backup.py are installed together under
+# %h/.local/bin/ (see README's "Backups & recovery" section). The backup script resolves the
+# verifier beside itself, so re-copy both files after pulling a change to either one.
 ExecStart=%h/.local/bin/unflincher-backup.sh
