@@ -174,7 +174,8 @@ deploy/scripts/unflincher-restore-drill.sh "$LATEST" "$EXPECTED"
 
 This procedure overwrites the production database. First run the disposable drill above, then take
 one final verified backup of the current state. Keep the staged database until the restarted
-service and representative pages have been checked.
+service and representative pages have been checked. **Run the commands in one shell and stop
+immediately if any command returns a non-zero status; do not continue to the next numbered step.**
 
 ```bash
 # 1. Preserve and verify the current production state.
@@ -213,7 +214,10 @@ test "$RUNNING_COUNT" = "$RESTORE_COUNT"
 curl -fsS http://127.0.0.1:8096/healthz
 ```
 
-After the service and representative pages are verified, remove only the staged copy:
+The one-shot copy command must print `ok` and the expected row count. The final `test` command is a
+hard gate: if it returns non-zero, leave the staged file in place and recover from the verified
+pre-restore backup instead of continuing. After the service and representative pages are verified,
+remove only the staged copy:
 
 ```bash
 rm -f "$RESTORE_TMP/unflincher.db"
