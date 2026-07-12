@@ -3,6 +3,7 @@ def test_base_nav_switches_with_cookie(client):
     res = client.get("/")
     assert "タイムライン" in res.text
     assert "人生レポート" in res.text
+    assert "<title>Unflincher — 成長し、向上し、人生を楽しむ</title>" in res.text
     assert "時間線" not in res.text  # old hardcoded Chinese must be gone
 
 
@@ -10,6 +11,7 @@ def test_base_nav_defaults_to_english_with_no_cookie(client):
     res = client.get("/")
     assert "Timeline" in res.text
     assert "Life Report" in res.text
+    assert "<title>Unflincher — Grow, Improve, Enjoy Life</title>" in res.text
 
 
 def test_timeline_badges_translate(client, tmp_path):

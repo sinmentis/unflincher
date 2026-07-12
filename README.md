@@ -1,5 +1,5 @@
 <!-- README.md -->
-# diary — AI-annotated private diary
+# Unflincher (诤友) — AI-annotated private diary
 
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue)](LICENSE)
 
@@ -27,7 +27,7 @@ exactly as written/generated, in whatever language that is).
   commit to a change.
 - **Optional Cloudflare Access gate** — if you deploy this somewhere internet-reachable, an
   email-OTP login wall (via Cloudflare Access) is the recommended way to keep it private; running
-  it purely on localhost with `DIARY_REQUIRE_ACCESS_AUTH=false` skips this entirely for local-only
+  it purely on localhost with `UNFLINCHER_REQUIRE_ACCESS_AUTH=false` skips this entirely for local-only
   use.
 
 ## Requirements
@@ -63,11 +63,11 @@ generic provider API.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-DIARY_REQUIRE_ACCESS_AUTH=false .venv/bin/uvicorn diary.app:app --reload
+UNFLINCHER_REQUIRE_ACCESS_AUTH=false .venv/bin/uvicorn unflincher.app:app --reload
 .venv/bin/pytest
 ```
 
-Open `http://localhost:8000`. With `DIARY_REQUIRE_ACCESS_AUTH=false`, there's no login wall at
+Open `http://localhost:8000`. With `UNFLINCHER_REQUIRE_ACCESS_AUTH=false`, there's no login wall at
 all — this is for local, single-machine use only. Browsing, writing, and reading entries works
 immediately with no further setup; generating AI commentary/reports/chat additionally requires
 `COPILOT_GITHUB_TOKEN` to be set (see "Getting a Copilot token" above).
@@ -151,14 +151,14 @@ All settings are environment variables, read by `src/unflincher/config.py`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `DIARY_DB` | `diary.dev.db` | SQLite database file path |
-| `DIARY_LLM_MODEL` | `claude-sonnet-4.6` | Default model for the active persona |
-| `DIARY_BATCH_CONCURRENCY` | `3` | Max concurrent items when regenerating all commentary |
-| `DIARY_LLM_CONCURRENCY` | `4` | Max concurrent LLM sessions on the shared Copilot client |
-| `DIARY_CF_TEAM_DOMAIN` | *(empty)* | Cloudflare Access team name (short form, no `.cloudflareaccess.com` suffix) |
-| `DIARY_CF_ACCESS_AUD` | *(empty)* | Cloudflare Access application audience tag |
-| `DIARY_OPERATOR_EMAIL` | *(empty)* | The email allowed to authenticate via Cloudflare Access |
-| `DIARY_REQUIRE_ACCESS_AUTH` | `true` | Set to `false` to disable the Cloudflare Access login check entirely (local dev only) |
+| `UNFLINCHER_DB` | `unflincher.dev.db` | SQLite database file path |
+| `UNFLINCHER_LLM_MODEL` | `claude-sonnet-4.6` | Default model for the active persona |
+| `UNFLINCHER_BATCH_CONCURRENCY` | `3` | Max concurrent items when regenerating all commentary |
+| `UNFLINCHER_LLM_CONCURRENCY` | `4` | Max concurrent LLM sessions on the shared Copilot client |
+| `UNFLINCHER_CF_TEAM_DOMAIN` | *(empty)* | Cloudflare Access team name (short form, no `.cloudflareaccess.com` suffix) |
+| `UNFLINCHER_CF_ACCESS_AUD` | *(empty)* | Cloudflare Access application audience tag |
+| `UNFLINCHER_OPERATOR_EMAIL` | *(empty)* | The email allowed to authenticate via Cloudflare Access |
+| `UNFLINCHER_REQUIRE_ACCESS_AUTH` | `true` | Set to `false` to disable the Cloudflare Access login check entirely (local dev only) |
 
 ## License
 
