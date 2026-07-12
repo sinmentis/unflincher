@@ -233,6 +233,9 @@ fi
     _write_executable(
         fake_bin / "curl",
         """#!/usr/bin/env bash
+if [[ "${FAKE_CURL_EXIT:-0}" != "0" ]]; then
+  printf 'FAKE_CURL_STARTUP_PROBE_RECV_FAILURE\\n' >&2
+fi
 exit "${FAKE_CURL_EXIT:-0}"
 """,
     )
@@ -298,6 +301,7 @@ def test_restore_drill_health_failure_omits_container_logs_and_cleans_up(tmp_pat
         in result.stderr
     )
     assert "logs unflincher-restore-drill-" not in podman_log
+    assert "FAKE_CURL_STARTUP_PROBE_RECV_FAILURE" not in result.stderr
     assert "rm -f unflincher-restore-drill-" in podman_log
     assert "volume rm -f unflincher-restore-drill-" in podman_log
     assert "unflincher-data" not in podman_log

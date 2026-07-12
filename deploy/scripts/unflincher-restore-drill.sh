@@ -67,7 +67,7 @@ CONTAINER_STARTED=1
 
 HEALTHY=0
 for _ in {1..60}; do
-  if curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null; then
+  if curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1; then
     HEALTHY=1
     break
   fi
