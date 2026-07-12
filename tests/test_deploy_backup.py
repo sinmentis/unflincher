@@ -128,3 +128,87 @@ def test_backup_verifier_rejects_a_different_sqlite_schema(tmp_path):
     assert result.returncode == 1
     assert result.stdout == ""
     assert "no such table: persona_prompt" in result.stderr
+
+
+def _write_executable(path: Path, body: str) -> None:
+    path.write_text(body)
+    path.chmod(0o755)
+
+
+def _write_fake_backup_podman(fake_bin: Path) -> Path:
+    log_path = fake_bin / "podman.log"
+    _write_executable(
+        fake_bin / "podman",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$FAKE_PODMAN_LOG"
+if [[ "$*" == *"SELECT COUNT(*) FROM "* ]]; then
+  printf '%s\n' "$FAKE_ENTRY_COUNT"
+elif [[ "$*" == *"gzip -c"* ]]; then
+  cat "$FAKE_BACKUP_ARCHIVE"
+fi
+""",
+    )
+    return log_path
+
+
+def _run_backup_script(
+    tmp_path: Path, archive: Path, live_count: int
+) -> subprocess.CompletedProcess:
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    log_path = _write_fake_backup_podman(fake_bin)
+    backup_dir = tmp_path / "backups"
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{fake_bin}:{env['PATH']}",
+            "FAKE_BACKUP_ARCHIVE": str(archive),
+            "FAKE_ENTRY_COUNT": str(live_count),
+            "FAKE_PODMAN_LOG": str(log_path),
+            "UNFLINCHER_BACKUP_DIR": str(backup_dir),
+            "UNFLINCHER_BACKUP_VERIFY_SCRIPT": str(VERIFY_SCRIPT),
+        }
+    )
+    return subprocess.run(
+        ["bash", str(BACKUP_SCRIPT)],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_backup_script_publishes_only_a_verified_archive(tmp_path):
+    archive = _write_backup_archive(tmp_path, entry_count=2)
+
+    result = _run_backup_script(tmp_path, archive, live_count=2)
+
+    backup_dir = tmp_path / "backups"
+    files = list(backup_dir.iterdir())
+    assert result.returncode == 0
+    assert len(files) == 1
+    assert files[0].name.startswith("unflincher-")
+    assert files[0].name.endswith(".db.gz")
+    assert files[0].stat().st_mode & 0o777 == 0o600
+    assert "verified entries=2" in result.stdout
+
+
+def test_backup_script_removes_partial_archive_when_verification_fails(tmp_path):
+    archive = _write_backup_archive(tmp_path, entry_count=2)
+
+    result = _run_backup_script(tmp_path, archive, live_count=3)
+
+    backup_dir = tmp_path / "backups"
+    assert result.returncode != 0
+    assert list(backup_dir.iterdir()) == []
+    assert "backup entry count 2 is outside live range 3..3" in result.stderr
+
+
+def test_backup_script_has_valid_bash_syntax():
+    result = subprocess.run(
+        ["bash", "-n", str(BACKUP_SCRIPT)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
