@@ -34,7 +34,17 @@ fi
 
 systemctl --user restart unflincher.service
 
-sleep 2
-curl -fsS http://127.0.0.1:8096/healthz
-echo
+HEALTHY=0
+for _ in {1..60}; do
+  if curl -fsS http://127.0.0.1:8096/healthz >/dev/null 2>&1; then
+    HEALTHY=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$HEALTHY" != "1" ]]; then
+  echo "deployment failed: unflincher.service did not become healthy" >&2
+  exit 1
+fi
+
 echo "unflincher.service deployed and healthy."

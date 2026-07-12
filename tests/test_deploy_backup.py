@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 VERIFY_SCRIPT = ROOT / "deploy/scripts/verify-unflincher-backup.py"
 BACKUP_SCRIPT = ROOT / "deploy/scripts/unflincher-backup.sh"
 RESTORE_SCRIPT = ROOT / "deploy/scripts/unflincher-restore-drill.sh"
+DEPLOY_SCRIPT = ROOT / "deploy/scripts/deploy-unflincher.sh"
 
 
 def _write_backup_archive(tmp_path: Path, entry_count: int = 2) -> Path:
@@ -133,6 +134,90 @@ def test_backup_verifier_rejects_a_different_sqlite_schema(tmp_path):
 def _write_executable(path: Path, body: str) -> None:
     path.write_text(body)
     path.chmod(0o755)
+
+
+def _write_fake_deploy_commands(fake_bin: Path) -> Path:
+    curl_count_path = fake_bin / "curl.count"
+    _write_executable(
+        fake_bin / "podman",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    _write_executable(
+        fake_bin / "systemctl",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    _write_executable(
+        fake_bin / "curl",
+        """#!/usr/bin/env bash
+set -euo pipefail
+count=0
+if [[ -f "$FAKE_CURL_COUNT" ]]; then
+  read -r count < "$FAKE_CURL_COUNT"
+fi
+count=$((count + 1))
+printf '%s\n' "$count" > "$FAKE_CURL_COUNT"
+if (( count < FAKE_CURL_SUCCEED_ON )); then
+  printf 'FAKE_CURL_STARTUP_PROBE_RECV_FAILURE\n' >&2
+  exit 56
+fi
+printf '{"status":"ok"}\n'
+""",
+    )
+    _write_executable(
+        fake_bin / "sleep",
+        """#!/usr/bin/env bash
+exit 0
+""",
+    )
+    return curl_count_path
+
+
+def _run_deploy_script(
+    tmp_path: Path, curl_succeed_on: int
+) -> tuple[subprocess.CompletedProcess, int]:
+    fake_bin = tmp_path / "deploy-fake-bin"
+    fake_bin.mkdir()
+    curl_count_path = _write_fake_deploy_commands(fake_bin)
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{fake_bin}:{env['PATH']}",
+            "FAKE_CURL_COUNT": str(curl_count_path),
+            "FAKE_CURL_SUCCEED_ON": str(curl_succeed_on),
+        }
+    )
+    result = subprocess.run(
+        ["bash", str(DEPLOY_SCRIPT)],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    return result, int(curl_count_path.read_text())
+
+
+def test_deploy_script_retries_transient_startup_failures(tmp_path):
+    result, curl_count = _run_deploy_script(tmp_path, curl_succeed_on=3)
+
+    assert result.returncode == 0
+    assert curl_count == 3
+    assert "unflincher.service deployed and healthy." in result.stdout
+    assert "FAKE_CURL_STARTUP_PROBE_RECV_FAILURE" not in result.stderr
+
+
+def test_deploy_script_reports_terminal_health_failure(tmp_path):
+    result, curl_count = _run_deploy_script(tmp_path, curl_succeed_on=61)
+
+    assert result.returncode == 1
+    assert curl_count == 60
+    assert "deployment failed: unflincher.service did not become healthy" in result.stderr
+    assert "FAKE_CURL_STARTUP_PROBE_RECV_FAILURE" not in result.stderr
 
 
 def _write_fake_backup_podman(fake_bin: Path) -> Path:
