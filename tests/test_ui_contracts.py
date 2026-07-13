@@ -4,10 +4,42 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / "src" / "unflincher" / "templates"
 STATIC_JS = ROOT / "src" / "unflincher" / "static"
+PAGES_CSS = STATIC_JS / "css" / "pages.css"
+
+# Responsive breakpoints defined in pages.css (Task 10). Tablet governs <=1179px and, because it
+# is a wider max-width, also still applies at mobile widths; mobile governs <=767px.
+TABLET_QUERY = "@media (max-width: 73.6875rem)"
+MOBILE_QUERY = "@media (max-width: 47.9375rem)"
 
 
 def _template_source() -> str:
     return "\n".join(path.read_text() for path in TEMPLATES.rglob("*.html"))
+
+
+def _media_block(css: str, query: str) -> str:
+    """Return the declarations inside the (single) `@media <query> { ... }` block."""
+    start = css.index(query)
+    open_brace = css.index("{", start)
+    depth = 0
+    for index in range(open_brace, len(css)):
+        char = css[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return css[open_brace + 1:index]
+    raise AssertionError(f"unbalanced braces after {query!r}")
+
+
+def _rule_body(block: str, selector: str) -> str:
+    """Return the declaration body of the rule whose selector list contains `selector` exactly."""
+    block = re.sub(r"/\*.*?\*/", "", block, flags=re.DOTALL)
+    for match in re.finditer(r"([^{}]*)\{([^{}]*)\}", block):
+        selectors = [part.strip() for part in match.group(1).split(",")]
+        if selector in selectors:
+            return match.group(2)
+    raise AssertionError(f"no rule for selector {selector!r} in media block")
 
 
 def test_templates_have_no_native_dialogs_or_emoji_controls():
@@ -67,3 +99,33 @@ def test_legacy_component_selectors_are_removed():
     for selector in ('class="ai-card', 'class="badge', 'class="side-nav',
                      'class="chat-bubble', 'class="entry-date', 'class="ws-section'):
         assert selector not in source
+
+
+def test_mobile_archive_title_spans_content_row_not_sequence_column():
+    """The mobile archive row is `3rem minmax(0,1fr) auto` with the status mark spanning both
+    rows in column 3. Without an explicit placement the title auto-flows into the 3rem sequence
+    column on its own row and truncates to the first word. It must instead span the content
+    columns (line 1 through the status column) so the full title is readable."""
+    mobile = _media_block(PAGES_CSS.read_text(), MOBILE_QUERY)
+    body = _rule_body(mobile, ".archive-title")
+    match = re.search(r"grid-column:\s*1\s*/\s*(-1|-2|3)\b", body)
+    assert match, f"mobile .archive-title must span from line 1 across the content columns: {body!r}"
+
+
+def test_horizontal_index_strip_has_tokenized_gap():
+    """At tablet/mobile widths the entry margin index, report version index, report TOC, and
+    timeline year index collapse into horizontal flex strips. They need tokenized spacing so the
+    index items are not concatenated together."""
+    tablet = _media_block(PAGES_CSS.read_text(), TABLET_QUERY)
+    body = _rule_body(tablet, ".report-toc")
+    assert "display: flex" in body, f"horizontal index strip must stay flex: {body!r}"
+    match = re.search(r"gap:\s*var\(--space-\d\)", body)
+    assert match, f"horizontal index strip must set a nonzero tokenized gap: {body!r}"
+
+
+def test_mobile_session_ledger_drops_right_divider():
+    """When chat collapses to a single mobile column the session ledger fills the width, so the
+    desktop `border-right` becomes a stray divider on the right edge and must be removed."""
+    mobile = _media_block(PAGES_CSS.read_text(), MOBILE_QUERY)
+    body = _rule_body(mobile, ".session-ledger")
+    assert re.search(r"border-right:\s*(0|none)\b", body), f"mobile .session-ledger must drop its right border: {body!r}"

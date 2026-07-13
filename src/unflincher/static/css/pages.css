@@ -168,6 +168,7 @@
   .timeline-year-index > nav {
     display: flex;
     min-width: max-content;
+    gap: var(--space-4);
   }
   .margin-note-section, .inquiry-section { grid-template-columns: 9rem minmax(0, 1fr); }
 }
@@ -177,6 +178,9 @@
   .timeline-year-index { order: -1; }
   .archive-row { grid-template-columns: 3rem minmax(0, 1fr) auto; gap: var(--space-3); }
   .archive-row time { grid-column: 2; }
+  /* Span the title across the sequence + date columns on its own row so it cannot auto-flow into
+     the 3rem sequence column and truncate to the first word (status mark keeps column 3). */
+  .archive-title { grid-column: 1 / 3; grid-row: 2; }
   .archive-row .status-mark { grid-column: 3; grid-row: 1 / span 2; }
   .archive-row .status-label {
     position: absolute;
@@ -190,6 +194,8 @@
   .margin-note-section, .inquiry-section { grid-template-columns: 1fr; gap: var(--space-4); }
   .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }
   .chat-layout { display: block; min-height: auto; }
+  /* The ledger fills the single mobile column, so its desktop right divider becomes a stray edge. */
+  .session-ledger { border-right: 0; }
   [data-page="chat-session"] .session-ledger { display: none; }
   [data-page="chat-list"] .conversation-workspace { display: none; }
   .conversation-workspace { min-height: calc(100dvh - 8rem); padding: 0; }
