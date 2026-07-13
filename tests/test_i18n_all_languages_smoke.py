@@ -10,6 +10,12 @@ CJK_RANGE = re.compile(r"[\u4e00-\u9fff]")
 # language. Without this strip, /workshop would always "fail" the chrome check for any
 # language, for a reason that has nothing to do with a missed t() conversion.
 PERSONA_TEXTAREA = re.compile(r'<textarea id="prompt-draft"[^>]*>.*?</textarea>', re.S)
+# Strips the brand lockup's seal mark before the CJK scan. `诤` is an intentional,
+# language-independent logo glyph (aria-hidden), part of the wordmark rather than translatable
+# chrome, so it renders identically in every UI language and is not a missed t() conversion.
+# Like the persona textarea above, it must be excluded or this check would always "fail" for a
+# reason unrelated to localization.
+BRAND_SEAL = re.compile(r'<span class="brand-seal"[^>]*>诤</span>')
 
 PAGES = ["/", "/report", "/chat", "/new", "/workshop"]
 
@@ -39,5 +45,6 @@ def test_non_chinese_languages_have_no_leftover_hardcoded_chinese_chrome(client)
         for page in PAGES:
             res = client.get(page)
             text = PERSONA_TEXTAREA.sub("", res.text)
+            text = BRAND_SEAL.sub("", text)
             leftover = CJK_RANGE.findall(text)
             assert not leftover, f"{page} still has hardcoded CJK chrome text for lang={lang}: {leftover}"

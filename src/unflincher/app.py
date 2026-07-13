@@ -1,10 +1,13 @@
 """FastAPI application entrypoint."""
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from unflincher.auth import AccessJWTMiddleware
 from unflincher.config import load_settings
@@ -13,7 +16,42 @@ from unflincher.db import get_connection, init_schema, migrate_chat_session, mig
 from unflincher import llm as _llm
 from unflincher.llm import ensure_default_persona_prompt
 from unflincher.routes import chat, entry, new_entry, report, timeline, workshop
+from unflincher.templates_env import templates
 from unflincher.worker import BatchWorker
+
+logger = logging.getLogger(__name__)
+
+
+def _accepts_html(request: Request) -> bool:
+    return request.method == "GET" and "text/html" in request.headers.get("accept", "")
+
+
+async def branded_http_error(request: Request, exc: StarletteHTTPException):
+    if exc.status_code == 404 and _accepts_html(request):
+        request.state.ui_error_page = True
+        return templates.TemplateResponse(
+            request,
+            "errors/404.html",
+            {"page_id": "error", "active_nav": None},
+            status_code=404,
+        )
+    return await http_exception_handler(request, exc)
+
+
+async def branded_server_error(request: Request, exc: Exception):
+    logger.error(
+        "Unhandled request error",
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
+    if _accepts_html(request):
+        request.state.ui_error_page = True
+        return templates.TemplateResponse(
+            request,
+            "errors/500.html",
+            {"page_id": "error", "active_nav": None},
+            status_code=500,
+        )
+    return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
 
 
 def create_app() -> FastAPI:
@@ -82,6 +120,9 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(new_entry.router)
     app.include_router(workshop.router)
+
+    app.add_exception_handler(StarletteHTTPException, branded_http_error)
+    app.add_exception_handler(Exception, branded_server_error)
 
     @app.get("/healthz")
     async def healthz():

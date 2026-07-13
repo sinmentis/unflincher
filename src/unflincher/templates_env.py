@@ -21,9 +21,48 @@ def get_current_language(request: Request) -> str:
     return DEFAULT_LANGUAGE
 
 
+NAV_LABEL_KEYS = {
+    "timeline": "nav.timeline",
+    "report": "nav.report",
+    "chat": "nav.chat",
+    "new_entry": "nav.new_entry",
+    "workshop": "nav.workshop",
+}
+
+
+def get_ui_state(path: str) -> tuple[str | None, str]:
+    if path == "/":
+        return "timeline", "timeline"
+    if path.startswith("/entry/"):
+        return "timeline", "entry"
+    if path.startswith("/report"):
+        return "report", "report"
+    if path == "/chat":
+        return "chat", "chat-list"
+    if path.startswith("/chat/"):
+        return "chat", "chat-session"
+    if path.startswith("/new"):
+        return "new_entry", "new-entry"
+    if path.startswith("/workshop"):
+        return "workshop", "workshop"
+    return None, "error"
+
+
 def _i18n_context(request: Request) -> dict:
     lang = get_current_language(request)
-    return {"lang": lang, "t": functools.partial(_t, lang)}
+    if getattr(request.state, "ui_error_page", False):
+        active_nav, page_id = None, "error"
+    else:
+        active_nav, page_id = get_ui_state(request.url.path)
+    translate = functools.partial(_t, lang)
+    current_nav_label = translate(NAV_LABEL_KEYS[active_nav]) if active_nav else translate("nav.title")
+    return {
+        "lang": lang,
+        "t": translate,
+        "active_nav": active_nav,
+        "page_id": page_id,
+        "current_nav_label": current_nav_label,
+    }
 
 
 templates = Jinja2Templates(

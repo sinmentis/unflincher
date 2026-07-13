@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ t("error.not_found_title") }}{% endblock %}
+{% block content %}
+<article class="error-document">
+  {% include "partials/brand_lockup.html" %}
+  <p class="page-eyebrow">404</p>
+  <h1>{{ t("error.not_found_title") }}</h1>
+  <p>{{ t("error.not_found_body") }}</p>
+  <a class="button button--accent" href="/">{{ t("error.return_timeline") }}</a>
+</article>
+{% endblock %}

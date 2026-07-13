@@ -28,7 +28,6 @@
 {% endif %}
 <div class="ai-card" id="report-stream" style="display:none" aria-live="polite"></div>
 <button id="run-report" class="badge done" style="cursor:pointer;border:none">{{ t("report.generate_button") }}</button>
-<script src="/static/app.js"></script>
 <script>
 document.getElementById("run-report").addEventListener("click", () => {
   const target = document.getElementById("report-stream");

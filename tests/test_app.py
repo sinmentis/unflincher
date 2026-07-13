@@ -9,7 +9,7 @@ def test_static_assets_get_no_cache_header(client):
     # browsers and Cloudflare's edge cache (this hostname is proxied) free to keep serving a
     # stale copy indefinitely after a deploy -- a real bug the owner hit in production. no-cache
     # forces revalidation on every request without disabling caching entirely.
-    response = client.get("/static/theme.css")
+    response = client.get("/static/css/tokens.css")
     assert response.headers["cache-control"] == "no-cache"
 
 

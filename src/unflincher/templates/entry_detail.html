@@ -31,7 +31,6 @@
 <p class="entry-date">{{ t("entry.no_commentary_yet") }}</p>
 {% endif %}
 
-<script src="/static/app.js"></script>
 {% if commentary_job_status in ("pending", "running") %}
 {% with entry_id=entry.id, busy=True %}{% include "partials/commentary_status.html" %}{% endwith %}
 {% elif commentary_job_status == "failed" %}

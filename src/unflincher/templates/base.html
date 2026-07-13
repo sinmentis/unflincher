@@ -1,23 +1,40 @@
-<!-- src/unflincher/templates/base.html -->
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11100f">
+  <meta name="description" content="{{ t('meta.description') }}">
   <title>{% block title %}{{ t("nav.title") }}{% endblock %}</title>
-  <link rel="stylesheet" href="/static/theme.css">
-  <script src="/static/vendor/htmx.min.js"></script>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/theme.css" data-legacy-theme>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/shell.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/pages.css">
+  <script id="ui-messages" type="application/json">{{ {
+    "streamInterrupted": t("app_js.stream_interrupted"),
+    "working": t("common.working"),
+    "busy": t("common.busy_alert"),
+    "requestFailed": t("common.request_failed"),
+    "titleRequired": t("chat_sidebar.title_required")
+  } | tojson }}</script>
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  {% block head %}{% endblock %}
 </head>
-<body>
-  <script>window.I18N = {streamInterrupted: {{ t("app_js.stream_interrupted") | tojson }}};</script>
-  <nav class="nav">
-    <a href="/" class="{% block nav_timeline %}{% endblock %}">{{ t("nav.timeline") }}</a>
-    <a href="/report" class="{% block nav_report %}{% endblock %}">{{ t("nav.report") }}</a>
-    <a href="/chat" class="{% block nav_chat %}{% endblock %}">{{ t("nav.chat") }}</a>
-    <a href="/new" class="{% block nav_new %}{% endblock %}">{{ t("nav.new_entry") }}</a>
-    <a href="/workshop" class="{% block nav_workshop %}{% endblock %}">{{ t("nav.workshop") }}</a>
-  </nav>
-  <main>
+<body data-page="{{ page_id }}">
+  <script src="/static/app.js"></script>
+  {% include "partials/icon_sprite.html" %}
+  <a class="skip-link" href="#main-content">{{ t("shell.skip_to_content") }}</a>
+  {% include "partials/command_navigation.html" %}
+  <main id="main-content" class="page-shell" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
+  <footer class="app-footer">
+    <span>UNFLINCHER</span>
+    <span>{{ current_nav_label }}</span>
+  </footer>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

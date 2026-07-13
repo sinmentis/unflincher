@@ -1,4 +1,18 @@
 // src/unflincher/static/app.js — shared SSE-consumer, reused by Task 10 (chat) and Task 14 (test-run)
+
+// Temporary compatibility shim (removed in Task 3, which replaces this with readUiMessages /
+// UI_MESSAGES): streamInto still reads window.I18N.streamInterrupted from the external shared
+// script. Hydrate it from the base document's #ui-messages JSON so the contract keeps working
+// while the shell migrates.
+if (typeof window !== "undefined" && typeof document.getElementById === "function") {
+  const messagesNode = document.getElementById("ui-messages");
+  try {
+    window.I18N = JSON.parse(messagesNode?.textContent || "{}");
+  } catch {
+    window.I18N = {};
+  }
+}
+
 function getCsrfToken() {
   const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
   return match ? match[1] : "";
