@@ -1,0 +1,6 @@
+{# page_heading.html: eyebrow, heading, metadata #}
+<header class="page-heading">
+  {% if eyebrow %}<p class="page-eyebrow">{{ eyebrow }}</p>{% endif %}
+  <h1>{{ heading }}</h1>
+  {% if metadata %}<p class="page-metadata">{{ metadata }}</p>{% endif %}
+</header>

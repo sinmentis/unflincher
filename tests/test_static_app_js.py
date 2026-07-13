@@ -272,3 +272,194 @@ def test_draft_save_load_clear_round_trip():
     # Malformed JSON in storage (e.g. from a future format change) must not throw -- it's
     # treated the same as "no usable draft", not a page-breaking error.
     assert result["loadMalformedDraft"] is None
+
+
+_UI_PRIMITIVES_HARNESS = """
+globalThis.document = {
+  body: { addEventListener() {} },
+  cookie: '',
+  getElementById(id) {
+    if (id !== 'ui-messages') return null;
+    return {textContent: '{"working":"Working…","busy":"Busy"}'};
+  },
+};
+const {readUiMessages, setNotice, clearNotice, shouldSubmitComposer} = require(process.argv[1]);
+const notice = {hidden: true, textContent: '', dataset: {}};
+setNotice(notice, 'Busy', 'busy');
+const shown = {hidden: notice.hidden, text: notice.textContent, tone: notice.dataset.tone};
+clearNotice(notice);
+process.stdout.write(JSON.stringify({
+  messages: readUiMessages(document),
+  shown,
+  cleared: {hidden: notice.hidden, text: notice.textContent, tone: notice.dataset.tone},
+  enter: shouldSubmitComposer({key: 'Enter', shiftKey: false, isComposing: false}),
+  shiftEnter: shouldSubmitComposer({key: 'Enter', shiftKey: true, isComposing: false}),
+  composing: shouldSubmitComposer({key: 'Enter', shiftKey: false, isComposing: true}),
+}));
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_shared_ui_primitives():
+    out = subprocess.run(
+        ["node", "-e", _UI_PRIMITIVES_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+    assert result["messages"]["working"] == "Working…"
+    assert result["shown"] == {"hidden": False, "text": "Busy", "tone": "busy"}
+    assert result["cleared"] == {"hidden": True, "text": ""}
+    assert result["enter"] is True
+    assert result["shiftEnter"] is False
+    assert result["composing"] is False
+
+
+_STREAM_ERROR_HARNESS = """
+globalThis.document = {
+  body: {addEventListener() {}},
+  cookie: '',
+  getElementById() {
+    return {textContent: '{"streamInterrupted":"Generation interrupted"}'};
+  },
+  createElement() {
+    return {className: '', textContent: ''};
+  },
+};
+globalThis.fetch = async () => {
+  const chunks = [
+    'event: token\\ndata: partial\\n\\nevent: error\\ndata: failed\\n\\n',
+  ];
+  let index = 0;
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      getReader() {
+        return {
+          async read() {
+            if (index < chunks.length) {
+              return {value: new TextEncoder().encode(chunks[index++]), done: false};
+            }
+            return {value: undefined, done: true};
+          },
+        };
+      },
+    },
+  };
+};
+const {streamInto} = require(process.argv[1]);
+const appended = [];
+const target = {
+  hidden: true,
+  textContent: 'partial',
+  dataset: {},
+  style: {},
+  append(node) { appended.push({className: node.className, text: node.textContent}); },
+};
+let errorCount = 0;
+streamInto('/x', null, target, null, () => { errorCount += 1; }).then(() => {
+  process.stdout.write(JSON.stringify({
+    state: target.dataset.streamState,
+    streaming: target.dataset.streaming,
+    errorCount,
+    textContent: target.textContent,
+    appended,
+  }));
+});
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_stream_into_surfaces_failed_state_and_clears_busy_flag():
+    out = subprocess.run(
+        ["node", "-e", _STREAM_ERROR_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert json.loads(out) == {
+        "state": "failed",
+        "errorCount": 1,
+        "textContent": "partial",
+        "appended": [
+            {"className": "notice notice--failed", "text": "Generation interrupted"}
+        ],
+    }
+
+
+_COMPOSER_HARNESS = """
+globalThis.document = {body: {addEventListener() {}}, cookie: ''};
+const {bindComposer} = require(process.argv[1]);
+const inputHandlers = {};
+const formHandlers = {};
+const input = {
+  value: '  hello  ',
+  scrollHeight: 240,
+  style: {},
+  addEventListener(type, callback) { inputHandlers[type] = callback; },
+};
+const submit = {disabled: false};
+let requestSubmits = 0;
+const form = {
+  dataset: {},
+  querySelector(selector) { return selector === 'textarea' ? input : submit; },
+  addEventListener(type, callback) { formHandlers[type] = callback; },
+  requestSubmit() { requestSubmits += 1; },
+};
+let release;
+const pending = new Promise((resolve) => { release = resolve; });
+let calls = 0;
+let submittedMessage = null;
+bindComposer(form, async (message) => {
+  calls += 1;
+  submittedMessage = message;
+  await pending;
+});
+
+(async () => {
+  inputHandlers.input();
+  let prevented = 0;
+  inputHandlers.keydown({
+    key: 'Enter', shiftKey: false, isComposing: false,
+    preventDefault() { prevented += 1; },
+  });
+  inputHandlers.keydown({
+    key: 'Enter', shiftKey: true, isComposing: false,
+    preventDefault() { prevented += 1; },
+  });
+  const first = formHandlers.submit({preventDefault() {}});
+  const second = formHandlers.submit({preventDefault() {}});
+  await Promise.resolve();
+  const during = {busy: form.dataset.busy, disabled: submit.disabled, calls};
+  release();
+  await Promise.all([first, second]);
+  process.stdout.write(JSON.stringify({
+    height: input.style.height,
+    requestSubmits,
+    prevented,
+    submittedMessage,
+    during,
+    after: {busy: form.dataset.busy, disabled: submit.disabled, calls},
+  }));
+})();
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_bind_composer_grows_submits_and_blocks_duplicate_turns():
+    out = subprocess.run(
+        ["node", "-e", _COMPOSER_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert json.loads(out) == {
+        "height": "192px",
+        "requestSubmits": 1,
+        "prevented": 1,
+        "submittedMessage": "hello",
+        "during": {"busy": "1", "disabled": True, "calls": 1},
+        "after": {"disabled": False, "calls": 1},
+    }

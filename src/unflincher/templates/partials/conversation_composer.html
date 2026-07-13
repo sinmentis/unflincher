@@ -1,0 +1,11 @@
+{# conversation_composer.html:
+   composer_id, input_id, send_id, placeholder, input_aria, send_label, endpoint, stream_target_id #}
+<form id="{{ composer_id }}" class="conversation-composer"
+      data-endpoint="{{ endpoint }}" data-stream-target="{{ stream_target_id }}">
+  <label class="visually-hidden" for="{{ input_id }}">{{ input_aria }}</label>
+  <textarea id="{{ input_id }}" rows="1" placeholder="{{ placeholder }}"></textarea>
+  <button id="{{ send_id }}" class="button button--accent" type="submit">
+    <span class="visually-hidden">{{ send_label }}</span>
+    <svg class="icon" aria-hidden="true"><use href="#icon-arrow"></use></svg>
+  </button>
+</form>

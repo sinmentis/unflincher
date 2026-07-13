@@ -1,2 +1,31 @@
 /* src/unflincher/static/css/components.css */
 .icon { width: 1.125rem; height: 1.125rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.page-heading { display: grid; gap: var(--space-3); margin-bottom: var(--space-7); padding-bottom: var(--space-5); border-bottom: 1px solid var(--rule); }
+.page-eyebrow, .page-metadata { margin: 0; color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.page-eyebrow { color: var(--accent); }
+.notice { padding: var(--space-4); border-left: 3px solid var(--rule); background: var(--surface); color: var(--ink-soft); }
+.notice[data-tone="busy"], .notice[data-tone="failed"] { border-left-color: var(--accent); }
+.notice[data-tone="saved"] { border-left-color: var(--ink); }
+.status-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
+.status-glyph { width: 0.625rem; height: 0.625rem; border: 1px solid currentColor; }
+.status-mark[data-status="done"] .status-glyph { background: var(--ink); }
+.status-mark[data-status="generating"] .status-glyph { border-color: var(--accent); animation: status-pulse 1.2s ease-in-out infinite; }
+.generation-state, .confirmation { padding: var(--space-5); border: 1px solid var(--rule); background: var(--surface); }
+.generation-state[data-state="failed"] { border-left: 4px solid var(--accent); }
+.conversation-composer { display: grid; grid-template-columns: minmax(0, 1fr) 3.25rem; gap: var(--space-2); padding-top: var(--space-4); border-top: 3px solid var(--ink); background: var(--canvas); }
+.conversation-composer textarea { min-height: 3rem; max-height: 12rem; overflow-y: auto; resize: vertical; }
+.stream-surface { margin-top: var(--space-4); padding: var(--space-4); border-left: 3px solid var(--accent); color: var(--ink-soft); font-family: var(--font-reading); white-space: pre-wrap; }
+.stream-surface[data-streaming="1"]::after { content: "▍"; margin-left: 0.2em; color: var(--accent); animation: status-pulse 0.8s steps(2, end) infinite; }
+.empty-state { max-width: 36rem; padding-block: var(--space-8); }
+.empty-state h2 { max-width: 18ch; font-size: clamp(2rem, 6vw, 4rem); line-height: 0.98; }
+.confirmation:not([hidden]) { animation: panel-enter var(--motion-default) ease-out both; }
+.loading-state [aria-hidden="true"] { display: grid; gap: var(--space-3); }
+.skeleton-line { display: block; width: 100%; height: 0.75rem; background: var(--surface-raised); animation: skeleton-pulse 1.2s ease-in-out infinite; }
+.skeleton-line:nth-child(2) { width: 82%; }
+.skeleton-line:nth-child(3) { width: 64%; }
+@keyframes status-pulse { 50% { opacity: 0.35; } }
+@keyframes skeleton-pulse { 50% { opacity: 0.45; } }
+@keyframes panel-enter {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}

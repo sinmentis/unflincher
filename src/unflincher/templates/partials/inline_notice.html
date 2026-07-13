@@ -1,0 +1,4 @@
+{# inline_notice.html: notice_id, tone, message, hidden, live #}
+<div id="{{ notice_id }}" class="notice" data-tone="{{ tone or 'info' }}"
+     {% if hidden %}hidden{% endif %}
+     {% if live %}role="status" aria-live="{{ live }}"{% endif %}>{{ message or "" }}</div>

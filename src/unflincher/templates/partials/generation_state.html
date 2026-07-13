@@ -1,0 +1,9 @@
+{# generation_state.html: state_id, state, heading, message, action_id, action_label #}
+<section id="{{ state_id }}" class="generation-state" data-state="{{ state }}"
+         role="status" aria-live="polite">
+  <h3>{{ heading }}</h3>
+  {% if message %}<p>{{ message }}</p>{% endif %}
+  {% if action_id %}
+  <button id="{{ action_id }}" class="button" type="button">{{ action_label }}</button>
+  {% endif %}
+</section>

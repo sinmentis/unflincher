@@ -46,3 +46,24 @@ textarea { line-height: 1.6; }
   white-space: nowrap;
   border: 0;
 }
+.button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--motion-fast), opacity var(--motion-fast);
+}
+.button:hover { border-color: var(--ink-soft); background: var(--surface); }
+.button:active { transform: translateY(1px); }
+.button:disabled { color: var(--muted); cursor: not-allowed; }
+.button--accent { border-color: var(--accent); background: var(--accent); color: var(--canvas); }
+.button--danger { border-color: var(--accent); color: var(--accent); }

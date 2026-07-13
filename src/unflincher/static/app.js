@@ -1,18 +1,5 @@
 // src/unflincher/static/app.js — shared SSE-consumer, reused by Task 10 (chat) and Task 14 (test-run)
 
-// Temporary compatibility shim (removed in Task 3, which replaces this with readUiMessages /
-// UI_MESSAGES): streamInto still reads window.I18N.streamInterrupted from the external shared
-// script. Hydrate it from the base document's #ui-messages JSON so the contract keeps working
-// while the shell migrates.
-if (typeof window !== "undefined" && typeof document.getElementById === "function") {
-  const messagesNode = document.getElementById("ui-messages");
-  try {
-    window.I18N = JSON.parse(messagesNode?.textContent || "{}");
-  } catch {
-    window.I18N = {};
-  }
-}
-
 function getCsrfToken() {
   const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
   return match ? match[1] : "";
@@ -36,7 +23,7 @@ function parseSseFrame(frame) {
   return {ev, data};
 }
 
-async function streamInto(url, body, targetEl, onDone) {
+async function streamInto(url, body, targetEl, onDone, onError) {
   // Re-entrancy guard: the CSS-only "disable while streaming" treatment
   // (main:has([data-streaming="1"]) #trigger-btn { pointer-events: none }) only blocks MOUSE
   // clicks -- it does nothing against a keyboard Enter/Space on the still-focused button, or any
@@ -46,52 +33,72 @@ async function streamInto(url, body, targetEl, onDone) {
   // stream had already written, producing corrupted, spliced-together output. Ignoring a
   // re-invocation while already streaming is the actual fix; the CSS is just a visual hint.
   if (targetEl.dataset.streaming === "1") return;
+  targetEl.hidden = false;
   targetEl.style.display = "block";
   targetEl.textContent = "";
   targetEl.dataset.streaming = "1";
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = "";
-  for (;;) {
-    const {value, done} = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, {stream: true});
-    let i;
-    while ((i = buf.indexOf("\n\n")) >= 0) {
-      const frame = buf.slice(0, i);
-      buf = buf.slice(i + 2);
-      const {ev, data} = parseSseFrame(frame);
-      if (ev === "token") targetEl.textContent += data;
-      else if (ev === "error") targetEl.insertAdjacentHTML("beforeend", `<span class="stream-err">${window.I18N.streamInterrupted}</span>`);
-      else if (ev === "done") {
-        // Persisted surfaces (entry commentary/chat, general chat, report) call
-        // location.reload() from their onDone callback, which replaces this whole element with a
-        // freshly server-rendered one anyway. The workshop test-run preview is the one caller that
-        // never reloads (it must never persist), so it needs its OWN final render pass here: if the
-        // server sent rendered html (see routes/workshop.py), swap it in now, while the target is
-        // still marked data-streaming="1" -- this happens strictly before that attribute is
-        // cleared below, so there is no frame where the raw pre-wrap text is shown without the
-        // benefit of white-space:pre-wrap (which is what previously caused the finished preview to
-        // visually collapse: newlines were only preserved while data-streaming="1" was set, and
-        // nothing ever put the text into real HTML block elements once streaming ended).
-        let payload = {};
-        try {
-          payload = JSON.parse(data);
-        } catch {
-          // Other routes' done payload is the literal string "{}" too, so this never actually
-          // throws in practice; the try/catch only guards against a malformed frame.
+  targetEl.dataset.streamState = "running";
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.ok === false || !res.body) throw new Error(`stream request failed: ${res.status}`);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let completed = false;
+    for (;;) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      let boundary;
+      while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        const {ev, data} = parseSseFrame(frame);
+        if (ev === "token") {
+          targetEl.textContent += data;
+        } else if (ev === "error") {
+          throw new Error("server ended the stream with an error event");
+        } else if (ev === "done") {
+          // Persisted surfaces (entry commentary/chat, general chat, report) call
+          // location.reload() from their onDone callback, which replaces this whole element with a
+          // freshly server-rendered one anyway. The workshop test-run preview is the one caller
+          // that never reloads (it must never persist), so it needs its OWN final render pass here:
+          // if the server sent rendered html (see routes/workshop.py), swap it in now, while the
+          // target is still marked data-streaming="1" -- strictly before that attribute is cleared
+          // below, so there is no frame where the raw pre-wrap text is shown without the benefit of
+          // white-space:pre-wrap.
+          let payload = {};
+          try {
+            payload = JSON.parse(data);
+          } catch {
+            payload = {};
+          }
+          if (payload.html) targetEl.innerHTML = payload.html;
+          completed = true;
+          onDone?.(payload);
         }
-        if (payload.html) targetEl.innerHTML = payload.html;
-        onDone?.(payload);
       }
     }
+    if (!completed) throw new Error("stream ended before the done event");
+    targetEl.dataset.streamState = "done";
+  } catch (error) {
+    // Failed HTTP, network drop, a server `error` event, or premature EOF all land here. Keep
+    // whatever partial tokens already streamed in, expose the failed state for CSS/tests, append
+    // an accessible localized failure notice, and hand the error to the caller.
+    targetEl.dataset.streamState = "failed";
+    const errorNode = document.createElement("p");
+    errorNode.className = "notice notice--failed";
+    errorNode.textContent = UI_MESSAGES.streamInterrupted || UI_MESSAGES.requestFailed || "";
+    targetEl.append(errorNode);
+    onError?.(error);
+  } finally {
+    // Always clear the re-entrancy flag, success or failure, so the surface can be retried.
+    delete targetEl.dataset.streaming;
   }
-  delete targetEl.dataset.streaming;
 }
 
 // New-entry draft autosave (see docs/superpowers/specs/2026-07-10-diary-new-entry-draft-autosave-
@@ -125,7 +132,83 @@ function clearDraft(storage) {
   storage.removeItem(DRAFT_KEY);
 }
 
+// Shared editorial UI primitives (Task 3). UI_MESSAGES replaces Task 2's temporary window.I18N
+// shim: it is read once from the base document's #ui-messages JSON at load. readUiMessages is
+// exported too so callers/tests can re-read from an explicit document.
+function readUiMessages(doc = document) {
+  if (!doc || typeof doc.getElementById !== "function") return {};
+  const node = doc.getElementById("ui-messages");
+  if (!node) return {};
+  try {
+    return JSON.parse(node.textContent || "{}");
+  } catch {
+    return {};
+  }
+}
+
+const UI_MESSAGES = typeof document === "undefined" ? {} : readUiMessages(document);
+
+function setNotice(element, message, tone = "info") {
+  element.textContent = message;
+  element.dataset.tone = tone;
+  element.hidden = false;
+}
+
+function clearNotice(element) {
+  element.textContent = "";
+  delete element.dataset.tone;
+  element.hidden = true;
+}
+
+// Enter submits, Shift+Enter inserts a newline, and an IME composition keystroke never submits.
+function shouldSubmitComposer(event) {
+  return event.key === "Enter" && !event.shiftKey && !event.isComposing;
+}
+
+// Wires an auto-growing chat composer: the textarea grows to a 192px cap, Enter submits via the
+// form, and the single-flight `data-busy` guard blocks a duplicate turn while onSubmit is pending.
+function bindComposer(form, onSubmit) {
+  const input = form.querySelector("textarea");
+  const submit = form.querySelector('button[type="submit"]');
+  const resize = () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 192)}px`;
+  };
+  input.addEventListener("input", resize);
+  input.addEventListener("keydown", (event) => {
+    if (!shouldSubmitComposer(event)) return;
+    event.preventDefault();
+    form.requestSubmit();
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (form.dataset.busy === "1") return;
+    const message = input.value.trim();
+    if (!message) return;
+    form.dataset.busy = "1";
+    submit.disabled = true;
+    try {
+      await onSubmit(message);
+    } finally {
+      delete form.dataset.busy;
+      submit.disabled = false;
+    }
+  });
+}
+
 // Exposed for Node-based unit testing; harmless in the browser where `module` is undefined.
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {parseSseFrame, streamInto, saveDraft, loadDraft, clearDraft, DRAFT_KEY};
+  module.exports = {
+    parseSseFrame,
+    streamInto,
+    saveDraft,
+    loadDraft,
+    clearDraft,
+    DRAFT_KEY,
+    readUiMessages,
+    setNotice,
+    clearNotice,
+    shouldSubmitComposer,
+    bindComposer,
+  };
 }

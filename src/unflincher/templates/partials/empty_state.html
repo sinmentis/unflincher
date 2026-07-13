@@ -1,0 +1,7 @@
+{# empty_state.html: title, body, action_href, action_label #}
+<section class="empty-state">
+  {% include "partials/brand_lockup.html" %}
+  <h2>{{ title }}</h2>
+  {% if body %}<p>{{ body }}</p>{% endif %}
+  {% if action_href %}<a class="button button--accent" href="{{ action_href }}">{{ action_label }}</a>{% endif %}
+</section>
