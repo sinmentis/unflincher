@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta, timezone
 
 import unflincher.routes.new_entry as new_entry_module
@@ -32,6 +33,11 @@ def test_new_entry_page_uses_writing_desk_structure(client):
     assert 'id="new-date-error"' in body
     assert 'src="/static/js/new-entry.js"' in body
     assert "style=" not in body
+    # Native constraint validation is disabled so a future date still reaches the
+    # JS handler and server-400 path, which show the localized field/form errors
+    # instead of a native browser bubble (Task 8 review fix).
+    form_open_tag = re.search(r'<form\b[^>]*\bid="new-entry-form"[^>]*>', body).group(0)
+    assert "novalidate" in form_open_tag
 
 
 def test_new_entry_saves_as_manual_and_does_not_trigger_commentary(client):
