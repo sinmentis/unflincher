@@ -1,32 +1,46 @@
 {# partials/command_navigation.html #}
-{% set commands = [
-  ("01", "timeline", "/", t("nav.timeline"), "timeline"),
-  ("02", "report", "/report", t("nav.report"), "report"),
-  ("03", "chat", "/chat", t("nav.chat"), "chat"),
-  ("04", "new_entry", "/new", t("nav.new_entry"), "write"),
-  ("05", "workshop", "/workshop", t("nav.workshop"), "workshop")
-] %}
-<header class="command-header">
+<header class="app-topbar">
+  <div class="topbar-start">
+    {% if page_id != "timeline" %}
+      {% if page_id == "chat-session" %}
+        {% set back_href = "/chat" %}
+        {% set back_label = t("nav.chat") %}
+      {% else %}
+        {% set back_href = "/" %}
+        {% set back_label = t("nav.timeline") %}
+      {% endif %}
+      <a class="topbar-back" href="{{ back_href }}">
+        <svg aria-hidden="true"><use href="#icon-back"></use></svg>
+        <span>{{ back_label }}</span>
+      </a>
+    {% endif %}
+  </div>
+
   {% include "partials/brand_lockup.html" %}
-  <nav class="command-nav" aria-label="{{ t('nav.title') }}">
-    {% for index, key, href, label, icon in commands %}
-    <a href="{{ href }}" data-nav="{{ key }}" class="command-link{% if active_nav == key %} is-active{% endif %}"{% if active_nav == key %} aria-current="page"{% endif %}>
-      <span class="command-index" aria-hidden="true">{{ index }}</span>
-      <span>{{ label }}</span>
-    </a>
-    {% endfor %}
-  </nav>
-  <span class="command-context">{{ current_nav_label }}</span>
+
+  <details class="quiet-nav">
+    <summary class="quiet-nav-toggle">{{ t("nav.menu") }}</summary>
+    <nav class="quiet-nav-panel" aria-label="{{ t('nav.menu') }}">
+      <a href="/" data-nav="timeline" {% if active_nav == "timeline" %}aria-current="page"{% endif %}>
+        <svg aria-hidden="true"><use href="#icon-timeline"></use></svg>
+        <span>{{ t("nav.timeline") }}</span>
+      </a>
+      <a href="/report" data-nav="report" {% if active_nav == "report" %}aria-current="page"{% endif %}>
+        <svg aria-hidden="true"><use href="#icon-report"></use></svg>
+        <span>{{ t("nav.report") }}</span>
+      </a>
+      <a href="/chat" data-nav="chat" {% if active_nav == "chat" %}aria-current="page"{% endif %}>
+        <svg aria-hidden="true"><use href="#icon-chat"></use></svg>
+        <span>{{ t("nav.chat") }}</span>
+      </a>
+      <a href="/new" data-nav="new_entry" {% if active_nav == "new_entry" %}aria-current="page"{% endif %}>
+        <svg aria-hidden="true"><use href="#icon-write"></use></svg>
+        <span>{{ t("nav.new_entry") }}</span>
+      </a>
+      <a href="/workshop" data-nav="workshop" {% if active_nav == "workshop" %}aria-current="page"{% endif %}>
+        <svg aria-hidden="true"><use href="#icon-workshop"></use></svg>
+        <span>{{ t("nav.workshop") }}</span>
+      </a>
+    </nav>
+  </details>
 </header>
-<header class="mobile-header">
-  {% include "partials/brand_lockup.html" %}
-  <span class="mobile-page-title">{{ current_nav_label }}</span>
-</header>
-<nav class="mobile-command-strip" aria-label="{{ t('nav.title') }}">
-  {% for index, key, href, label, icon in commands %}
-  <a href="{{ href }}" data-nav="{{ key }}" class="mobile-command{% if active_nav == key %} is-active{% endif %}"{% if active_nav == key %} aria-current="page"{% endif %}>
-    <svg class="icon" aria-hidden="true"><use href="#icon-{{ icon }}"></use></svg>
-    <span>{{ label }}</span>
-  </a>
-  {% endfor %}
-</nav>

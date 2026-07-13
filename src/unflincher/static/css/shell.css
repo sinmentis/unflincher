@@ -1,5 +1,5 @@
 /* src/unflincher/static/css/shell.css */
-.page-shell { width: min(100%, var(--content-max)); max-width: none; margin-inline: auto; padding: var(--space-7) var(--space-6) 7rem; }
+.page-shell { width: min(100%, var(--content-max)); max-width: none; margin-inline: auto; padding: var(--space-7) var(--space-6) var(--space-8); }
 
 .svg-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 .svg-sprite symbol, .icon { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
@@ -11,95 +11,102 @@
   left: var(--space-3);
   padding: var(--space-3) var(--space-4);
   transform: translateY(-200%);
-  background: var(--ink);
-  color: var(--canvas);
+  background: var(--text);
+  color: var(--bg);
+  text-decoration: none;
 }
 .skip-link:focus { transform: translateY(0); }
-.command-header {
+
+/* Quiet top bar: a static 3-column shell (back link / centered wordmark / menu) on a flat
+   chrome plane with a single subtle bottom rule. No shadow, no bright active line, no numbered
+   commands, and no bottom strip -- the menu is one native <details> dropdown. */
+.app-topbar {
   position: sticky;
   z-index: var(--z-header);
   top: 0;
   display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr) auto;
-  align-items: stretch;
-  min-height: var(--header-height);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--bar-height);
   padding-inline: max(var(--space-5), calc((100vw - var(--content-max)) / 2));
-  border-bottom: 3px solid var(--ink);
-  background: var(--canvas);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--rule);
 }
-.brand-lockup { display: inline-flex; align-items: center; gap: 0.625rem; color: var(--ink); text-decoration: none; }
-.brand-wordmark { font-weight: 700; letter-spacing: 0.14em; }
-.brand-seal { display: inline-grid; width: 1.5rem; height: 1.5rem; place-items: center; background: var(--accent); color: var(--canvas); font-family: var(--font-reading); font-size: 0.75rem; }
-.command-nav { display: flex; justify-content: center; }
-.command-link { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4); color: var(--muted); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-decoration: none; text-transform: uppercase; }
-.command-link.is-active { color: var(--ink); box-shadow: inset 0 -4px 0 var(--accent); }
-.command-index { font-family: var(--font-mono); font-size: 0.625rem; }
-.command-context { align-self: center; color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; text-transform: uppercase; }
-.app-footer { display: flex; justify-content: space-between; width: min(100%, var(--content-max)); margin-inline: auto; padding: var(--space-5) var(--space-6); border-top: 1px solid var(--rule); color: var(--muted); font-family: var(--font-mono); font-size: 0.625rem; text-transform: uppercase; }
+.app-topbar svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+
+.topbar-start { display: flex; align-items: center; justify-self: start; min-width: 0; }
+.topbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--prose);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.topbar-back:hover { color: var(--text); }
+.topbar-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.brand-lockup { justify-self: center; display: inline-flex; align-items: center; color: var(--text); text-decoration: none; }
+.brand-wordmark { font-weight: 700; letter-spacing: 0.18em; font-size: var(--text-sm); }
+
+/* Native menu. The panel is absolutely positioned from the right edge so opening the
+   <details> never shifts the bar. The <summary> marker is removed but stays keyboard-toggleable. */
+.quiet-nav { position: relative; justify-self: end; }
+.quiet-nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  color: var(--prose);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.quiet-nav-toggle::-webkit-details-marker { display: none; }
+.quiet-nav-toggle::marker { content: ""; }
+.quiet-nav-toggle:hover { color: var(--text); }
+.quiet-nav[open] .quiet-nav-toggle { color: var(--text); }
+
+.quiet-nav-panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-header);
+  display: flex;
+  flex-direction: column;
+  min-width: 13rem;
+  padding: var(--space-2);
+  background: var(--chrome);
+  border: 1px solid var(--muted);
+  border-radius: var(--radius-md);
+}
+.quiet-nav-panel a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--prose);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.quiet-nav-panel a:hover { background: var(--soft-surface); color: var(--text); }
+.quiet-nav-panel a[aria-current="page"] { background: var(--soft-surface); color: var(--text); }
+.quiet-nav-panel svg { color: var(--muted); }
+.quiet-nav-panel a:hover svg,
+.quiet-nav-panel a[aria-current="page"] svg { color: inherit; }
+
 .error-document { max-width: 48rem; padding-block: var(--space-8); }
-.error-document > .brand-lockup { margin-bottom: var(--space-7); }
-.error-document .page-eyebrow { color: var(--accent); font-family: var(--font-mono); letter-spacing: 0.1em; }
+.error-document > .brand-lockup { justify-self: start; margin-bottom: var(--space-7); }
+.error-document .page-eyebrow { color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0.1em; }
 .error-document h1 { margin-bottom: var(--space-5); }
-.error-document > p:not(.page-eyebrow) { max-width: 48ch; color: var(--ink-soft); font-family: var(--font-reading); font-size: 1.125rem; line-height: 1.8; }
-.mobile-header, .mobile-command-strip { display: none; }
+.error-document > p:not(.page-eyebrow) { max-width: 48ch; color: var(--prose); font-size: var(--text-lg); line-height: var(--leading-body); }
 
-/* Tablet: collapse the desktop command bar's spacing but keep it at the top (Task 10). Only
-   shell selectors (.command-*, .app-footer, .mobile-*, .page-shell) live here; the matching
-   page-layout breakpoints live in pages.css so no rule is duplicated across the two files. */
-@media (max-width: 73.6875rem) {
-  .command-header { grid-template-columns: auto minmax(0, 1fr); padding-inline: var(--space-5); }
-  .command-context { display: none; }
-  .command-index { display: none; }
-  .command-link { padding-inline: var(--space-2); font-size: 0.6875rem; }
-}
-
-/* Mobile: retire the command bar and footer, reveal the compact header + fixed bottom strip. */
-@media (max-width: 47.9375rem) {
-  .command-header { display: none; }
-  .app-footer { display: none; }
-  .mobile-header {
-    position: sticky;
-    z-index: var(--z-header);
-    top: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 3.5rem;
-    padding-inline: var(--space-4);
-    border-bottom: 1px solid var(--rule);
-    background: var(--canvas);
-  }
-  .mobile-command-strip {
-    position: fixed;
-    z-index: var(--z-header);
-    right: 0;
-    bottom: 0;
-    left: 0;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    padding-bottom: env(safe-area-inset-bottom);
-    border-top: 1px solid var(--rule);
-    background: var(--canvas);
-  }
-  .mobile-command {
-    min-height: 4.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    color: var(--muted);
-    font-size: 0.625rem;
-    text-decoration: none;
-  }
-  .mobile-command > span {
-    display: -webkit-box;
-    max-width: 100%;
-    overflow: hidden;
-    text-align: center;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-  .mobile-command.is-active { color: var(--ink); box-shadow: inset 0 3px 0 var(--accent); }
-  .page-shell { padding: var(--space-6) var(--space-4) calc(6rem + env(safe-area-inset-bottom)); }
+/* At 700px and below, abbreviate the bar's spacing but keep the same three-column shell. */
+@media (max-width: 43.75rem) {
+  .app-topbar { gap: var(--space-2); padding-inline: var(--space-4); }
+  .brand-wordmark { letter-spacing: 0.12em; }
+  .quiet-nav-toggle { padding-inline: var(--space-2); }
+  .page-shell { padding: var(--space-6) var(--space-4) var(--space-7); }
 }

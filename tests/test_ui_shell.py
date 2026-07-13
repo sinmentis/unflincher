@@ -29,27 +29,32 @@ def test_get_ui_state(path, active_nav, page_id):
     assert get_ui_state(path) == (active_nav, page_id)
 
 
-def test_base_document_has_command_ledger_metadata_and_landmarks(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    body = response.text
-    assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in body
-    assert '<meta name="theme-color" content="#11100f">' in body
-    assert 'href="/static/favicon.svg"' in body
-    assert 'class="skip-link"' in body
+def test_base_document_has_balanced_graphite_metadata_and_landmarks(client):
+    body = client.get("/").text
+    assert '<meta name="theme-color" content="#1d1e1d">' in body
+    assert 'class="app-topbar"' in body
+    assert 'class="quiet-nav"' in body
+    assert 'class="quiet-nav-panel"' in body
     assert 'id="main-content"' in body
     assert 'data-page="timeline"' in body
     assert 'data-nav="timeline"' in body
     assert 'aria-current="page"' in body
     assert "UNFLINCHER" in body
-    assert "诤" in body
+    assert "brand-seal" not in body
 
 
-def test_mobile_and_desktop_navigation_share_all_destinations(client):
+def test_quiet_menu_exposes_each_destination_once(client):
     body = client.get("/chat").text
     for key in ("timeline", "report", "chat", "new_entry", "workshop"):
-        assert body.count(f'data-nav="{key}"') == 2
+        assert body.count(f'data-nav="{key}"') == 1
+    assert body.count('class="quiet-nav-panel"') == 1
     assert 'data-page="chat-list"' in body
+
+
+def test_topbar_back_link_follows_page_context(client):
+    assert 'class="topbar-back"' not in client.get("/").text
+    assert 'class="topbar-back" href="/"' in client.get("/new").text
+    assert 'class="topbar-back" href="/chat"' in client.get("/chat/new").text
 
 
 def test_html_404_is_branded_but_json_404_keeps_api_shape(client):

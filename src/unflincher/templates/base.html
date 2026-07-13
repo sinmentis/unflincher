@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#11100f">
+  <meta name="theme-color" content="#1d1e1d">
   <meta name="description" content="{{ t('meta.description') }}">
   <title>{% block title %}{{ t("nav.title") }}{% endblock %}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
@@ -30,10 +30,6 @@
   <main id="main-content" class="page-shell" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
-  <footer class="app-footer">
-    <span>UNFLINCHER</span>
-    <span>{{ current_nav_label }}</span>
-  </footer>
   {% block scripts %}{% endblock %}
 </body>
 </html>
