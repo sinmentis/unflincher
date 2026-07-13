@@ -1,3 +1,4 @@
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -23,3 +24,18 @@ def test_entry_module_loads_without_browser_globals():
         "const {initEntryPage} = require(process.argv[1]); process.stdout.write(typeof initEntryPage);",
     )
     assert output == "function"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_chat_session_title_validation_rejects_blank_values():
+    output = _run_node(
+        "chat.js",
+        """
+        const {isValidSessionTitle} = require(process.argv[1]);
+        process.stdout.write(JSON.stringify({
+          blank: isValidSessionTitle('   '),
+          title: isValidSessionTitle('Choosing without certainty'),
+        }));
+        """,
+    )
+    assert json.loads(output) == {"blank": False, "title": True}

@@ -63,6 +63,42 @@ def test_chat_session_view_404_for_missing_session(client):
     assert response.status_code == 404
 
 
+def test_chat_list_renders_session_ledger_and_composed_empty_state(client):
+    body = client.get("/chat").text
+    assert 'class="chat-layout"' in body
+    assert 'class="session-ledger"' in body
+    assert 'class="empty-state"' in body
+    assert 'src="/static/js/chat.js"' in body
+
+
+def test_chat_session_has_editorial_messages_and_multiline_composer(client):
+    db = client.app.state.db
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('Choosing without certainty')").lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) "
+        "VALUES ('general', ?, 'user', 'How do I know?')",
+        (session_id,),
+    )
+    body = client.get(f"/chat/{session_id}").text
+    assert 'class="conversation-workspace"' in body
+    assert 'class="conversation-message is-user"' in body
+    assert 'id="chat-input"' in body and "<textarea" in body
+    assert 'class="mobile-chat-back"' in body
+    assert "full diary archive" in body
+
+
+def test_chat_sidebar_uses_inline_rename_and_delete_controls(client):
+    db = client.app.state.db
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('Old title')").lastrowid
+    body = client.get(f"/chat/{session_id}").text
+    assert f'data-rename-session="{session_id}"' in body
+    assert f'data-delete-session="{session_id}"' in body
+    assert f'id="rename-session-{session_id}"' in body
+    assert f'id="delete-session-{session_id}"' in body
+    assert "✎" not in body
+    assert "🗑" not in body
+
+
 def test_chat_rename(client):
     db = client.app.state.db
     session_id = db.execute("INSERT INTO chat_session (title) VALUES ('old')").lastrowid

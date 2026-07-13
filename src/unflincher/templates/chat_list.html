@@ -1,12 +1,26 @@
-<!-- src/unflincher/templates/chat_list.html -->
 {% extends "base.html" %}
-{% block nav_chat %}active{% endblock %}
+{% block title %}{{ t("chat.heading") }}{% endblock %}
 {% block content %}
-{% include "partials/chat_sidebar.html" %}
-<h1>{{ t("chat.heading") }}</h1>
-{% if sessions %}
-<p class="entry-date">{{ t("chat.pick_or_new") }}</p>
-{% else %}
-<p class="entry-date">{{ t("chat.no_conversations") }}</p>
-{% endif %}
+<div class="chat-layout">
+  {% include "partials/chat_sidebar.html" %}
+  <section class="conversation-workspace" aria-labelledby="chat-heading">
+    <header class="conversation-heading">
+      <p class="page-eyebrow">{{ t("nav.chat") }}</p>
+      <h1 id="chat-heading">{{ t("chat.heading") }}</h1>
+    </header>
+    {% with notice_id="chat-notice", tone="failed", message="", hidden=true, live="polite" %}
+      {% include "partials/inline_notice.html" %}
+    {% endwith %}
+    {% if sessions %}
+      {% with title=t("chat.pick_or_new"), body="", action_href="/chat/new", action_label=t("chat_sidebar.new") %}
+        {% include "partials/empty_state.html" %}
+      {% endwith %}
+    {% else %}
+      {% with title=t("chat.no_conversations"), body="", action_href="/chat/new", action_label=t("chat_sidebar.new") %}
+        {% include "partials/empty_state.html" %}
+      {% endwith %}
+    {% endif %}
+  </section>
+</div>
 {% endblock %}
+{% block scripts %}<script src="/static/js/chat.js" defer></script>{% endblock %}

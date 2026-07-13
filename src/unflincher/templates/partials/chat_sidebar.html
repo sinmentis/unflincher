@@ -1,37 +1,37 @@
-<!-- src/unflincher/templates/partials/chat_sidebar.html -->
-<nav class="side-nav side-nav--sessions" aria-label="{{ t('chat_sidebar.aria') }}">
-  <a href="/chat/new" class="side-nav-item side-nav-new">{{ t("chat_sidebar.new") }}</a>
-  {% for s in sessions %}
-  <div class="side-nav-session{{ ' active' if active_session_id == s.id else '' }}">
-    <a href="/chat/{{ s.id }}" class="side-nav-item side-nav-session-link">{{ s.title }}</a>
-    <button type="button" class="side-nav-session-action" data-rename-session="{{ s.id }}" title="{{ t('chat_sidebar.rename_title') }}">✎</button>
-    <button type="button" class="side-nav-session-action" data-delete-session="{{ s.id }}" title="{{ t('chat_sidebar.delete_title') }}">🗑</button>
-  </div>
-  {% endfor %}
-</nav>
-<script>
-document.querySelectorAll("[data-rename-session]").forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    const id = btn.dataset.renameSession;
-    const title = prompt({{ t("chat_sidebar.rename_prompt") | tojson }});
-    if (!title) return;
-    await fetch(`/chat/${id}/rename`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
-      body: JSON.stringify({title}),
-    });
-    location.reload();
-  });
-});
-document.querySelectorAll("[data-delete-session]").forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    const id = btn.dataset.deleteSession;
-    if (!confirm({{ t("chat_sidebar.delete_confirm") | tojson }})) return;
-    await fetch(`/chat/${id}/delete`, {
-      method: "POST",
-      headers: {"X-CSRF-Token": getCsrfToken()},
-    });
-    window.location.href = "/chat";
-  });
-});
-</script>
+<aside class="session-ledger" aria-label="{{ t('chat_sidebar.aria') }}">
+  <header class="session-ledger-heading">
+    <p class="session-ledger-title">{{ t("chat.heading") }}</p>
+    <a class="button button--accent" href="/chat/new">{{ t("chat_sidebar.new") }}</a>
+  </header>
+  <ol class="session-ledger-list">
+    {% for s in sessions %}
+    <li class="session-row{% if s.id == active_session_id %} is-active{% endif %}">
+      <a class="session-link" href="/chat/{{ s.id }}"
+         {% if s.id == active_session_id %}aria-current="page"{% endif %}>
+        <span>{{ s.title }}</span>
+        <time datetime="{{ s.updated_at }}">{{ s.updated_at[:16] }}</time>
+      </a>
+      <button type="button" class="session-action" data-rename-session="{{ s.id }}"
+              aria-label="{{ t('chat_sidebar.rename_title') }}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-edit"></use></svg>
+      </button>
+      <button type="button" class="session-action" data-delete-session="{{ s.id }}"
+              aria-label="{{ t('chat_sidebar.delete_title') }}">
+        <svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg>
+      </button>
+      <form id="rename-session-{{ s.id }}" class="session-inline-form"
+            data-session-id="{{ s.id }}" hidden>
+        <label class="visually-hidden" for="rename-title-{{ s.id }}">{{ t("chat_sidebar.rename_prompt") }}</label>
+        <input id="rename-title-{{ s.id }}" value="{{ s.title }}" maxlength="160">
+        <button type="submit" class="button">{{ t("common.save") }}</button>
+        <button type="button" class="button" data-cancel-rename>{{ t("common.cancel") }}</button>
+      </form>
+      {% with confirmation_id="delete-session-" ~ s.id, title=s.title,
+        body=t("chat_sidebar.delete_confirm"), confirm_label=t("chat_sidebar.delete_title"),
+        cancel_label=t("common.cancel") %}
+        {% include "partials/destructive_confirmation.html" %}
+      {% endwith %}
+    </li>
+    {% endfor %}
+  </ol>
+</aside>

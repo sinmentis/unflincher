@@ -1,34 +1,41 @@
-<!-- src/unflincher/templates/chat_session.html -->
 {% extends "base.html" %}
-{% block nav_chat %}active{% endblock %}
+{% block title %}{{ active_session_title or t("chat.default_title") }}{% endblock %}
 {% block content %}
-{% include "partials/chat_sidebar.html" %}
-<h1>{{ active_session_title or t("chat.default_title") }}</h1>
-<div id="chat-thread">
-  {% for msg in history %}
-  <div class="chat-bubble {{ 'mine' if msg.role == 'user' else 'mentor' }}">
-    <div class="chat-bubble-label">{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</div>
-    {% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}
-  </div>
-  {% endfor %}
+<div class="chat-layout">
+  {% include "partials/chat_sidebar.html" %}
+  <section class="conversation-workspace" aria-labelledby="chat-heading">
+    <a class="mobile-chat-back" href="/chat">
+      <svg class="icon" aria-hidden="true"><use href="#icon-back"></use></svg>
+      <span>{{ t("nav.chat") }}</span>
+    </a>
+    <header class="conversation-heading">
+      <p class="page-eyebrow">{{ t("nav.chat") }}</p>
+      <h1 id="chat-heading">{{ active_session_title or t("chat.default_title") }}</h1>
+      <p class="conversation-context">{{ t("chat.context_note") }}</p>
+    </header>
+    {% with notice_id="chat-notice", tone="failed", message="", hidden=true, live="polite" %}
+      {% include "partials/inline_notice.html" %}
+    {% endwith %}
+    <div id="chat-thread" class="conversation-thread">
+      {% for msg in history %}
+      <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
+        <div class="message-stamp">
+          {{ t("common.me") if msg.role == "user" else t("common.mentor") }} / {{ "%02d" % loop.index }}
+        </div>
+        <div class="message-copy">
+          {% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
+    {% set message_endpoint = "/chat/" ~ active_session_id ~ "/message" if active_session_id else "/chat/message" %}
+    {% with composer_id="general-chat-composer", input_id="chat-input", send_id="chat-send",
+      placeholder=t("chat.input_placeholder"), input_aria=t("chat.input_aria"),
+      send_label=t("chat.send"), endpoint=message_endpoint, stream_target_id="chat-stream" %}
+      {% include "partials/conversation_composer.html" %}
+    {% endwith %}
+  </section>
 </div>
-<div id="chat-stream" class="ai-card" style="display:none" aria-live="polite"></div>
-<input type="text" id="chat-input" placeholder="{{ t('chat.input_placeholder') }}" aria-label="{{ t('chat.input_aria') }}">
-<button id="chat-send">{{ t("chat.send") }}</button>
-<script>
-document.getElementById("chat-send").addEventListener("click", () => {
-  const input = document.getElementById("chat-input");
-  const target = document.getElementById("chat-stream");
-  const sessionId = {{ active_session_id if active_session_id is not none else "null" }};
-  const url = sessionId ? `/chat/${sessionId}/message` : "/chat/message";
-  streamInto(url, {message: input.value}, target, (payload) => {
-    if (payload.session_id) {
-      window.location.href = `/chat/${payload.session_id}`;
-    } else {
-      location.reload();
-    }
-  });
-  input.value = "";
-});
-</script>
 {% endblock %}
+{% block scripts %}<script src="/static/js/chat.js" defer></script>{% endblock %}
