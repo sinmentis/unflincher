@@ -1,0 +1,21 @@
+<aside class="entry-margin-index">
+  <nav aria-label="{{ t('entry.toc_aria') }}">
+    <a data-jump href="#diary-text" class="is-active">01 / {{ t("entry.toc_body") }}</a>
+    {% if commentary_html %}<a data-jump href="#ai-commentary">02 / {{ t("entry.toc_commentary") }}</a>{% endif %}
+    <a data-jump href="#chat-section">03 / {{ t("entry.toc_chat") }}</a>
+  </nav>
+  {% if versions %}
+  <ol class="version-ledger">
+    {% for version in versions %}
+    <li>
+      <a href="/entry/{{ entry.id }}/commentary/{{ version.id }}"
+         {% if version.id == viewing_version_id %}aria-current="true"{% endif %}>
+        <span>V{{ "%02d" % (versions|length - loop.index0) }}</span>
+        <time>{{ version.created_at[:10] }}</time>
+        {% if version.status == "failed" %}<span>{{ t("entry.version_failed_suffix") }}</span>{% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+</aside>

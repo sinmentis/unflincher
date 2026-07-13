@@ -1,101 +1,72 @@
-<!-- src/unflincher/templates/entry_detail.html -->
 {% extends "base.html" %}
 {% block title %}{{ entry.title }}{% endblock %}
 {% block content %}
-<nav class="side-nav side-nav--toc" aria-label="{{ t('entry.toc_aria') }}" id="entry-toc">
-  <a class="side-nav-item" href="#diary-text">{{ t("entry.toc_body") }}</a>
-  {% if commentary_html %}
-  <a class="side-nav-item" href="#ai-commentary">{{ t("entry.toc_commentary") }}</a>
-  {% endif %}
-  <a class="side-nav-item" href="#chat-section">{{ t("entry.toc_chat") }}</a>
-</nav>
-<h1>{{ entry.title }}</h1>
-<div class="diary-text" id="diary-text">{{ entry.content_html | safe }}</div>
+<div class="entry-layout" data-entry-source="{{ entry.source }}">
+  <article class="entry-record">
+    {% with eyebrow=t("entry.toc_body") ~ " / " ~ ("%03d" % entry.id), heading=entry.title, metadata=entry.entry_date[:10] %}
+      {% include "partials/page_heading.html" %}
+    {% endwith %}
+    <dl class="record-metadata">
+      <div><dt>{{ t("entry.source_label") }}</dt><dd>{{ t("entry.source." ~ entry.source) }}</dd></div>
+      <div><dt>{{ t("entry.archive_id_label") }}</dt><dd>{{ "%03d" % entry.id }}</dd></div>
+    </dl>
+    <div class="diary-prose" id="diary-text">{{ entry.content_html | safe }}</div>
+  </article>
 
-{% if versions|length > 1 %}
-<p class="entry-date">{{ t("entry.history_versions_label") }}
-  {% for v in versions %}
-  <a href="/entry/{{ entry.id }}/commentary/{{ v.id }}" style="{{ 'font-weight:bold' if v.id == viewing_version_id else '' }}">
-    {{ v.created_at[:16] }}{{ t("entry.version_failed_suffix") if v.status == 'failed' else '' }}
-  </a>{{ " · " if not loop.last }}
-  {% endfor %}
-</p>
-{% endif %}
+  {% include "partials/entry_margin_index.html" %}
 
-{% if commentary_html %}
-<div class="ai-card" id="ai-commentary">
-  <div class="ai-label">{{ t("entry.commentary_label") }}</div>
-  {{ commentary_html | safe }}
+  <section class="margin-note-section" id="commentary-section" aria-labelledby="commentary-heading">
+    <header class="section-index">
+      <span>02</span>
+      <h2 id="commentary-heading">{{ t("entry.toc_commentary") }}</h2>
+    </header>
+    <div class="section-body">
+      {% if commentary_html %}
+      <div class="analysis-prose" id="ai-commentary">{{ commentary_html | safe }}</div>
+      {% else %}
+      <div class="notice" id="commentary-empty">{{ t("entry.no_commentary_yet") }}</div>
+      {% endif %}
+      {% with notice_id="commentary-notice", tone="failed", message="", hidden=true, live="polite" %}
+        {% include "partials/inline_notice.html" %}
+      {% endwith %}
+      {% if commentary_job_status in ("pending", "running") %}
+        {% with entry_id=entry.id, busy=true %}{% include "partials/commentary_status.html" %}{% endwith %}
+      {% elif commentary_job_status == "failed" %}
+        <section class="generation-state" id="commentary-error" data-state="failed" role="status">
+          <h3>{{ t("entry.last_generation_failed") }}</h3>
+          <p>{{ commentary_job_error }}</p>
+          <button id="retry-commentary" class="button" type="button"
+                  data-endpoint="/entry/{{ entry.id }}/commentary">{{ t("common.retry") }}</button>
+        </section>
+      {% else %}
+        <button id="run-commentary" class="button button--accent" type="button"
+                data-endpoint="/entry/{{ entry.id }}/commentary">{{ t("entry.run_commentary_button") }}</button>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="inquiry-section" id="chat-section" aria-labelledby="inquiry-heading">
+    <header class="section-index">
+      <span>03</span>
+      <h2 id="inquiry-heading">{{ t("entry.toc_chat") }}</h2>
+    </header>
+    <div class="section-body">
+      <div id="chat-thread" class="conversation-thread">
+        {% for msg in chat_history %}
+        <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
+          <div class="message-stamp">{{ t("common.me") if msg.role == "user" else t("common.mentor") }} / {{ "%02d" % loop.index }}</div>
+          <div class="message-copy">{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
+        </article>
+        {% endfor %}
+      </div>
+      <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
+      {% with composer_id="entry-chat-composer", input_id="chat-input", send_id="chat-send",
+        placeholder=t("entry.chat_input_placeholder"), input_aria=t("entry.chat_input_aria"),
+        send_label=t("common.send"), endpoint="/entry/" ~ entry.id ~ "/chat", stream_target_id="chat-stream" %}
+        {% include "partials/conversation_composer.html" %}
+      {% endwith %}
+    </div>
+  </section>
 </div>
-{% else %}
-<p class="entry-date">{{ t("entry.no_commentary_yet") }}</p>
-{% endif %}
-
-{% if commentary_job_status in ("pending", "running") %}
-{% with entry_id=entry.id, busy=True %}{% include "partials/commentary_status.html" %}{% endwith %}
-{% elif commentary_job_status == "failed" %}
-<div class="ai-card stream-err" id="commentary-error">
-  <div class="ai-label">{{ t("entry.last_generation_failed") }}</div>
-  <p>{{ commentary_job_error }}</p>
-  <button id="retry-commentary" class="badge done" style="cursor:pointer;border:none">{{ t("common.retry") }}</button>
-</div>
-<script>
-document.getElementById("retry-commentary").addEventListener("click", async () => {
-  const res = await fetch("/entry/{{ entry.id }}/commentary", {method: "POST", headers: {"X-CSRF-Token": getCsrfToken()}});
-  if (res.status === 409) { alert({{ t("common.busy_alert") | tojson }}); return; }
-  location.reload();
-});
-</script>
-{% else %}
-<button id="run-commentary" class="badge done" style="cursor:pointer;border:none">{{ t("entry.run_commentary_button") }}</button>
-<script>
-document.getElementById("run-commentary").addEventListener("click", async () => {
-  const res = await fetch("/entry/{{ entry.id }}/commentary", {method: "POST", headers: {"X-CSRF-Token": getCsrfToken()}});
-  if (res.status === 409) { alert({{ t("common.busy_alert") | tojson }}); return; }
-  location.reload();
-});
-</script>
-{% endif %}
-
-<div id="chat-section">
-<div id="chat-thread">
-  {% for msg in chat_history %}
-  <div class="chat-bubble {{ 'mine' if msg.role == 'user' else 'mentor' }}">
-    <div class="chat-bubble-label">{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</div>
-    {% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}
-  </div>
-  {% endfor %}
-</div>
-<div id="chat-stream" class="ai-card" style="display:none" aria-live="polite"></div>
-<input type="text" id="chat-input" placeholder="{{ t('entry.chat_input_placeholder') }}" aria-label="{{ t('entry.chat_input_aria') }}">
-<button id="chat-send">{{ t("common.send") }}</button>
-</div>
-<script>
-document.getElementById("chat-send").addEventListener("click", () => {
-  const input = document.getElementById("chat-input");
-  const target = document.getElementById("chat-stream");
-  streamInto("/entry/{{ entry.id }}/chat", {message: input.value}, target, () => location.reload());
-  input.value = "";
-});
-
-// Highlight whichever TOC entry corresponds to the section currently in view. Plain
-// IntersectionObserver, no dependency — mirrors the "no build step" constraint.
-(() => {
-  const toc = document.getElementById("entry-toc");
-  const sections = ["diary-text", "ai-commentary", "chat-section"]
-    .map((id) => document.getElementById(id))
-    .filter(Boolean);
-  if (!sections.length) return;
-  const linkFor = (id) => toc.querySelector(`a[href="#${id}"]`);
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        toc.querySelectorAll("a").forEach((a) => a.classList.remove("active"));
-        linkFor(entry.target.id)?.classList.add("active");
-      }
-    });
-  }, {rootMargin: "-40% 0px -50% 0px"});
-  sections.forEach((s) => observer.observe(s));
-})();
-</script>
 {% endblock %}
+{% block scripts %}<script src="/static/js/entry.js" defer></script>{% endblock %}

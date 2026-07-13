@@ -148,6 +148,12 @@ function readUiMessages(doc = document) {
 
 const UI_MESSAGES = typeof document === "undefined" ? {} : readUiMessages(document);
 
+// Expose UI_MESSAGES to page-specific modules (entry.js) that read localized notices from a
+// browser global. Guarded so Node-based unit tests (where `window` is undefined) stay unaffected.
+if (typeof window !== "undefined") {
+  window.UI_MESSAGES = UI_MESSAGES;
+}
+
 function setNotice(element, message, tone = "info") {
   element.textContent = message;
   element.dataset.tone = tone;

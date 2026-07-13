@@ -215,6 +215,78 @@ def test_view_specific_historical_commentary_version(client):
     # this route only swaps the commentary display, per Global Constraints.
 
 
+def test_entry_detail_uses_three_act_editorial_structure(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('A hard choice', '<p>Body</p>', '<p>Body</p>', "
+        "'Body', '2026-07-13', 'manual')"
+    ).lastrowid
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert 'data-page="entry"' in body
+    assert 'class="entry-layout"' in body
+    assert 'id="diary-text"' in body
+    assert 'id="ai-commentary"' not in body
+    assert 'id="chat-section"' in body
+    assert 'class="entry-margin-index"' in body
+    assert 'data-entry-source="manual"' in body
+    assert 'src="/static/js/entry.js"' in body
+    assert 'id="chat-input"' in body and "<textarea" in body
+
+
+def test_entry_detail_preserves_generation_and_version_hooks(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    ok_id = db.execute(
+        "INSERT INTO entry_commentary "
+        "(entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'test-model', 'current', 'ok', '2026-01-02T00:00:00')",
+        (entry_id, prompt_id),
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary "
+        "(entry_id, prompt_version_id, model, body_text, status, error, created_at) "
+        "VALUES (?, ?, 'test-model', '', 'failed', 'boom', '2026-01-01T00:00:00')",
+        (entry_id, prompt_id),
+    )
+    body = client.get(f"/entry/{entry_id}").text
+    assert 'id="ai-commentary"' in body
+    assert f'href="/entry/{entry_id}/commentary/{ok_id}"' in body
+    assert 'id="run-commentary"' in body or 'id="retry-commentary"' in body
+
+
+def test_failed_historical_commentary_shows_local_failure_state(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    failed_id = db.execute(
+        "INSERT INTO entry_commentary "
+        "(entry_id, prompt_version_id, model, body_text, status, error) "
+        "VALUES (?, ?, 'test-model', '', 'failed', 'boom')",
+        (entry_id, prompt_id),
+    ).lastrowid
+
+    body = client.get(f"/entry/{entry_id}/commentary/{failed_id}").text
+
+    assert 'id="commentary-error"' in body
+    assert "boom" in body
+
+
 def test_entry_detail_has_toc_anchors_and_sidebar(client):
     db = client.app.state.db
     entry_id = db.execute(
@@ -226,7 +298,7 @@ def test_entry_detail_has_toc_anchors_and_sidebar(client):
 
     assert 'id="diary-text"' in body
     assert 'id="chat-section"' in body
-    assert 'class="side-nav side-nav--toc"' in body
+    assert 'class="entry-margin-index"' in body
     assert 'href="#diary-text"' in body
     assert 'href="#chat-section"' in body
     # No commentary yet on this entry — its TOC link must not be offered.
@@ -250,8 +322,8 @@ def test_entry_detail_chat_uses_bubble_classes_per_role(client):
 
     body = client.get(f"/entry/{entry_id}").text
 
-    assert 'class="chat-bubble mine"' in body
-    assert 'class="chat-bubble mentor"' in body
+    assert 'class="conversation-message is-user"' in body
+    assert 'class="conversation-message is-mentor"' in body
 
 
 def test_entry_detail_shows_busy_state_when_job_is_running(client):
@@ -328,7 +400,7 @@ def test_commentary_status_route_returns_polling_fragment_while_busy(client):
     assert "location.reload" not in response.text
 
 
-def test_commentary_status_route_returns_reload_script_once_done(client):
+def test_commentary_status_route_returns_refresh_signal_once_done(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -347,5 +419,6 @@ def test_commentary_status_route_returns_reload_script_once_done(client):
 
     response = client.get(f"/entry/{entry_id}/commentary-status")
 
-    assert response.status_code == 200
-    assert "location.reload" in response.text
+    assert response.status_code == 204
+    assert response.headers["HX-Refresh"] == "true"
+    assert response.text == ""

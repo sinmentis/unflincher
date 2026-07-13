@@ -1,6 +1,7 @@
 import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 from unflincher import llm
@@ -99,6 +100,8 @@ async def view_commentary_version(request: Request, entry_id: int, commentary_id
             "chat_history": chat_history,
             "versions": versions,
             "viewing_version_id": commentary_id,
+            "commentary_job_status": commentary["status"] if commentary["status"] == "failed" else None,
+            "commentary_job_error": commentary["error"] if commentary["status"] == "failed" else None,
         },
     )
 
@@ -131,15 +134,18 @@ async def trigger_entry_commentary(request: Request, entry_id: int, background_t
 
 @router.get("/entry/{entry_id}/commentary-status")
 async def entry_commentary_status(request: Request, entry_id: int):
-    """Polled by entry_detail.html's busy-state widget every few seconds. Renders either the
-    "still generating" fragment (with an hx-trigger that keeps polling) or a fragment that
-    reloads the page once the job item is no longer pending/running -- see
+    """Polled by the entry page's busy-state widget every few seconds. While a job item is
+    pending/running it re-renders the "still generating" fragment (whose hx-trigger keeps the
+    poll alive). Once the job is no longer busy it returns 204 with `HX-Refresh: true`, which
+    tells htmx to reload the whole page so the freshly server-rendered commentary shows -- see
     partials/commentary_status.html."""
     db = request.app.state.db
     item = get_latest_commentary_job_item(db, entry_id)
     busy = item is not None and item["status"] in ("pending", "running")
+    if not busy:
+        return Response(status_code=204, headers={"HX-Refresh": "true"})
     return templates.TemplateResponse(
-        request, "partials/commentary_status.html", {"entry_id": entry_id, "busy": busy}
+        request, "partials/commentary_status.html", {"entry_id": entry_id, "busy": True}
     )
 
 
