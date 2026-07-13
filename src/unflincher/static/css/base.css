@@ -67,3 +67,14 @@ textarea { line-height: 1.6; }
 .button:disabled { color: var(--muted); cursor: not-allowed; }
 .button--accent { border-color: var(--accent); background: var(--accent); color: var(--canvas); }
 .button--danger { border-color: var(--accent); color: var(--accent); }
+
+/* Reduced motion: neutralize the page-enter, hover-translate, streaming-cursor, skeleton, and
+   ledger-slide animations for readers who ask for it, without disabling functional state (Task 10). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

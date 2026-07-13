@@ -102,12 +102,9 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def no_cache_static(request, call_next):
-        # StaticFiles serves theme.css/app.js/htmx with only ETag/Last-Modified (no explicit
-        # Cache-Control), so both the browser AND Cloudflare's edge cache (this hostname is
-        # proxied) are free to serve a stale copy after a deploy indefinitely -- confirmed as the
-        # cause of a real "my CSS fix isn't showing up" report. `no-cache` (not `no-store`) still
-        # lets both caches keep a copy, it just forces a conditional revalidation (cheap 304) on
-        # every request, so a changed file is picked up on the very next load.
+        # StaticFiles serves CSS, JavaScript, fonts, and icons with ETag/Last-Modified but no explicit
+        # Cache-Control. `no-cache` keeps browser and Cloudflare copies reusable while forcing
+        # revalidation after each deploy.
         response = await call_next(request)
         if request.url.path.startswith("/static/"):
             response.headers["Cache-Control"] = "no-cache"

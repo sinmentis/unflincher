@@ -42,3 +42,64 @@
 .error-document h1 { margin-bottom: var(--space-5); }
 .error-document > p:not(.page-eyebrow) { max-width: 48ch; color: var(--ink-soft); font-family: var(--font-reading); font-size: 1.125rem; line-height: 1.8; }
 .mobile-header, .mobile-command-strip { display: none; }
+
+/* Tablet: collapse the desktop command bar's spacing but keep it at the top (Task 10). Only
+   shell selectors (.command-*, .app-footer, .mobile-*, .page-shell) live here; the matching
+   page-layout breakpoints live in pages.css so no rule is duplicated across the two files. */
+@media (max-width: 73.6875rem) {
+  .command-header { grid-template-columns: auto minmax(0, 1fr); padding-inline: var(--space-5); }
+  .command-context { display: none; }
+  .command-index { display: none; }
+  .command-link { padding-inline: var(--space-2); font-size: 0.6875rem; }
+}
+
+/* Mobile: retire the command bar and footer, reveal the compact header + fixed bottom strip. */
+@media (max-width: 47.9375rem) {
+  .command-header { display: none; }
+  .app-footer { display: none; }
+  .mobile-header {
+    position: sticky;
+    z-index: var(--z-header);
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 3.5rem;
+    padding-inline: var(--space-4);
+    border-bottom: 1px solid var(--rule);
+    background: var(--canvas);
+  }
+  .mobile-command-strip {
+    position: fixed;
+    z-index: var(--z-header);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--rule);
+    background: var(--canvas);
+  }
+  .mobile-command {
+    min-height: 4.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    color: var(--muted);
+    font-size: 0.625rem;
+    text-decoration: none;
+  }
+  .mobile-command > span {
+    display: -webkit-box;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: center;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .mobile-command.is-active { color: var(--ink); box-shadow: inset 0 3px 0 var(--accent); }
+  .page-shell { padding: var(--space-6) var(--space-4) calc(6rem + env(safe-area-inset-bottom)); }
+}

@@ -6,7 +6,11 @@
 }
 
 /* Entry detail: body / margin note / inquiry (Task 4) */
-[data-page="entry"] .entry-layout {
+/* Unscoped like its sibling layout roots (.timeline-layout/.report-layout) -- the class is already
+   entry-only, and the earlier [data-page="entry"] prefix raised specificity above the Task 10
+   responsive `.entry-layout { grid-template-columns: 1fr }` collapse, which crushed the body column
+   on tablet/mobile. Dropping the redundant prefix lets the single-column breakpoints win. */
+.entry-layout {
   display: grid;
   grid-template-columns: minmax(0, 9fr) minmax(12rem, 3fr);
   gap: var(--space-8);
@@ -140,3 +144,67 @@
 .progress-track[data-progress-bucket="10"] span { width: 100%; }
 .progress-failures { margin: var(--space-4) 0 0; padding: 0; list-style: none; }
 .progress-failures li { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--rule); }
+
+/* Responsive page layout (Task 10). Shell breakpoints (.command-*, .app-footer, .mobile-*,
+   .page-shell) live in shell.css; every page-layout selector -- plus mobile-ledger-enter and
+   .mobile-chat-back, whose base rule already lives here and must keep winning the cascade over
+   shell.css -- lives here so no rule is duplicated across the two files. */
+@keyframes mobile-ledger-enter {
+  from { opacity: 0; transform: translateX(0.75rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 73.6875rem) {
+  .timeline-layout, .entry-layout, .report-layout { grid-template-columns: 1fr; }
+  .entry-margin-index, .report-layout > aside, .timeline-year-index {
+    position: static;
+    overflow-x: auto;
+  }
+  .entry-margin-index, .report-layout > aside, .timeline-year-index { order: -1; }
+  .entry-margin-index > nav,
+  .entry-margin-index > .version-ledger,
+  .report-version-index > ol,
+  .report-toc,
+  .timeline-year-index > nav {
+    display: flex;
+    min-width: max-content;
+  }
+  .margin-note-section, .inquiry-section { grid-template-columns: 9rem minmax(0, 1fr); }
+}
+
+@media (max-width: 47.9375rem) {
+  .timeline-layout, .entry-layout, .report-layout, .workshop-grid { grid-template-columns: 1fr; }
+  .timeline-year-index { order: -1; }
+  .archive-row { grid-template-columns: 3rem minmax(0, 1fr) auto; gap: var(--space-3); }
+  .archive-row time { grid-column: 2; }
+  .archive-row .status-mark { grid-column: 3; grid-row: 1 / span 2; }
+  .archive-row .status-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .archive-open { display: none; }
+  .margin-note-section, .inquiry-section { grid-template-columns: 1fr; gap: var(--space-4); }
+  .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }
+  .chat-layout { display: block; min-height: auto; }
+  [data-page="chat-session"] .session-ledger { display: none; }
+  [data-page="chat-list"] .conversation-workspace { display: none; }
+  .conversation-workspace { min-height: calc(100dvh - 8rem); padding: 0; }
+  [data-page="chat-session"] .conversation-workspace { animation: mobile-ledger-enter var(--motion-default) ease-out both; }
+  .mobile-chat-back { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; }
+  .inquiry-section .conversation-composer,
+  .conversation-workspace .conversation-composer {
+    position: sticky;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+  .writing-ledger { align-items: flex-start; flex-direction: column; }
+  .writing-title { font-size: clamp(2.5rem, 15vw, 4.5rem); }
+  .writing-body { min-height: 55dvh; }
+  .workshop-commit { grid-column: auto; }
+  .workshop-actions, .session-inline-form { grid-template-columns: 1fr; }
+  .workshop-model-row { grid-template-columns: 1fr; }
+  .workshop-settings { align-items: flex-start; flex-direction: column; }
+}
