@@ -70,3 +70,15 @@ def test_report_heading_descriptions_preserve_ids_and_generate_stable_fallbacks(
             {"id": "report-section-2", "label": "Cost of delay"},
         ],
     }
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_new_entry_local_date_string_does_not_convert_to_utc():
+    output = _run_node(
+        "new-entry.js",
+        """
+        const {localDateString} = require(process.argv[1]);
+        process.stdout.write(localDateString(new Date(2026, 6, 13, 23, 30, 0)));
+        """,
+    )
+    assert output == "2026-07-13"

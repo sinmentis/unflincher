@@ -21,6 +21,19 @@ def test_new_entry_form_renders(client):
     assert "New Entry" in response.text
 
 
+def test_new_entry_page_uses_writing_desk_structure(client):
+    body = client.get("/new").text
+    assert 'class="writing-desk-frame"' in body
+    assert 'class="writing-desk"' in body
+    assert 'aria-labelledby="new-entry-heading"' in body
+    assert 'id="draft-status"' in body
+    assert 'aria-live="polite"' in body
+    assert 'id="new-entry-notice"' in body
+    assert 'id="new-date-error"' in body
+    assert 'src="/static/js/new-entry.js"' in body
+    assert "style=" not in body
+
+
 def test_new_entry_saves_as_manual_and_does_not_trigger_commentary(client):
     response = client.post("/new", json={"title": "今天", "content": "写点什么"})
 
