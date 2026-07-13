@@ -1,0 +1,6 @@
+# Vendored IBM Plex assets are pinned byte-for-byte to upstream and SHA256-checked in
+# tests/test_static_assets.py. Disable EOL normalization so the stored blobs stay identical
+# to upstream regardless of a contributor's core.autocrlf setting (the upstream OFL.txt uses
+# CRLF line endings; without this Git would smudge it to LF and break the pinned-hash test).
+*.woff2 binary
+OFL.txt -text

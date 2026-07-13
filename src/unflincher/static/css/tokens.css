@@ -1,0 +1,84 @@
+/* src/unflincher/static/css/tokens.css */
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  src: url("/static/fonts/IBMPlexSansCondensed-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  src: url("/static/fonts/IBMPlexSansCondensed-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  src: url("/static/fonts/IBMPlexSansCondensed-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  src: url("/static/fonts/IBMPlexSansCondensed-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/static/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/static/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/static/fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --canvas: #11100f;
+  --surface: #1a1917;
+  --surface-raised: #24211e;
+  --ink: #e9e3d7;
+  --ink-soft: #b7afa3;
+  --muted: #918b82;
+  --rule: #393531;
+  --accent: #d0645a;
+  --font-command: "IBM Plex Sans Condensed", "Arial Narrow", "PingFang SC", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-reading: "Songti SC", "Noto Serif CJK SC", "Noto Serif SC", STSong, Georgia, serif;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --content-max: 82.5rem;
+  --reading-max: 68ch;
+  --header-height: 4rem;
+  --radius-1: 2px;
+  --radius-2: 4px;
+  --motion-fast: 150ms;
+  --motion-default: 220ms;
+  --z-base: 0;
+  --z-sticky: 20;
+  --z-header: 30;
+  --z-overlay: 40;
+}
