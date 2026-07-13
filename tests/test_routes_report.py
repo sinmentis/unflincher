@@ -12,6 +12,54 @@ def test_report_page_shows_no_report_state(client):
     assert "No report generated yet." in response.text
 
 
+def test_report_page_uses_investigation_document_structure(client):
+    body = client.get("/report").text
+    assert 'class="report-layout"' in body
+    assert 'class="report-version-index"' in body
+    assert 'id="report-toc"' in body
+    assert 'id="report-stream"' in body
+    assert 'id="run-report"' in body
+    assert 'src="/static/js/report.js"' in body
+
+
+def test_failed_historical_report_renders_failed_state(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    failed_id = db.execute(
+        "INSERT INTO aggregate_report "
+        "(prompt_version_id, model, body_text, covered_entry_count, status, error) "
+        "VALUES (?, 'test-model', '', 0, 'failed', 'boom')",
+        (prompt_id,),
+    ).lastrowid
+    body = client.get(f"/report/{failed_id}").text
+    assert 'data-report-status="failed"' in body
+    assert "Failed" in body
+    assert "boom" in body
+
+
+def test_report_markdown_headings_stay_below_the_page_heading(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "SELECT id FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["id"]
+    db.execute(
+        "INSERT INTO aggregate_report "
+        "(prompt_version_id, model, body_text, covered_entry_count, status) "
+        "VALUES (?, 'test-model', '# Investigation\n\n## Pattern\n\n### Detail', 0, 'ok')",
+        (prompt_id,),
+    )
+
+    body = client.get("/report").text
+
+    assert body.count("<h1") == 1
+    assert "<h2>Investigation</h2>" in body
+    assert "<h3>Pattern</h3>" in body
+    assert "<h4>Detail</h4>" in body
+
+
 def test_generate_report_streams_and_persists_with_coverage(client, monkeypatch):
     monkeypatch.setattr(llm_module, "generate_report", _fake_report_tokens)
     db = client.app.state.db
@@ -87,10 +135,10 @@ def test_report_page_shows_sidebar_timeline_with_active_and_failed_states(client
     response = client.get(f"/report/{current_id}")
 
     assert response.status_code == 200
-    assert 'class="side-nav side-nav--report-versions"' in response.text
+    assert 'class="report-version-index"' in response.text
     assert "Failed" in response.text
     assert "82" in response.text
-    # the currently-viewed version's node carries the active-state class, matching the
-    # year-filter sidebar's .side-nav-item.active convention.
-    assert f'href="/report/{current_id}" class="side-nav-item active"' in response.text
+    assert f'href="/report/{current_id}"' in response.text
+    assert 'aria-current="true"' in response.text
     assert f'href="/report/{old_failed_id}"' in response.text
+    assert 'data-status="failed"' in response.text

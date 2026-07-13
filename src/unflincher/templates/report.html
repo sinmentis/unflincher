@@ -1,37 +1,32 @@
-<!-- src/unflincher/templates/report.html -->
 {% extends "base.html" %}
-{% block nav_report %}active{% endblock %}
+{% block title %}{{ t("report.heading") }}{% endblock %}
 {% block content %}
-{% if versions %}
-<nav class="side-nav side-nav--report-versions" aria-label="{{ t('report.timeline_aria') }}">
-  {% for v in versions %}
-  <a href="/report/{{ v.id }}" class="side-nav-item{{ ' active' if v.id == viewing_version_id else '' }}">
-    <span class="side-nav-item-dot {{ 'is-failed' if v.status == 'failed' else '' }} {{ 'is-current' if v.id == viewing_version_id else '' }}"></span>
-    <span class="side-nav-item-report-info">
-      <span class="side-nav-item-report-date">{{ v.created_at[:16] }}</span>
-      {% if v.status == 'failed' %}
-      <span class="side-nav-item-report-meta">{{ t("report.failed_badge") }}</span>
-      {% else %}
-      <span class="side-nav-item-report-meta">{{ v.covered_entry_count }}</span>
-      {% endif %}
-    </span>
-  </a>
-  {% endfor %}
-</nav>
-{% endif %}
-<h1>{{ t("report.heading") }}</h1>
-{% if report_html %}
-<p class="entry-date">{{ t("report.coverage", count=covered_count, range=covered_from ~ " ~ " ~ covered_to) }}</p>
-<div class="ai-card">{{ report_html | safe }}</div>
-{% else %}
-<p class="entry-date">{{ t("report.no_report_yet") }}</p>
-{% endif %}
-<div class="ai-card" id="report-stream" style="display:none" aria-live="polite"></div>
-<button id="run-report" class="badge done" style="cursor:pointer;border:none">{{ t("report.generate_button") }}</button>
-<script>
-document.getElementById("run-report").addEventListener("click", () => {
-  const target = document.getElementById("report-stream");
-  streamInto("/report/generate", null, target, () => location.reload());
-});
-</script>
+<div class="report-layout" data-report-status="{{ report_status or 'empty' }}">
+  <article class="report-document">
+    {% with eyebrow=t("report.heading"), heading=t("report.heading"),
+      metadata=t("report.coverage", count=covered_count, range=covered_from ~ " — " ~ covered_to) if report_html else none %}
+      {% include "partials/page_heading.html" %}
+    {% endwith %}
+    <button id="run-report" class="button button--accent" type="button">{{ t("report.generate_button") }}</button>
+    {% if report_html %}
+    <div class="analysis-prose report-prose" id="report-body">{{ report_html | safe }}</div>
+    {% elif report_status == "failed" %}
+    {% with notice_id="report-notice", tone="failed",
+      message=t("report.failed_badge") ~ ": " ~ (report_error or t("common.request_failed")),
+      hidden=false, live="polite" %}
+      {% include "partials/inline_notice.html" %}
+    {% endwith %}
+    {% else %}
+    {% with title=t("report.no_report_yet"), body="", action_href="", action_label="" %}
+      {% include "partials/empty_state.html" %}
+    {% endwith %}
+    {% endif %}
+    <div id="report-stream" class="stream-surface" hidden aria-live="polite"></div>
+  </article>
+  <aside>
+    {% include "partials/report_version_index.html" %}
+    <nav id="report-toc" class="report-toc" aria-label="{{ t('report.toc_aria') }}" hidden></nav>
+  </aside>
+</div>
 {% endblock %}
+{% block scripts %}<script src="/static/js/report.js" defer></script>{% endblock %}

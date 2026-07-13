@@ -38,8 +38,14 @@ def sanitize_diary_html(raw_html: str) -> str:
     return cleaned
 
 
-def render_ai_markdown(text: str) -> str:
-    html = _md.render(text)
+def render_ai_markdown(text: str, *, heading_offset: int = 1) -> str:
+    tokens = _md.parse(text)
+    if heading_offset:
+        for token in tokens:
+            if token.type in {"heading_open", "heading_close"}:
+                level = max(1, min(4, int(token.tag[1:]) + heading_offset))
+                token.tag = f"h{level}"
+    html = _md.renderer.render(tokens, _md.options, {})
     # Backstop: even with html=False, run the same allow-list sanitizer over the output.
     return nh3.clean(
         html,

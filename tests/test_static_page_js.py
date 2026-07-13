@@ -48,3 +48,25 @@ def test_timeline_module_loads_without_browser_globals():
         "const {initTimeline} = require(process.argv[1]); process.stdout.write(typeof initTimeline);",
     )
     assert output == "function"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_report_heading_descriptions_preserve_ids_and_generate_stable_fallbacks():
+    output = _run_node(
+        "report.js",
+        """
+        const {REPORT_HEADING_SELECTOR, describeReportHeadings} = require(process.argv[1]);
+        const result = describeReportHeadings([
+          {id: 'existing', textContent: 'Pattern'},
+          {id: '', textContent: '  Cost of delay  '},
+        ]);
+        process.stdout.write(JSON.stringify({selector: REPORT_HEADING_SELECTOR, result}));
+        """,
+    )
+    assert json.loads(output) == {
+        "selector": "h2, h3, h4",
+        "result": [
+            {"id": "existing", "label": "Pattern"},
+            {"id": "report-section-2", "label": "Cost of delay"},
+        ],
+    }

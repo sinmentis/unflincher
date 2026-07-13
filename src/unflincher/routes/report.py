@@ -14,10 +14,18 @@ async def report_page(request: Request):
     db = request.app.state.db
     report = get_current_report(db)
     versions = list_report_versions(db)
-    context = {"report_html": None, "versions": versions, "viewing_version_id": None}
+    context = {
+        "report_html": None,
+        "report_status": None,
+        "report_error": None,
+        "versions": versions,
+        "viewing_version_id": None,
+    }
     if report:
         context = {
-            "report_html": render_ai_markdown(report["body_text"]),
+            "report_html": render_ai_markdown(report["body_text"], heading_offset=1),
+            "report_status": report["status"],
+            "report_error": report["error"],
             "covered_count": report["covered_entry_count"],
             "covered_from": report["covered_from_date"],
             "covered_to": report["covered_to_date"],
@@ -38,7 +46,13 @@ async def view_report_version(request: Request, report_id: int):
         request,
         "report.html",
         {
-            "report_html": render_ai_markdown(report["body_text"]) if report["status"] == "ok" else None,
+            "report_html": (
+                render_ai_markdown(report["body_text"], heading_offset=1)
+                if report["status"] == "ok"
+                else None
+            ),
+            "report_status": report["status"],
+            "report_error": report["error"],
             "covered_count": report["covered_entry_count"],
             "covered_from": report["covered_from_date"],
             "covered_to": report["covered_to_date"],

@@ -87,3 +87,17 @@
 .archive-title { overflow: hidden; font-family: var(--font-reading); font-size: 1.0625rem; text-overflow: ellipsis; white-space: nowrap; }
 .archive-open { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--accent); font-family: var(--font-mono); font-size: 0.6875rem; opacity: 0; transform: translateX(-0.25rem); transition: transform var(--motion-fast), opacity var(--motion-fast); }
 .archive-row:hover .archive-open, .archive-row:focus-visible .archive-open { opacity: 1; transform: translateX(0); }
+
+/* Life Report: investigation document (Task 7) */
+.report-layout { display: grid; grid-template-columns: minmax(0, 9fr) minmax(12rem, 3fr); gap: var(--space-8); }
+.report-document { min-width: 0; }
+.report-document > .button { margin-bottom: var(--space-7); }
+.report-prose { padding-top: var(--space-7); border-top: 4px solid var(--accent); }
+.report-layout > aside { position: sticky; top: calc(var(--header-height) + var(--space-6)); align-self: start; }
+.report-version-index ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+.report-version-index a { display: grid; grid-template-columns: 3rem 1fr auto; gap: var(--space-2); padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; text-decoration: none; }
+.report-version-index a[aria-current="true"] { color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); padding-left: var(--space-2); }
+.report-version-index li[data-status="failed"] a { text-decoration: line-through; text-decoration-color: var(--accent); }
+.report-toc { display: grid; margin-top: var(--space-6); border-top: 1px solid var(--rule); }
+.report-toc a { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 0.75rem; text-decoration: none; }
+.report-toc a:hover { color: var(--ink); }

@@ -57,6 +57,15 @@ def test_render_ai_markdown_renders_basic_formatting():
     assert "<em>italic</em>" in out
 
 
+def test_render_ai_markdown_can_offset_and_bound_heading_levels():
+    out = render_ai_markdown("# Investigation\n\n## Pattern\n\n#### Deep detail")
+    assert "<h1" not in out
+    assert "<h2>Investigation</h2>" in out
+    assert "<h3>Pattern</h3>" in out
+    assert "<h4>Deep detail</h4>" in out
+    assert "<h1>Unshifted</h1>" in render_ai_markdown("# Unshifted", heading_offset=0)
+
+
 def test_plain_text_to_safe_html_escapes_and_wraps_paragraphs():
     out = plain_text_to_safe_html("第一段\n\n第二段 <script>alert(1)</script>")
     assert out.count("<p>") == 2
