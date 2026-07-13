@@ -47,3 +47,21 @@ def test_balanced_graphite_stylesheets_use_approved_tokens_and_system_font():
     assert ".woff2" not in css
     assert "IBM Plex" not in css
     assert "tabular-nums" in css
+
+
+def test_balanced_graphite_components_are_flat_and_stateful():
+    css = (STATIC / "css" / "components.css").read_text()
+    for selector in (
+        ".page-heading",
+        ".button",
+        ".status-mark",
+        ".empty-state",
+        ".confirmation-dialog",
+        ".conversation-message",
+        ".session-row",
+    ):
+        assert selector in css
+    assert "var(--soft-surface)" in css
+    assert "var(--rule)" in css
+    assert "box-shadow" not in css
+    assert "linear-gradient" not in css

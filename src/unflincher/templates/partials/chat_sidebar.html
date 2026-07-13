@@ -5,7 +5,7 @@
   </header>
   <ol class="session-ledger-list">
     {% for s in sessions %}
-    <li class="session-row{% if s.id == active_session_id %} is-active{% endif %}">
+    <li class="session-row{% if s.id == active_session_id %} is-active{% endif %}" data-role="session-row">
       <a class="session-link" href="/chat/{{ s.id }}"
          {% if s.id == active_session_id %}aria-current="page"{% endif %}>
         <span>{{ s.title }}</span>
