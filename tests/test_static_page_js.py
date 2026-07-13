@@ -39,3 +39,12 @@ def test_chat_session_title_validation_rejects_blank_values():
         """,
     )
     assert json.loads(output) == {"blank": False, "title": True}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_timeline_module_loads_without_browser_globals():
+    output = _run_node(
+        "timeline.js",
+        "const {initTimeline} = require(process.argv[1]); process.stdout.write(typeof initTimeline);",
+    )
+    assert output == "function"

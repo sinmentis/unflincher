@@ -65,7 +65,7 @@ def test_timeline_provides_year_sidebar_data(client):
     assert 'data-year-link="2023"' in body
     assert 'data-year-count="1"' in body
     # Year-divider markup appears once per year, ahead of that year's entries.
-    assert body.count('class="year-divider"') == 2
+    assert body.count('class="archive-year"') == 2
 
 
 def test_timeline_tags_each_entry_row_with_its_year(client):
@@ -80,28 +80,18 @@ def test_timeline_tags_each_entry_row_with_its_year(client):
     assert 'data-year="2024"' in body
 
 
-def test_timeline_computes_share_correctly(client):
+def test_timeline_year_density_is_bounded(client):
     db = client.app.state.db
-    # Insert 2 entries from 2024 and 1 from 2023 (3 total)
-    db.execute(
-        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-        "entry_date, source) VALUES ('a', '<p>a</p>', '<p>a</p>', 'a', '2024-03-01', 'import')"
-    )
-    db.execute(
-        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-        "entry_date, source) VALUES ('b', '<p>b</p>', '<p>b</p>', 'b', '2024-08-01', 'import')"
-    )
-    db.execute(
-        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-        "entry_date, source) VALUES ('c', '<p>c</p>', '<p>c</p>', 'c', '2023-01-01', 'import')"
-    )
-
+    for title, date in (("a", "2024-03-01"), ("b", "2024-08-01"), ("c", "2023-01-01")):
+        db.execute(
+            "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+            "entry_date, source) VALUES (?, '<p>x</p>', '<p>x</p>', 'x', ?, 'import')",
+            (title, date),
+        )
     body = client.get("/").text
-
-    # 2024 has 2 of 3 entries: share = 0.67
-    # 2023 has 1 of 3 entries: share = 0.33
-    assert '--dot-scale: 0.67' in body
-    assert '--dot-scale: 0.33' in body
+    assert 'data-density="3"' in body
+    assert 'data-density="2"' in body
+    assert "--dot-scale" not in body
 
 
 def test_timeline_shows_generating_badge_for_entry_with_active_job(client):
@@ -124,3 +114,28 @@ def test_timeline_shows_generating_badge_for_entry_with_active_job(client):
     body = client.get("/").text
 
     assert "Generating" in body
+
+
+def test_timeline_renders_archive_summary_and_status_marks(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('First', '<p>x</p>', '<p>x</p>', 'x', '2020-01-01', 'import')"
+    )
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('Latest', '<p>x</p>', '<p>x</p>', 'x', '2026-07-13', 'manual')"
+    )
+    body = client.get("/").text
+    assert 'class="archive-index"' in body
+    assert 'data-entry-count="2"' in body
+    assert "2020-01-01" in body and "2026-07-13" in body
+    assert 'class="status-mark"' in body
+    assert "Open record" in body
+    assert 'src="/static/js/timeline.js"' in body
+
+
+def test_timeline_empty_state_explains_both_entry_paths(client):
+    body = client.get("/").text
+    assert "Douban" in body
+    assert 'href="/new"' in body

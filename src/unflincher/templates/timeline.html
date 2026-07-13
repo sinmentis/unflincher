@@ -1,58 +1,49 @@
-<!-- src/unflincher/templates/timeline.html -->
 {% extends "base.html" %}
-{% block nav_timeline %}active{% endblock %}
 {% block content %}
-<nav class="side-nav side-nav--years" aria-label="{{ t('timeline.filter_by_year_aria') }}">
-  <button type="button" class="side-nav-item side-nav-clear" data-year-clear disabled>{{ t("timeline.all_years") }}</button>
-  {% for y in years %}
-  <button type="button" class="side-nav-item" data-year-link="{{ y.year }}" data-year-count="{{ y.count }}">
-    <span class="side-nav-item-year">{{ y.year }}</span>
-    <span class="side-nav-item-dot" style="--dot-scale: {{ (y.share) | round(2) }}"></span>
-    <span class="side-nav-item-count">{{ y.count }}</span>
-  </button>
-  {% endfor %}
-</nav>
-<h1>{{ t("timeline.heading") }}</h1>
-<div id="timeline-entries">
-{% set ns = namespace(last_year=None) %}
-{% for entry in entries %}
-  {% if entry.year != ns.last_year %}
-  <div class="year-divider" data-year-divider="{{ entry.year }}">{{ entry.year }}</div>
-  {% set ns.last_year = entry.year %}
-  {% endif %}
-  <div class="entry-row" data-year="{{ entry.year }}">
-    <div class="entry-date">{{ entry.entry_date[:10] }}</div>
-    <div style="flex:1">
-      <p class="entry-title"><a href="/entry/{{ entry.id }}">{{ entry.title }}</a></p>
+{% set archive_metadata = entry_count ~ " / " ~ (date_from ~ " — " ~ date_to if entry_count else "") %}
+{% if entries %}
+<div class="timeline-layout">
+  {% include "partials/timeline_year_index.html" %}
+  <section class="timeline-document">
+    {% with eyebrow=t("nav.timeline"), heading=t("timeline.heading"), metadata=archive_metadata %}
+      {% include "partials/page_heading.html" %}
+    {% endwith %}
+    <div class="archive-index" id="timeline-entries" data-entry-count="{{ entry_count }}">
+      {% set ns = namespace(last_year=none) %}
+      {% for entry in entries %}
+        {% if entry.year != ns.last_year %}
+        <h2 class="archive-year" data-year-divider="{{ entry.year }}">{{ entry.year }}</h2>
+        {% set ns.last_year = entry.year %}
+        {% endif %}
+        <a class="archive-row" href="/entry/{{ entry.id }}" data-year="{{ entry.year }}">
+          <span class="archive-sequence">{{ "%03d" % (entry_count - loop.index0) }}</span>
+          <time datetime="{{ entry.entry_date }}">{{ entry.entry_date[:10] }}</time>
+          <span class="archive-title">{{ entry.title }}</span>
+          {% if entry.is_generating %}
+            {% with status="generating", label=t("timeline.badge_generating") %}{% include "partials/status_mark.html" %}{% endwith %}
+          {% elif entry.has_commentary %}
+            {% with status="done", label=t("timeline.badge_done") %}{% include "partials/status_mark.html" %}{% endwith %}
+          {% else %}
+            {% with status="pending", label=t("timeline.badge_pending") %}{% include "partials/status_mark.html" %}{% endwith %}
+          {% endif %}
+          <span class="archive-open" aria-hidden="true">
+            <span>{{ t("timeline.open_record") }}</span>
+            <svg class="icon"><use href="#icon-arrow"></use></svg>
+          </span>
+        </a>
+      {% endfor %}
     </div>
-    {% if entry.is_generating %}
-      <span class="badge generating">{{ t("timeline.badge_generating") }}</span>
-    {% elif entry.has_commentary %}
-      <span class="badge done">{{ t("timeline.badge_done") }}</span>
-    {% else %}
-      <span class="badge pending">{{ t("timeline.badge_pending") }}</span>
-    {% endif %}
-  </div>
-{% endfor %}
+  </section>
 </div>
-<script>
-document.querySelectorAll("[data-year-link]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const year = btn.dataset.yearLink;
-    document.querySelectorAll("[data-year-link]").forEach((b) => b.classList.toggle("active", b === btn));
-    document.querySelector("[data-year-clear]").disabled = false;
-    document.querySelectorAll(".entry-row").forEach((row) => {
-      row.style.display = row.dataset.year === year ? "" : "none";
-    });
-    document.querySelectorAll(".year-divider").forEach((div) => {
-      div.style.display = div.dataset.yearDivider === year ? "" : "none";
-    });
-  });
-});
-document.querySelector("[data-year-clear]").addEventListener("click", (e) => {
-  document.querySelectorAll("[data-year-link]").forEach((b) => b.classList.remove("active"));
-  e.target.disabled = true;
-  document.querySelectorAll(".entry-row, .year-divider").forEach((el) => { el.style.display = ""; });
-});
-</script>
+{% else %}
+<section class="timeline-document">
+  {% with eyebrow=t("nav.timeline"), heading=t("timeline.heading"), metadata="" %}
+    {% include "partials/page_heading.html" %}
+  {% endwith %}
+  {% with title=t("timeline.empty_state"), body=t("timeline.empty_help"), action_href="/new", action_label=t("nav.new_entry") %}
+    {% include "partials/empty_state.html" %}
+  {% endwith %}
+</section>
+{% endif %}
 {% endblock %}
+{% block scripts %}<script src="/static/js/timeline.js" defer></script>{% endblock %}

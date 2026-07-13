@@ -67,3 +67,23 @@
 .conversation-thread { flex: 1; overflow-y: auto; padding-top: var(--space-7); }
 .conversation-workspace .conversation-composer { position: sticky; z-index: var(--z-sticky); bottom: 0; margin-top: auto; }
 .mobile-chat-back { display: none; }
+
+/* Timeline: life archive index (Task 6) */
+.timeline-layout { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--space-7); }
+.timeline-year-index { position: sticky; top: calc(var(--header-height) + var(--space-6)); align-self: start; }
+.year-index-button { width: 100%; display: grid; grid-template-columns: 3rem 1fr auto; align-items: center; gap: var(--space-2); min-height: 2.75rem; border: 0; border-top: 1px solid var(--rule); background: transparent; color: var(--muted); text-align: left; }
+.year-index-button.is-active { color: var(--ink); }
+.year-density { height: 2px; background: var(--accent); transform-origin: left; }
+.year-density[data-density="1"] { transform: scaleX(0.2); }
+.year-density[data-density="2"] { transform: scaleX(0.4); }
+.year-density[data-density="3"] { transform: scaleX(0.6); }
+.year-density[data-density="4"] { transform: scaleX(0.8); }
+.year-density[data-density="5"] { transform: scaleX(1); }
+.archive-index { border-top: 3px solid var(--ink); }
+.archive-year { margin: var(--space-6) 0 var(--space-2); color: var(--accent); font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.12em; }
+.archive-row { display: grid; grid-template-columns: 4rem 7rem minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-4); min-height: 4.25rem; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none; transition: transform var(--motion-fast), opacity var(--motion-fast); }
+.archive-row:hover { transform: translateX(4px); background: var(--surface); }
+.archive-sequence, .archive-row time { color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
+.archive-title { overflow: hidden; font-family: var(--font-reading); font-size: 1.0625rem; text-overflow: ellipsis; white-space: nowrap; }
+.archive-open { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--accent); font-family: var(--font-mono); font-size: 0.6875rem; opacity: 0; transform: translateX(-0.25rem); transition: transform var(--motion-fast), opacity var(--motion-fast); }
+.archive-row:hover .archive-open, .archive-row:focus-visible .archive-open { opacity: 1; transform: translateX(0); }
