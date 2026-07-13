@@ -278,30 +278,77 @@ def get_report_by_id(conn: sqlite3.Connection, report_id: int) -> sqlite3.Row | 
     return conn.execute("SELECT * FROM aggregate_report WHERE id = ?", (report_id,)).fetchone()
 
 
+def _insert_full_regen_job(
+    conn: sqlite3.Connection,
+    prompt_version_id: int,
+    entry_ids: list[int],
+) -> int:
+    """Insert one running regen_job plus one item per entry and one aggregate-report item.
+
+    No transaction control of its own: callers wrap it so the single-flight
+    ux_regen_job_one_running partial unique index (which trips sqlite3.IntegrityError if a job is
+    already running) rolls back whatever the caller staged in the SAME transaction -- for the
+    combined apply-and-start path, that includes the freshly activated prompt version."""
+    cur = conn.execute(
+        "INSERT INTO regen_job (prompt_version_id, status, created_at, started_at) "
+        "VALUES (?, 'running', ?, ?)",
+        (prompt_version_id, _now(), _now()),
+    )
+    job_id = cur.lastrowid
+    for entry_id in entry_ids:
+        conn.execute(
+            "INSERT INTO regen_job_item (job_id, target_type, entry_id, status, updated_at) "
+            "VALUES (?, 'entry_commentary', ?, 'pending', ?)",
+            (job_id, entry_id, _now()),
+        )
+    conn.execute(
+        "INSERT INTO regen_job_item (job_id, target_type, entry_id, status, updated_at) "
+        "VALUES (?, 'aggregate_report', NULL, 'pending', ?)",
+        (job_id, _now()),
+    )
+    return job_id
+
+
 def start_regen_job(conn: sqlite3.Connection, prompt_version_id: int, entry_ids: list[int]) -> int:
-    """Create a regen_job + one regen_job_item per entry + one for the aggregate report.
+    """Create a full regeneration job under an already-active prompt.
     Raises sqlite3.IntegrityError (via the partial unique index) if a job is already running."""
     conn.execute("BEGIN IMMEDIATE")
     try:
-        cur = conn.execute(
-            "INSERT INTO regen_job (prompt_version_id, status, created_at, started_at) "
-            "VALUES (?, 'running', ?, ?)",
-            (prompt_version_id, _now(), _now()),
-        )
-        job_id = cur.lastrowid
-        for entry_id in entry_ids:
-            conn.execute(
-                "INSERT INTO regen_job_item (job_id, target_type, entry_id, status, updated_at) "
-                "VALUES (?, 'entry_commentary', ?, 'pending', ?)",
-                (job_id, entry_id, _now()),
-            )
-        conn.execute(
-            "INSERT INTO regen_job_item (job_id, target_type, entry_id, status, updated_at) "
-            "VALUES (?, 'aggregate_report', NULL, 'pending', ?)",
-            (job_id, _now()),
-        )
+        job_id = _insert_full_regen_job(conn, prompt_version_id, entry_ids)
         conn.execute("COMMIT")
         return job_id
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def set_active_prompt_and_start_regen_job(
+    conn: sqlite3.Connection,
+    body_text: str,
+    model: str,
+    entry_ids: list[int],
+) -> tuple[int, int]:
+    """Activate one prompt version and create its full regeneration job atomically.
+
+    Mirrors set_active_prompt's version swap, then inserts the job in the SAME transaction so the
+    two commit or roll back together. If a job is already running, _insert_full_regen_job trips the
+    single-flight index and the ROLLBACK below restores the previously active prompt and drops the
+    uncommitted version -- the visible "apply and regenerate all" never persists a prompt whose job
+    was rejected as busy."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute("SELECT MAX(version_no) AS m FROM persona_prompt").fetchone()
+        next_version = (row["m"] or 0) + 1
+        conn.execute("UPDATE persona_prompt SET is_active = 0 WHERE is_active = 1")
+        prompt_cursor = conn.execute(
+            "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
+            "VALUES (?, ?, ?, 1, ?)",
+            (next_version, body_text, model, _now()),
+        )
+        prompt_id = prompt_cursor.lastrowid
+        job_id = _insert_full_regen_job(conn, prompt_id, entry_ids)
+        conn.execute("COMMIT")
+        return prompt_id, job_id
     except Exception:
         conn.execute("ROLLBACK")
         raise

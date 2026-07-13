@@ -82,3 +82,39 @@ def test_new_entry_local_date_string_does_not_convert_to_utc():
         """,
     )
     assert output == "2026-07-13"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_apply_and_regenerate_uses_one_atomic_request():
+    output = _run_node(
+        "workshop.js",
+        """
+        const {applyAndRegenerate} = require(process.argv[1]);
+        const calls = [];
+        async function fakeFetch(url, options) {
+          calls.push({
+            url,
+            method: options.method,
+            contentType: options.headers["Content-Type"],
+            csrf: options.headers["X-CSRF-Token"],
+            body: JSON.parse(options.body),
+          });
+          return {ok: true, status: 200, json: async () => ({job_id: 42})};
+        }
+        applyAndRegenerate(fakeFetch, {draft_prompt: 'p', model: 'm'}, 'csrf').then((jobId) => {
+          process.stdout.write(JSON.stringify({jobId, calls}));
+        });
+        """,
+    )
+    assert json.loads(output) == {
+        "jobId": 42,
+        "calls": [
+            {
+                "url": "/workshop/apply-all",
+                "method": "POST",
+                "contentType": "application/json",
+                "csrf": "csrf",
+                "body": {"draft_prompt": "p", "model": "m"},
+            },
+        ],
+    }

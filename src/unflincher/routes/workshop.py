@@ -8,7 +8,13 @@ from sse_starlette.sse import EventSourceResponse
 
 from unflincher import llm
 from unflincher.config import load_settings
-from unflincher.db import DEFAULT_MODEL, get_active_prompt, set_active_prompt, start_regen_job
+from unflincher.db import (
+    DEFAULT_MODEL,
+    get_active_prompt,
+    set_active_prompt,
+    set_active_prompt_and_start_regen_job,
+    start_regen_job,
+)
 from unflincher.i18n import SUPPORTED_LANGUAGE_CODES, t
 from unflincher.sanitize import render_ai_markdown
 from unflincher.templates_env import LANG_COOKIE_NAME, get_current_language, templates
@@ -19,6 +25,11 @@ router = APIRouter()
 
 class SetLanguageRequest(BaseModel):
     lang: str
+
+
+class ApplyAllRequest(BaseModel):
+    draft_prompt: str
+    model: str
 
 
 @router.get("/workshop")
@@ -127,27 +138,53 @@ async def workshop_apply(request: Request):
 
 
 @router.post("/workshop/apply-all")
-async def workshop_apply_all(request: Request, background_tasks: BackgroundTasks):
-    """Regenerate commentary for EVERY diary entry that exists right now, plus the aggregate
-    report, under the active persona. Scope is queried fresh (never a hardcoded count) so a new
-    entry added a second ago is included. The single-flight lock lives in the DB: a second job
-    while one is 'running' trips the partial unique index → sqlite3.IntegrityError → HTTP 409.
+async def workshop_apply_all(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    body: ApplyAllRequest | None = None,
+):
+    """Start one full regeneration job, optionally activating its prompt in the same transaction.
+
+    Regenerate commentary for EVERY diary entry that exists right now, plus the aggregate report.
+    Scope is queried fresh (never a hardcoded count) so a new entry added a second ago is included.
+    The single-flight lock lives in the DB: a second job while one is 'running' trips the partial
+    unique index -> sqlite3.IntegrityError -> HTTP 409.
+
+    The request body is optional. Legacy/no-body callers regenerate under the already-active prompt
+    (unchanged behavior). When the visible workbench posts {draft_prompt, model}, that exact draft
+    is activated AND its job is created in one transaction, so a busy 409 saves no prompt. Either
+    way, the worker runs against the prompt/model this job actually owns.
 
     BackgroundTasks (not asyncio.create_task) is deliberate: Starlette runs background tasks to
-    completion after the response is sent, and TestClient blocks on them, so the worker's DB
-    writes are observable right after the POST returns without real concurrency in tests."""
+    completion after the response is sent, and TestClient blocks on them, so the worker's DB writes
+    are observable right after the POST returns without real concurrency in tests."""
     db = request.app.state.db
-    active_prompt = get_active_prompt(db)
-    entry_ids = [r["id"] for r in db.execute("SELECT id FROM diary_entry").fetchall()]
+    entry_ids = [row["id"] for row in db.execute("SELECT id FROM diary_entry").fetchall()]
     try:
-        job_id = start_regen_job(db, active_prompt["id"], entry_ids)
+        if body is None:
+            active_prompt = get_active_prompt(db)
+            job_id = start_regen_job(db, active_prompt["id"], entry_ids)
+            prompt_text = active_prompt["body_text"]
+            prompt_model = active_prompt["model"]
+        else:
+            _, job_id = set_active_prompt_and_start_regen_job(
+                db,
+                body.draft_prompt,
+                body.model,
+                entry_ids,
+            )
+            prompt_text = body.draft_prompt
+            prompt_model = body.model
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="a regeneration job is already running")
 
     settings = load_settings()
     worker = BatchWorker(db, settings.batch_concurrency)
     background_tasks.add_task(
-        worker.run_job, job_id, active_prompt["body_text"], active_prompt["model"]
+        worker.run_job,
+        job_id,
+        prompt_text,
+        prompt_model,
     )
     return JSONResponse({"job_id": job_id})
 
@@ -167,9 +204,12 @@ def _render_job_progress(request: Request, job_id: int):
         "SELECT * FROM regen_job_item WHERE job_id = ?", (job_id,)
     ).fetchall()
     job = db.execute("SELECT status FROM regen_job WHERE id = ?", (job_id,)).fetchone()
-    done = sum(1 for i in items if i["status"] == "ok")
-    failed_items = [i for i in items if i["status"] == "failed"]
-    pending = sum(1 for i in items if i["status"] in ("pending", "running"))
+    done = sum(1 for item in items if item["status"] == "ok")
+    failed_items = [item for item in items if item["status"] == "failed"]
+    pending = sum(1 for item in items if item["status"] in ("pending", "running"))
+    total = len(items)
+    processed = done + len(failed_items)
+    progress_bucket = ((processed * 10 + total - 1) // total) if total else 0
     return templates.TemplateResponse(
         request,
         "partials/job_progress.html",
@@ -179,7 +219,9 @@ def _render_job_progress(request: Request, job_id: int):
             "failed_count": len(failed_items),
             "failed_items": failed_items,
             "pending": pending,
-            "total": len(items),
+            "total": total,
+            "processed": processed,
+            "progress_bucket": progress_bucket,
             "job_status": job["status"] if job else "done",
         },
     )

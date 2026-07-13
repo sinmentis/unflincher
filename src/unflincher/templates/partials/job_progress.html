@@ -1,12 +1,21 @@
-<div id="regen-progress" {% if job_status == 'running' %}hx-get="/workshop/jobs/{{ job_id }}/progress" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
-  <p><strong>{{ done }}/{{ total }}</strong> {{ t("job.progress_summary", done=done, failed=failed_count, pending=pending) }}</p>
+<section id="regen-progress" class="progress-rail" aria-live="polite"
+  {% if job_status == 'running' %}hx-get="/workshop/jobs/{{ job_id }}/progress" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <div class="progress-summary">
+    <strong>{{ processed }}/{{ total }}</strong>
+    <span>{{ t("job.progress_summary", done=done, failed=failed_count, pending=pending) }}</span>
+  </div>
+  <div class="progress-track" data-progress-bucket="{{ progress_bucket }}" aria-hidden="true">
+    <span></span>
+  </div>
   {% if failed_items %}
-  <ul>
+  <ul class="progress-failures">
     {% for item in failed_items %}
-    <li>{{ t("job.item_failed", entry_id=item.entry_id, error=item.error) if item.entry_id else t("job.item_failed_report", error=item.error) }}
-      <button hx-post="/workshop/jobs/{{ job_id }}/item/{{ item.id }}/retry" hx-target="#regen-progress" hx-swap="outerHTML">{{ t("common.retry") }}</button>
+    <li>
+      <span>{{ t("job.item_failed", entry_id=item.entry_id, error=item.error) if item.entry_id else t("job.item_failed_report", error=item.error) }}</span>
+      <button class="button" hx-post="/workshop/jobs/{{ job_id }}/item/{{ item.id }}/retry"
+              hx-target="#regen-progress" hx-swap="outerHTML">{{ t("common.retry") }}</button>
     </li>
     {% endfor %}
   </ul>
   {% endif %}
-</div>
+</section>

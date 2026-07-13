@@ -1,4 +1,5 @@
 import unflincher.llm as llm_module
+from unflincher.db import start_regen_job
 
 
 async def _fake_preview_tokens(*args, **kwargs):
@@ -30,6 +31,37 @@ def test_workshop_page_shows_active_prompt_and_entry_dropdown(client, monkeypatc
     assert response.status_code == 200
     assert "人生导师" in response.text  # default persona prompt text
     assert "日记0" in response.text and "日记1" in response.text
+
+
+def test_workshop_renders_draft_test_commit_stages(client):
+    body = client.get("/workshop").text
+    assert 'data-workshop-stage="draft"' in body
+    assert 'data-workshop-stage="test"' in body
+    assert 'data-workshop-stage="commit"' in body
+    assert 'id="apply-all-confirmation"' in body
+    assert 'id="workshop-notice"' in body
+    assert 'src="/static/js/workshop.js"' in body
+    assert "<script>" not in body
+
+
+def test_job_progress_uses_progress_rail(client):
+    db = client.app.state.db
+    prompt_id = db.execute("SELECT id FROM persona_prompt WHERE is_active = 1").fetchone()["id"]
+    job_id = db.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'done')",
+        (prompt_id,),
+    ).lastrowid
+    db.execute(
+        "INSERT INTO regen_job_item "
+        "(job_id, target_type, entry_id, status, error) "
+        "VALUES (?, 'aggregate_report', NULL, 'failed', 'boom')",
+        (job_id,),
+    )
+    body = client.get(f"/workshop/jobs/{job_id}/progress").text
+    assert 'class="progress-rail"' in body
+    assert 'aria-live="polite"' in body
+    assert 'id="regen-progress"' in body
+    assert 'data-progress-bucket="10"' in body
 
 
 def test_test_run_streams_but_writes_nothing_to_db(client, monkeypatch):
@@ -169,6 +201,64 @@ def test_apply_all_rejects_concurrent_job(client):
     assert response.status_code == 409
 
 
+def test_apply_and_regenerate_atomically_activates_prompt_used_by_job(client, monkeypatch):
+    generation_inputs = []
+
+    async def fake_commentary(entry, all_entries, persona_text, model):
+        generation_inputs.append((persona_text, model))
+        yield f"commentary-{entry['title']}"
+
+    async def fake_report(all_entries, persona_text, model):
+        generation_inputs.append((persona_text, model))
+        yield "report"
+
+    monkeypatch.setattr(llm_module, "generate_commentary", fake_commentary)
+    monkeypatch.setattr(llm_module, "generate_report", fake_report)
+    db = client.app.state.db
+    _seed_entries(db)
+
+    response = client.post(
+        "/workshop/apply-all",
+        json={"draft_prompt": "atomic prompt", "model": "test-model"},
+    )
+
+    assert response.status_code == 200
+    active = db.execute(
+        "SELECT id, body_text, model FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()
+    job = db.execute(
+        "SELECT prompt_version_id FROM regen_job WHERE id = ?",
+        (response.json()["job_id"],),
+    ).fetchone()
+    assert active["body_text"] == "atomic prompt"
+    assert active["model"] == "test-model"
+    assert job["prompt_version_id"] == active["id"]
+    assert set(generation_inputs) == {("atomic prompt", "test-model")}
+
+
+def test_apply_and_regenerate_busy_rejection_does_not_save_prompt(client):
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    original = db.execute(
+        "SELECT id, body_text, model FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()
+    before_count = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+    start_regen_job(db, original["id"], entry_ids)
+
+    response = client.post(
+        "/workshop/apply-all",
+        json={"draft_prompt": "must roll back", "model": "other-model"},
+    )
+
+    assert response.status_code == 409
+    active = db.execute(
+        "SELECT id, body_text, model FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()
+    after_count = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+    assert dict(active) == dict(original)
+    assert after_count == before_count
+
+
 def test_job_progress_reports_counts_and_failed_items(client, monkeypatch):
     async def fake_gen(entry, all_entries, persona_text, model):
         if entry["title"] == "日记1":
@@ -285,7 +375,9 @@ def test_workshop_page_shows_error_when_model_list_fetch_fails(client, monkeypat
     response = client.get("/workshop")
 
     assert response.status_code == 200
-    assert "stream-err" in response.text
+    assert 'id="model-notice"' in response.text
+    assert 'data-tone="failed"' in response.text
+    assert "Copilot client unavailable" in response.text
     # #model-select must exist in DOM even on error so JS handlers never get null
     assert 'id="model-select"' in response.text
 

@@ -23,6 +23,7 @@ from unflincher.db import (
     migrate_persona_prompt_model,
     rename_chat_session,
     set_active_prompt,
+    set_active_prompt_and_start_regen_job,
     start_regen_job,
     start_single_entry_commentary_job,
     touch_chat_session,
@@ -160,6 +161,26 @@ def test_start_regen_job_rejects_second_concurrent_job(conn):
 
     with pytest.raises(sqlite3.IntegrityError):
         start_regen_job(conn, prompt_id, entry_ids=[e1, e2])
+
+
+def test_atomic_prompt_and_regen_job_rolls_back_prompt_when_busy(conn):
+    original_id = set_active_prompt(conn, "original", "test-model")
+    start_regen_job(conn, original_id, [])
+    before_count = conn.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    with pytest.raises(sqlite3.IntegrityError):
+        set_active_prompt_and_start_regen_job(
+            conn,
+            "must roll back",
+            "other-model",
+            [],
+        )
+
+    active = get_active_prompt(conn)
+    after_count = conn.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+    assert active["id"] == original_id
+    assert active["body_text"] == "original"
+    assert after_count == before_count
 
 
 def test_complete_job_item_is_atomic(conn):

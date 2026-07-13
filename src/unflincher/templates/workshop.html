@@ -1,105 +1,79 @@
-<!-- src/unflincher/templates/workshop.html -->
 {% extends "base.html" %}
-{% block nav_workshop %}active{% endblock %}
+{% block title %}{{ t("workshop.heading") }}{% endblock %}
 {% block content %}
-<h1>{{ t("workshop.heading") }}</h1>
-
-<section class="ws-section">
-  <div class="ai-label">{{ t("workshop.persona_label") }}</div>
-  <textarea id="prompt-draft" aria-label="{{ t('workshop.persona_label') }}" style="width:100%;min-height:280px;padding:10px;font-family:var(--font-mono)">{{ active_prompt }}</textarea>
-
-  <p><label for="model-select">{{ t("workshop.model_label") }}</label>
+{% with eyebrow=t("nav.workshop"), heading=t("workshop.heading"), metadata="" %}
+  {% include "partials/page_heading.html" %}
+{% endwith %}
+<div class="workshop-grid">
+  <section class="workshop-stage" data-workshop-stage="draft">
+    <header><span>01</span><h2>{{ t("workshop.persona_label") }}</h2></header>
+    <textarea id="prompt-draft" aria-label="{{ t('workshop.persona_label') }}">{{ active_prompt }}</textarea>
+    <div class="workshop-model-row">
+      <label for="model-select">{{ t("workshop.model_label") }}</label>
+      {% if models_error %}
+      <input type="hidden" id="model-select" value="{{ active_model }}">
+      {% else %}
+      <select id="model-select" aria-label="{{ t('workshop.model_select_aria') }}">
+        {% for model_id, model_name in models %}
+        <option value="{{ model_id }}"{% if model_id == active_model %} selected{% endif %}>{{ model_name }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+      <button type="button" id="refresh-models" class="button">{{ t("workshop.refresh_models") }}</button>
+    </div>
     {% if models_error %}
-    <span class="stream-err">{{ t("workshop.model_load_error", error=models_error) }}</span>
-    <input type="hidden" id="model-select" value="{{ active_model }}">
+      {% with notice_id="model-notice", tone="failed", message=t("workshop.model_load_error", error=models_error), hidden=false, live="polite" %}
+        {% include "partials/inline_notice.html" %}
+      {% endwith %}
     {% else %}
-    <select id="model-select" aria-label="{{ t('workshop.model_select_aria') }}">
-      {% for mid, mname in models %}<option value="{{ mid }}"{% if mid == active_model %} selected{% endif %}>{{ mname }}</option>{% endfor %}
-    </select>
+      {% with notice_id="model-notice", tone="failed", message="", hidden=true, live="polite" %}
+        {% include "partials/inline_notice.html" %}
+      {% endwith %}
     {% endif %}
-    <button type="button" id="refresh-models" style="margin-left:8px">{{ t("workshop.refresh_models") }}</button>
-  </p>
-</section>
+  </section>
 
-<section class="ws-section">
-  <div class="ai-label">{{ t("workshop.preview_label") }}</div>
-  <p><label for="test-entry">{{ t("workshop.test_run_label") }}</label>
-    <select id="test-entry">
-      {% for e in entries %}<option value="{{ e.id }}">{{ e.title }}</option>{% endfor %}
+  <section class="workshop-stage" data-workshop-stage="test">
+    <header><span>02</span><h2>{{ t("workshop.preview_label") }}</h2></header>
+    <label for="test-entry">{{ t("workshop.test_run_label") }}</label>
+    <select id="test-entry"{% if not entries %} disabled{% endif %}>
+      {% for entry in entries %}<option value="{{ entry.id }}">{{ entry.title }}</option>{% endfor %}
     </select>
-    <button id="run-test">{{ t("workshop.test_run_button") }}</button>
-  </p>
-  <div class="ai-card" id="preview-stream" style="display:none" aria-live="polite"></div>
-</section>
+    <button id="run-test" class="button" type="button"{% if not entries %} disabled{% endif %}>{{ t("workshop.test_run_button") }}</button>
+    {% if not entries %}<p class="notice">{{ t("timeline.empty_state") }}</p>{% endif %}
+    <div id="preview-stream" class="stream-surface" hidden aria-live="polite"></div>
+  </section>
 
-<section class="ws-section">
-  <div class="ai-label">{{ t("workshop.apply_section_label") }}</div>
-  <p class="entry-date">{{ t("workshop.apply_hint") }}</p>
-  <button id="apply-btn" class="btn-primary">{{ t("workshop.apply_button") }}</button>
-  <button id="apply-all-btn" class="btn-danger">{{ t("workshop.apply_all_button") }}</button>
-  <div id="regen-progress-holder"></div>
-</section>
-
-<section class="ws-section">
-  <div class="ai-label">{{ t("workshop.language_label") }}</div>
+  <section class="workshop-stage workshop-commit" data-workshop-stage="commit">
+    <header><span>03</span><h2>{{ t("workshop.apply_section_label") }}</h2></header>
+    <p>{{ t("workshop.apply_hint") }}</p>
+    <div class="workshop-actions">
+      <div class="workshop-save-boundary">
+        <button id="apply-btn" class="button button--accent" type="button"
+                data-saved-label="{{ t('workshop.saved') }}">{{ t("workshop.apply_button") }}</button>
+      </div>
+      <div class="expensive-operation">
+        <button id="apply-all-btn" class="button button--danger" type="button">{{ t("workshop.apply_all_button") }}</button>
+      </div>
+    </div>
+    {% with notice_id="workshop-notice", tone="saved", message="", hidden=true, live="polite" %}
+      {% include "partials/inline_notice.html" %}
+    {% endwith %}
+    {% with confirmation_id="apply-all-confirmation", title=t("workshop.apply_all_button"),
+      body=t("workshop.apply_hint"), confirm_label=t("workshop.apply_all_button"),
+      cancel_label=t("common.cancel") %}
+      {% include "partials/destructive_confirmation.html" %}
+    {% endwith %}
+    <template id="loading-state-template">{% include "partials/loading_state.html" %}</template>
+    <div id="regen-progress-holder"></div>
+  </section>
+</div>
+<aside class="workshop-settings">
+  <label for="lang-select">{{ t("workshop.language_label") }}</label>
   <select id="lang-select">
-    {% for code, display_name in supported_languages %}<option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ display_name }}</option>{% endfor %}
+    {% for code, display_name in supported_languages %}
+    <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ display_name }}</option>
+    {% endfor %}
   </select>
-</section>
-
-<script>
-document.getElementById("refresh-models").addEventListener("click", async () => {
-  const btn = document.getElementById("refresh-models");
-  btn.disabled = true;
-  try {
-    const res = await fetch("/workshop/refresh-models", {
-      method: "POST",
-      headers: {"X-CSRF-Token": getCsrfToken()},
-    });
-    if (res.status === 409) {
-      const body = await res.json();
-      alert(body.detail);
-      btn.disabled = false;
-      return;
-    }
-    location.reload();
-  } catch (err) {
-    btn.disabled = false;
-  }
-});
-document.getElementById("lang-select").addEventListener("change", async (e) => {
-  await fetch("/workshop/language", {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
-    body: JSON.stringify({lang: e.target.value}),
-  });
-  location.reload();
-});
-document.getElementById("run-test").addEventListener("click", () => {
-  const target = document.getElementById("preview-stream");
-  streamInto("/workshop/test-run", {
-    draft_prompt: document.getElementById("prompt-draft").value,
-    entry_id: parseInt(document.getElementById("test-entry").value, 10),
-    model: document.getElementById("model-select").value,
-  }, target);
-});
-document.getElementById("apply-btn").addEventListener("click", async () => {
-  await fetch("/workshop/apply", {
-    method: "POST", headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
-    body: JSON.stringify({
-      draft_prompt: document.getElementById("prompt-draft").value,
-      model: document.getElementById("model-select").value,
-    }),
-  });
-  location.reload();
-});
-document.getElementById("apply-all-btn").addEventListener("click", async () => {
-  const res = await fetch("/workshop/apply-all", {method: "POST", headers: {"X-CSRF-Token": getCsrfToken()}});
-  if (res.status === 409) { alert({{ t("workshop.apply_all_busy_alert") | tojson }}); return; }
-  const {job_id} = await res.json();
-  const holder = document.getElementById("regen-progress-holder");
-  holder.innerHTML = `<div id="regen-progress" hx-get="/workshop/jobs/${job_id}/progress" hx-trigger="load, every 2s" hx-swap="outerHTML"></div>`;
-  htmx.process(holder);
-});
-</script>
+</aside>
 {% endblock %}
+{% block scripts %}<script src="/static/js/workshop.js" defer></script>{% endblock %}
