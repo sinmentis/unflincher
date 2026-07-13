@@ -22,11 +22,28 @@ def test_pinned_ibm_plex_assets_match_expected_hashes():
         assert hashlib.sha256(content).hexdigest() == expected
 
 
-def test_redesign_stylesheets_exist_and_use_approved_tokens():
+def test_balanced_graphite_stylesheets_use_approved_tokens_and_system_font():
     for name in ("tokens.css", "base.css", "shell.css", "components.css", "pages.css"):
         assert (STATIC / "css" / name).is_file()
+
     tokens = (STATIC / "css" / "tokens.css").read_text()
-    assert "--canvas: #11100f" in tokens
-    assert "--accent: #d0645a" in tokens
-    assert "IBMPlexSansCondensed-Regular.woff2" in tokens
-    assert "IBMPlexMono-Regular.woff2" in tokens
+    for declaration in (
+        "--bg: #1d1e1d",
+        "--chrome: #222322",
+        "--entry-plane: #202220",
+        "--commentary-plane: #232523",
+        "--text: #e0ddd6",
+        "--prose: #c7c2ba",
+        "--muted: #85827b",
+        "--rule: #444744",
+        "--soft-surface: #2c2e2c",
+    ):
+        assert declaration in tokens
+
+    css = "\n".join(
+        path.read_text() for path in sorted((STATIC / "css").glob("*.css"))
+    )
+    assert "@font-face" not in css
+    assert ".woff2" not in css
+    assert "IBM Plex" not in css
+    assert "tabular-nums" in css
