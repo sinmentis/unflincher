@@ -22,17 +22,26 @@ def test_new_entry_form_renders(client):
     assert "New Entry" in response.text
 
 
-def test_new_entry_page_uses_writing_desk_structure(client):
+def test_new_entry_page_uses_balanced_writing_desk(client):
     body = client.get("/new").text
     assert 'class="writing-desk-frame"' in body
     assert 'class="writing-desk"' in body
+    assert 'data-role="primary-task"' in body
+    assert 'data-role="entry-metadata"' in body
+    assert 'data-role="entry-editor"' in body
     assert 'aria-labelledby="new-entry-heading"' in body
     assert 'id="draft-status"' in body
     assert 'aria-live="polite"' in body
     assert 'id="new-entry-notice"' in body
     assert 'id="new-date-error"' in body
     assert 'src="/static/js/new-entry.js"' in body
+    # Exactly one save action: the quiet metadata/editor split never introduces a
+    # second trigger such as a mock-only "Save and generate commentary" button.
+    assert body.count('type="submit"') == 1
     assert "style=" not in body
+    # Source order matches the approved mock: the quiet metadata rail precedes the
+    # dominant editor, and the responsive layout keeps that order without CSS `order`.
+    assert body.index('data-role="entry-metadata"') < body.index('data-role="entry-editor"')
     # Native constraint validation is disabled so a future date still reaches the
     # JS handler and server-400 path, which show the localized field/form errors
     # instead of a native browser bubble (Task 8 review fix).

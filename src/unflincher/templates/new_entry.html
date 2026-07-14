@@ -2,13 +2,13 @@
 {% block title %}{{ t("new_entry.heading") }}{% endblock %}
 {% block content %}
 <section class="writing-desk-frame" aria-labelledby="new-entry-heading">
-<form class="writing-desk" id="new-entry-form" novalidate
+<form class="writing-desk" id="new-entry-form" data-role="primary-task" novalidate
       data-draft-saving="{{ t('new_entry.draft_saving') }}"
       data-draft-saved="{{ t('new_entry.draft_saved') }}"
       data-save-failed="{{ t('new_entry.save_failed_alert') }}"
       data-request-failed="{{ t('common.request_failed') }}">
   <h1 class="visually-hidden" id="new-entry-heading">{{ t("new_entry.heading") }}</h1>
-  <header class="writing-ledger">
+  <header class="writing-ledger" data-role="entry-metadata">
     <div>
       <label for="new-date">{{ t("new_entry.date_label") }}</label>
       <input type="date" id="new-date" aria-describedby="new-date-error">
@@ -16,14 +16,16 @@
     </div>
     <p id="draft-status" class="draft-status" role="status" aria-live="polite"></p>
   </header>
-  <label class="visually-hidden" for="new-title">{{ t("new_entry.title_placeholder") }}</label>
-  <input class="writing-title" type="text" id="new-title"
-         placeholder="{{ t('new_entry.title_placeholder') }}"
-         aria-label="{{ t('new_entry.title_placeholder') }}">
-  <label class="visually-hidden" for="new-content">{{ t("new_entry.content_aria") }}</label>
-  <textarea class="writing-body" id="new-content"
-            placeholder="{{ t('new_entry.content_placeholder') }}"
-            aria-label="{{ t('new_entry.content_aria') }}"></textarea>
+  <div class="writing-editor" data-role="entry-editor">
+    <label class="visually-hidden" for="new-title">{{ t("new_entry.title_placeholder") }}</label>
+    <input class="writing-title" type="text" id="new-title"
+           placeholder="{{ t('new_entry.title_placeholder') }}"
+           aria-label="{{ t('new_entry.title_placeholder') }}">
+    <label class="visually-hidden" for="new-content">{{ t("new_entry.content_aria") }}</label>
+    <textarea class="writing-body" id="new-content"
+              placeholder="{{ t('new_entry.content_placeholder') }}"
+              aria-label="{{ t('new_entry.content_aria') }}"></textarea>
+  </div>
   {% with notice_id="new-entry-notice", tone="failed", message="", hidden=true, live="polite" %}
     {% include "partials/inline_notice.html" %}
   {% endwith %}
