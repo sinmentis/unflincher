@@ -1,0 +1,107 @@
+{
+  "meta": {
+    "synthetic": true,
+    "title": "Sample journal",
+    "span": "2021 to 2024",
+    "notice": "Sample data"
+  },
+  "entries": [
+    {
+      "id": "e-2021-04-18",
+      "date": "2021-04-18",
+      "title": "The safe option, again",
+      "body": "I told myself I would decide about the studio by spring. Spring is here. Today I renewed the office badge for another year and felt relief, then a small, familiar disappointment. I keep asking for one more quarter of savings before I commit.",
+      "commentary": "You describe relief and disappointment in the same breath. The relief is real, and so is the habit of buying time. Notice that the reason changes each season while the delay stays the same."
+    },
+    {
+      "id": "e-2021-11-02",
+      "date": "2021-11-02",
+      "title": "Waiting for a clearer sign",
+      "body": "A ceramics teacher offered me weekend studio hours. I said I would think about it once work calmed down. Work never calms down. I want to be sure before I leap, but sureness never arrives on schedule.",
+      "commentary": "You are waiting for certainty in order to act, but these entries suggest certainty is not the thing that has been missing. What has been missing is a small step that does not require you to be sure."
+    },
+    {
+      "id": "e-2022-06-27",
+      "date": "2022-06-27",
+      "title": "One more spreadsheet",
+      "body": "Built another budget model tonight. Three scenarios, all survivable. I noticed I felt calmer building the model than I would feel actually signing a lease. The spreadsheet is a way to feel in motion without moving.",
+      "commentary": "The budget is thorough and it is also a comfortable substitute for the decision. When analysis becomes the activity, planning can quietly replace choosing."
+    },
+    {
+      "id": "e-2023-03-09",
+      "date": "2023-03-09",
+      "title": "The workshop lease",
+      "body": "Walked past an empty workshop with a lease sign. I imagined the shelves, the kiln, the quiet mornings. Then I listed everything that could go wrong and walked home. I want this, and I am afraid the wanting is not enough.",
+      "commentary": "For the first time you name the fear directly instead of hiding it inside a spreadsheet. Wanting and fear can both be true. The question is which one you let set the pace."
+    },
+    {
+      "id": "e-2023-10-15",
+      "date": "2023-10-15",
+      "title": "Certainty is not coming",
+      "body": "Reread my own entries from two years ago. The reasons for waiting have all changed, but the waiting has not. I think I have been treating this as a leap when it could be a series of small, reversible steps.",
+      "commentary": "You just did the most useful thing in this journal, which is to read yourself across time. Reframing this from a leap to reversible steps is the first move that could actually change the pattern."
+    },
+    {
+      "id": "e-2024-02-21",
+      "date": "2024-02-21",
+      "title": "A smaller first step",
+      "body": "Signed up for the weekend studio hours I turned down in 2021. Not the lease, not the resignation, just three hours on Saturday. It is small enough that I did not need to be certain. It is the first time in years I chose motion over modeling.",
+      "commentary": "This is the pattern breaking in real time. You did not wait for certainty, you lowered the size of the step until certainty was no longer required. Keep the steps small and reversible and let evidence accumulate."
+    }
+  ],
+  "report": {
+    "title": "Life Report: the cost of waiting for certainty",
+    "sections": [
+      {
+        "heading": "A recurring pattern of delay",
+        "body": "Across three years, decisions about the pottery studio are postponed for a different reason each season while the underlying delay stays constant.",
+        "evidence": ["e-2021-04-18", "e-2021-11-02", "e-2022-06-27"]
+      },
+      {
+        "heading": "Analysis used as a substitute for choosing",
+        "body": "Budgets and models appear whenever a concrete step is near. The planning provides a sense of motion without the risk of a decision.",
+        "evidence": ["e-2022-06-27", "e-2023-03-09"]
+      },
+      {
+        "heading": "The turn toward reversible steps",
+        "body": "The later entries reframe the studio from a single irreversible leap into a series of small, reversible steps, which is what finally produces action.",
+        "evidence": ["e-2023-10-15", "e-2024-02-21"]
+      }
+    ]
+  },
+  "conversation": {
+    "title": "Continuing the reflection",
+    "messages": [
+      {
+        "role": "user",
+        "text": "The report says I avoid decisions. That feels harsh. I was being responsible with money."
+      },
+      {
+        "role": "assistant",
+        "text": "Both can be true. Saving was responsible. The entries also show the savings target moved every time you got close, which looks less like budgeting and more like postponing. Which target would ever have been enough?"
+      },
+      {
+        "role": "user",
+        "text": "I am not sure any number would have felt like enough."
+      },
+      {
+        "role": "assistant",
+        "text": "That is the useful finding. If no number is ever enough, then more certainty was never going to start this. What started it was making the step small, not making the evidence bigger."
+      }
+    ]
+  },
+  "workshop": {
+    "personas": [
+      {
+        "name": "Direct mentor",
+        "prompt": "Respond plainly and name avoidance when you see it. Prioritize the pattern over reassurance.",
+        "sample": "You are waiting for certainty that the last three years show will not arrive. Choose the smallest reversible step and take it this week."
+      },
+      {
+        "name": "Gentle companion",
+        "prompt": "Respond warmly and validate the difficulty before offering one small observation.",
+        "sample": "This has clearly weighed on you for a long time, and that care is not wasted. When you are ready, a single Saturday at the studio might teach you more than another budget."
+      }
+    ]
+  }
+}
