@@ -119,3 +119,8 @@ def test_base_is_the_only_template_that_loads_the_shared_browser_script():
     for path in TEMPLATES.rglob("*.html"):
         if path.name != "base.html":
             assert 'src="/static/app.js"' not in path.read_text(), path
+
+
+def test_base_document_requests_no_indexing_for_the_private_app(client):
+    body = client.get("/").text
+    assert '<meta name="robots" content="noindex, nofollow">' in body

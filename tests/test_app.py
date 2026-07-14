@@ -36,3 +36,16 @@ def test_static_assets_get_no_cache_header(client):
 def test_non_static_routes_are_unaffected_by_the_no_cache_header(client):
     response = client.get("/healthz")
     assert "cache-control" not in {k.lower() for k in response.headers}
+
+
+def test_robots_txt_disallows_all_crawlers(client):
+    response = client.get("/robots.txt")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.text == "User-agent: *\nDisallow: /\n"
+
+
+def test_every_response_sets_x_robots_tag_noindex(client):
+    for path in ("/", "/healthz", "/robots.txt", "/static/favicon.svg", "/does-not-exist"):
+        response = client.get(path)
+        assert response.headers["x-robots-tag"] == "noindex, nofollow"

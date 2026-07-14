@@ -2,13 +2,31 @@
 *.xlsx
 data/
 *.db
+*.db.gz
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
+*.sqlite-wal
+*.sqlite-shm
 
-# Secrets
+# Secrets and local agent state
 .env
+.env.*
+!.env.example
 *.key
+*.pem
+*.crt
+*.cer
+*.p8
+*.p12
+*.pfx
+*.jks
+*.jceks
+*.keystore
 .superpowers/
+.playwright-mcp/
+.copilot-memory.md
 
 # Import scratch dir (deploy/scripts/import-unflincher.sh copies your real export .xlsx here)
 /import/
@@ -18,3 +36,12 @@ data/
 __pycache__/
 *.egg-info/
 .pytest_cache/
+
+# Private production captures live at the repo root; public images live under site/assets/images.
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
+/*.mp4
+/*.mov

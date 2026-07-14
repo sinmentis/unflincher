@@ -13,7 +13,7 @@ CLOCK_SKEW_LEEWAY_SECONDS = 60
 
 
 class AccessJWTMiddleware(BaseHTTPMiddleware):
-    EXEMPT_PATHS = {"/healthz"}
+    EXEMPT_PATHS = {"/healthz", "/robots.txt"}
 
     def __init__(self, app, settings: Settings, jwks_client=None):
         super().__init__(app)

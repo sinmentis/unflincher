@@ -119,3 +119,18 @@ def test_auth_can_be_disabled_for_local_dev(private_key):
     client = TestClient(app)
     response = client.get("/protected")
     assert response.status_code == 200
+
+
+def test_robots_txt_is_exempt_from_access_auth(private_key):
+    app = _make_app(_settings(), private_key.public_key())
+
+    @app.get("/robots.txt")
+    async def robots():
+        from starlette.responses import PlainTextResponse
+
+        return PlainTextResponse("User-agent: *\nDisallow: /\n")
+
+    client = TestClient(app)
+    response = client.get("/robots.txt")
+    assert response.status_code == 200
+    assert response.text == "User-agent: *\nDisallow: /\n"

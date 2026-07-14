@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -110,6 +110,14 @@ def create_app() -> FastAPI:
             response.headers["Cache-Control"] = "no-cache"
         return response
 
+    @app.middleware("http")
+    async def private_noindex(request, call_next):
+        # Defense in depth only. Cloudflare Access remains the primary access boundary; this
+        # header just discourages indexing of the private application if edge auth is ever absent.
+        response = await call_next(request)
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+
     app.mount("/static", StaticFiles(directory="src/unflincher/static"), name="static")
     app.include_router(timeline.router)
     app.include_router(entry.router)
@@ -120,6 +128,12 @@ def create_app() -> FastAPI:
 
     app.add_exception_handler(StarletteHTTPException, branded_http_error)
     app.add_exception_handler(Exception, branded_server_error)
+
+    @app.get("/robots.txt", response_class=PlainTextResponse)
+    async def robots_txt():
+        # Non-sensitive: tells compliant crawlers the private app is not for indexing. Exempt from
+        # Access auth in auth.py so it is reachable even without the edge in front.
+        return PlainTextResponse("User-agent: *\nDisallow: /\n")
 
     @app.get("/healthz")
     async def healthz():
