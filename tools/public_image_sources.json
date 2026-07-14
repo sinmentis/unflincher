@@ -1,0 +1,44 @@
+{
+  "favicon.svg": {
+    "origin": "synthetic-brand-asset",
+    "view": "favicon",
+    "viewport": "64x64",
+    "source": "site/assets/images/favicon.svg",
+    "fixture": ""
+  },
+  "demo-timeline.png": {
+    "origin": "synthetic-static-demo",
+    "view": "timeline",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  "demo-entry.png": {
+    "origin": "synthetic-static-demo",
+    "view": "entry",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  "demo-report.png": {
+    "origin": "synthetic-static-demo",
+    "view": "report",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  "demo-conversation.png": {
+    "origin": "synthetic-static-demo",
+    "view": "conversation",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  "demo-workshop.png": {
+    "origin": "synthetic-static-demo",
+    "view": "workshop",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  }
+}

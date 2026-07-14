@@ -1,0 +1,4 @@
+# Public images are synthetic demo captures, a synthetic social template capture, or
+# the authored brand favicon. Every file is hash-pinned in provenance.json.
+*.png binary
+*.svg text eol=lf

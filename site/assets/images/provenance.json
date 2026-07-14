@@ -1,0 +1,62 @@
+[
+  {
+    "file": "demo-conversation.png",
+    "sha256": "fa0731c389eabb064ff26921977c22641af3f98fc08d551f2d3905cb7040d0cd",
+    "bytes": 103443,
+    "origin": "synthetic-static-demo",
+    "view": "conversation",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  {
+    "file": "demo-entry.png",
+    "sha256": "9f71d26e60d506a422297c55057843acc4937efd0e82c75b3443fbcd9ed48ad5",
+    "bytes": 112584,
+    "origin": "synthetic-static-demo",
+    "view": "entry",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  {
+    "file": "demo-report.png",
+    "sha256": "36dc9228681a3483affdf689697df8d66aedf0fb9b16d87d0dbf408fd8958b9c",
+    "bytes": 118016,
+    "origin": "synthetic-static-demo",
+    "view": "report",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  {
+    "file": "demo-timeline.png",
+    "sha256": "ce87fe9761e68b8311cd47eadb6e2f05dfae8d7e54008a32e52ef41451cb870c",
+    "bytes": 94032,
+    "origin": "synthetic-static-demo",
+    "view": "timeline",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  {
+    "file": "demo-workshop.png",
+    "sha256": "c7c073380614411db5daa26b5b043ad2a19fce3cbc2f8af84ba2221bd0f719b0",
+    "bytes": 103049,
+    "origin": "synthetic-static-demo",
+    "view": "workshop",
+    "viewport": "1440x900",
+    "source": "site/demo/index.html",
+    "fixture": "site/data/sample-journal.json"
+  },
+  {
+    "file": "favicon.svg",
+    "sha256": "17064f3df4213fb0ba38a685f159c552d7b99c9db2f7caf9eb1d2d03762103e1",
+    "bytes": 390,
+    "origin": "synthetic-brand-asset",
+    "view": "favicon",
+    "viewport": "64x64",
+    "source": "site/assets/images/favicon.svg",
+    "fixture": ""
+  }
+]
