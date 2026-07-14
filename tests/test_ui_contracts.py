@@ -125,12 +125,96 @@ def test_report_history_follows_report_body_in_source_order():
     )
 
 
+def test_report_generation_action_follows_the_reading_body():
+    source = (TEMPLATES / "report.html").read_text()
+    assert source.index('id="report-body"') < source.index('id="report-stream"')
+    assert source.index('id="report-stream"') < source.index('id="run-report"')
+    button = re.search(
+        r'<button[^>]*\bid="run-report"[^>]*>',
+        source,
+        re.IGNORECASE,
+    )
+    assert button is not None
+    assert "button--accent" not in button.group(0)
+
+
 def test_chat_session_relies_on_global_contextual_back_navigation():
     source = (TEMPLATES / "chat_session.html").read_text()
     topbar = (TEMPLATES / "partials" / "command_navigation.html").read_text()
     assert "mobile-chat-back" not in source
     assert 'page_id == "chat-session"' in topbar
     assert 'back_href = "/chat"' in topbar
+
+
+def test_conversation_turns_are_flat_and_unnumbered():
+    for name in ("entry_detail.html", "chat_session.html"):
+        source = (TEMPLATES / name).read_text()
+        assert '"%02d" % loop.index' not in source
+
+    components = (STATIC_JS / "css" / "components.css").read_text()
+    pages = PAGES_CSS.read_text()
+    mentor = _rule_body(components, ".conversation-message.is-mentor")
+    workspace_mentor = _rule_body(
+        pages, ".conversation-workspace .conversation-message.is-mentor"
+    )
+    assert "border-left" in mentor
+    assert "background" not in workspace_mentor
+
+
+def test_entry_commentary_generation_uses_quiet_buttons():
+    source = (TEMPLATES / "entry_detail.html").read_text()
+    for button_id in ("run-commentary", "retry-commentary"):
+        button = re.search(
+            rf'<button[^>]*\bid="{button_id}"[^>]*>',
+            source,
+            re.IGNORECASE,
+        )
+        assert button is not None
+        assert "button--accent" not in button.group(0)
+
+
+def test_new_entry_title_uses_moderate_editorial_scale():
+    css = PAGES_CSS.read_text()
+    title = _rule_body(css, ".writing-title")
+    assert "font: 500 clamp(1.875rem, 4vw, 3.125rem)" in title
+    for theatrical_size in ("6rem", "15vw", "4.5rem"):
+        assert theatrical_size not in css
+
+
+def test_page_titles_keep_balanced_graphite_hierarchy():
+    base = (STATIC_JS / "css" / "base.css").read_text()
+    components = (STATIC_JS / "css" / "components.css").read_text()
+    pages = PAGES_CSS.read_text()
+
+    base_h1 = re.search(r"(?m)^h1\s*\{([^}]*)\}", base)
+    assert base_h1 is not None
+    assert "font-weight: 500" in base_h1.group(1)
+    entry_heading = _rule_body(pages, ".entry-record .page-heading")
+    assert "margin-bottom: var(--space-3)" in entry_heading
+    assert "border-bottom: 0" in entry_heading
+    assert "clamp(1.875rem, 4vw, 3.25rem)" in _rule_body(
+        pages, ".entry-record .page-heading h1"
+    )
+    assert "clamp(1.375rem, 2.4vw, 1.875rem)" in _rule_body(
+        pages, ".timeline-document .page-heading h1"
+    )
+    assert "clamp(1.375rem, 2.6vw, 1.75rem)" in _rule_body(
+        pages, ".report-document .page-heading h1"
+    )
+    assert "clamp(1.375rem, 2.6vw, 1.75rem)" in _rule_body(
+        pages, ".conversation-heading h1"
+    )
+    empty_title = _rule_body(components, ".empty-state h2")
+    assert "clamp(1.375rem, 2.6vw, 1.75rem)" in empty_title
+    assert "font-weight: 500" in empty_title
+
+
+def test_primary_page_titles_do_not_repeat_matching_eyebrows():
+    for name in ("timeline.html", "report.html", "workshop.html"):
+        assert "eyebrow=" not in (TEMPLATES / name).read_text()
+    assert '<p class="page-eyebrow">' not in (
+        TEMPLATES / "chat_list.html"
+    ).read_text()
 
 
 def test_balanced_graphite_page_roles_exist():

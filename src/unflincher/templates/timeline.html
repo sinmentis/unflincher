@@ -5,7 +5,7 @@
 <div class="timeline-layout">
   {% include "partials/timeline_year_index.html" %}
   <section class="timeline-document" data-role="primary-task">
-    {% with eyebrow=t("nav.timeline"), heading=t("timeline.heading"), metadata=archive_metadata %}
+    {% with heading=t("timeline.heading"), metadata=archive_metadata %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
     <div class="archive-index" id="timeline-entries" data-role="archive-index" data-entry-count="{{ entry_count }}">
@@ -32,7 +32,7 @@
 </div>
 {% else %}
 <section class="timeline-document" data-role="primary-task">
-  {% with eyebrow=t("nav.timeline"), heading=t("timeline.heading"), metadata="" %}
+  {% with heading=t("timeline.heading"), metadata="" %}
     {% include "partials/page_heading.html" %}
   {% endwith %}
   {% with title=t("timeline.empty_state"), body=t("timeline.empty_help"), action_href="/new", action_label=t("nav.new_entry") %}

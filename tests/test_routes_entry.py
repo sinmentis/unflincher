@@ -259,6 +259,22 @@ def test_entry_detail_uses_balanced_graphite_reading_layout(client):
     assert 'src="/static/js/entry.js"' in body
 
 
+def test_entry_detail_uses_quiet_record_metadata_without_ledger_numbering(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('A hard choice', '<p>Body</p>', '<p>Body</p>', "
+        "'Body', '2026-07-13', 'manual')"
+    ).lastrowid
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert 'class="record-metadata"' in body
+    assert " / 001" not in body
+    assert "Archive ID" not in body
+    assert body.index('class="record-metadata"') < body.index('id="diary-text"')
+
+
 def test_entry_detail_preserves_generation_and_version_hooks(client):
     db = client.app.state.db
     entry_id = db.execute(

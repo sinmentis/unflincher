@@ -16,7 +16,7 @@
       {% for msg in history %}
       <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
         <div class="message-stamp">
-          {{ t("common.me") if msg.role == "user" else t("common.mentor") }} / {{ "%02d" % loop.index }}
+          {{ t("common.me") if msg.role == "user" else t("common.mentor") }}
         </div>
         <div class="message-copy">
           {% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}

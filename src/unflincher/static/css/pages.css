@@ -34,10 +34,9 @@
   background-image: repeating-linear-gradient(
     to bottom, var(--rule) 0, var(--rule) 1px, transparent 1px, transparent 48px);
 }
-.record-metadata { display: flex; flex-wrap: wrap; gap: var(--space-6); margin: 0 0 var(--space-7); color: var(--prose); font-size: 0.6875rem; }
-.record-metadata div { display: flex; gap: var(--space-2); }
-.record-metadata dt { text-transform: uppercase; }
-.record-metadata dd { margin: 0; color: var(--prose); }
+.entry-record .page-heading { margin-bottom: var(--space-3); padding-bottom: 0; border-bottom: 0; }
+.entry-record .page-heading h1 { max-width: 20ch; font-size: clamp(1.875rem, 4vw, 3.25rem); font-weight: 500; line-height: 1.12; letter-spacing: -0.02em; }
+.record-metadata { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-7); color: var(--prose); font-size: 0.75rem; }
 .diary-prose, .analysis-prose { max-width: var(--reading-max); font-size: clamp(1.0625rem, 1.4vw, 1.1875rem); line-height: 1.95; text-wrap: pretty; }
 .diary-prose > :first-child, .analysis-prose > :first-child { margin-top: 0; }
 .diary-prose > :last-child, .analysis-prose > :last-child { margin-bottom: 0; }
@@ -87,18 +86,17 @@
 .session-inline-form { grid-column: 1 / -1; padding: var(--space-4); border-top: 1px solid var(--rule); background: var(--soft-surface); color: var(--text); }
 .session-inline-form { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--space-2); }
 .conversation-workspace { display: flex; min-width: 0; flex-direction: column; padding: var(--space-7); }
-.conversation-heading h1 { font-size: clamp(1.5rem, 3vw, 2rem); }
+.conversation-heading h1 { font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: 500; }
 .conversation-context { max-width: 48ch; color: var(--prose); font-size: 0.6875rem; }
 .conversation-thread { flex: 1; overflow-y: auto; padding-top: var(--space-7); }
-/* Mentor turns drop to the quiet commentary plane; the single left rule that marks them as
-   secondary editorial commentary comes from the shared .conversation-message.is-mentor rule. */
-.conversation-workspace .conversation-message.is-mentor { padding-inline: var(--space-4); background: var(--commentary-plane); }
+.conversation-workspace .conversation-message.is-mentor { padding-inline: var(--space-4); }
 /* Composer sits at the foot of the conversation column in normal flow (never floats over content). */
 .conversation-workspace .conversation-dock { margin-top: auto; }
 
 /* Timeline: life archive index (Task 6) */
 .timeline-layout { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--space-7); }
 .timeline-year-index { position: sticky; top: calc(var(--bar-height) + var(--space-6)); align-self: start; }
+.timeline-document .page-heading h1 { font-size: clamp(1.375rem, 2.4vw, 1.875rem); font-weight: 500; }
 .year-index-button { width: 100%; display: grid; grid-template-columns: 3rem 1fr auto; align-items: center; gap: var(--space-2); min-height: 2.75rem; border: 0; border-top: 1px solid var(--muted); background: transparent; color: var(--prose); text-align: left; }
 .year-index-button.is-active { color: var(--text); }
 .year-density { height: 2px; background: var(--muted); transform-origin: left; }
@@ -121,8 +119,8 @@
    markers -- no evidence quotes, invented citations, or decorative dossier ornament. */
 .report-layout { display: grid; grid-template-columns: minmax(0, 7fr) minmax(15rem, 3fr); gap: var(--space-8); align-items: start; }
 .report-document { min-width: 0; padding: var(--space-8) var(--space-7); background-color: var(--entry-plane); }
-.report-document > .button { margin-bottom: var(--space-7); }
-.report-prose { padding-top: var(--space-7); border-top: 1px solid var(--rule); }
+.report-document .page-heading h1 { font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: 500; }
+.report-document > .button { margin-top: var(--space-7); }
 .report-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); position: sticky; top: calc(var(--bar-height) + var(--space-6)); align-self: start; }
 .report-rail > * + * { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
 .report-version-index ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
@@ -150,7 +148,7 @@
   background-image: repeating-linear-gradient(
     to bottom, var(--rule) 0, var(--rule) 1px, transparent 1px, transparent 48px);
 }
-.writing-title { width: 100%; margin-top: var(--space-7); border: 0; border-bottom: 3px solid var(--text); border-radius: 0; background: transparent; color: var(--text); font: 700 clamp(2.5rem, 7vw, 6rem)/0.95 var(--font-ui); letter-spacing: -0.045em; }
+.writing-title { width: 100%; margin-top: var(--space-7); border: 0; border-bottom: 1px solid var(--muted); border-radius: 0; background: transparent; color: var(--text); font: 500 clamp(1.875rem, 4vw, 3.125rem)/1.12 var(--font-ui); letter-spacing: -0.02em; }
 .writing-body { width: 100%; min-height: calc(100dvh - 24rem); margin-top: var(--space-6); border: 0; border-radius: 0; background: transparent; color: var(--prose); font: 1.125rem/1.9 var(--font-ui); resize: vertical; }
 .writing-desk > .button { margin-top: var(--space-5); }
 @media (forced-colors: active) {
@@ -241,7 +239,6 @@
 
   /* Writing desk + workshop: stack controls and shorten the body so the editor stays reachable. */
   .writing-ledger { align-items: flex-start; flex-direction: column; }
-  .writing-title { font-size: clamp(2.5rem, 15vw, 4.5rem); }
   .writing-body { min-height: 55dvh; }
   .workshop-test-controls, .session-inline-form { grid-template-columns: minmax(0, 1fr); }
   .workshop-model-row { grid-template-columns: minmax(0, 1fr); }

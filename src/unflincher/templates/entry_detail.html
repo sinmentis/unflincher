@@ -3,13 +3,14 @@
 {% block content %}
 <div class="entry-layout" data-role="primary-task" data-entry-source="{{ entry.source }}">
   <article class="entry-record">
-    {% with eyebrow=t("entry.toc_body") ~ " / " ~ ("%03d" % entry.id), heading=entry.title, metadata=entry.entry_date[:10] %}
+    {% with heading=entry.title %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
-    <dl class="record-metadata">
-      <div><dt>{{ t("entry.source_label") }}</dt><dd>{{ t("entry.source." ~ entry.source) }}</dd></div>
-      <div><dt>{{ t("entry.archive_id_label") }}</dt><dd>{{ "%03d" % entry.id }}</dd></div>
-    </dl>
+    <p class="record-metadata">
+      <time datetime="{{ entry.entry_date[:10] }}">{{ entry.entry_date[:10] }}</time>
+      <span aria-hidden="true">·</span>
+      <span>{{ t("entry.source." ~ entry.source) }}</span>
+    </p>
     <div class="diary-prose" id="diary-text" data-role="entry-body">{{ entry.content_html | safe }}</div>
   </article>
 
@@ -35,7 +36,7 @@
                   data-endpoint="/entry/{{ entry.id }}/commentary">{{ t("common.retry") }}</button>
         </section>
       {% else %}
-        <button id="run-commentary" class="button button--accent" type="button"
+        <button id="run-commentary" class="button" type="button"
                 data-endpoint="/entry/{{ entry.id }}/commentary">{{ t("entry.run_commentary_button") }}</button>
       {% endif %}
     </section>
@@ -49,7 +50,7 @@
     <div id="chat-thread" class="conversation-thread">
       {% for msg in chat_history %}
       <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
-        <div class="message-stamp">{{ t("common.me") if msg.role == "user" else t("common.mentor") }} / {{ "%02d" % loop.index }}</div>
+        <div class="message-stamp">{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</div>
         <div class="message-copy">{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
       </article>
       {% endfor %}
