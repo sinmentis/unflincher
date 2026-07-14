@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unflincher: a self-hosted AI journal for long-term reflection</title>
+  <meta name="description" content="Unflincher is a source-available, self-hosted AI journal that finds patterns across years of writing and supports each reading with evidence.">
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="stylesheet" href="assets/css/demo.css">
+  <link rel="stylesheet" href="assets/css/landing.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-wordmark" href="./">Unflincher</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="demo/">Demo</a>
+      <a href="https://github.com/sinmentis/unflincher">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="hero" class="landing-section hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Source available for noncommercial use</p>
+        <h1>Read across years of your own writing.</h1>
+        <p class="hero-lede">Unflincher is a self-hosted AI journal for long-term reflection. It reads across years of entries, finds recurring patterns, supports each reading with evidence from your own words, and lets you continue the conversation.</p>
+        <div class="hero-actions">
+          <a class="btn btn--primary" href="demo/">Explore the demo</a>
+          <a class="btn" href="https://github.com/sinmentis/unflincher">View on GitHub</a>
+        </div>
+        <p class="hero-note">Self-hosted and source-available. Requires GitHub Copilot access, a host you control, and basic terminal setup.</p>
+      </div>
+      <figure class="hero-artifact" data-reveal>
+        <img src="assets/images/demo-report.png" alt="Life Report view showing a recurring pattern of delay with dated evidence from the sample journal." width="1440" height="900">
+        <figcaption class="hero-caption">Life Report, sample data.</figcaption>
+      </figure>
+    </section>
+
+    <section id="pattern" class="landing-section split" data-reveal>
+      <div class="split-lede">
+        <p class="eyebrow">The hidden pattern</p>
+        <h2>A single entry hides the pattern.</h2>
+        <p>One hard week reads like a mood. The same hesitation across three years reads like a decision you keep postponing. Unflincher looks across the whole archive, not just today.</p>
+      </div>
+      <div class="split-detail">
+        <blockquote class="excerpt">
+          <p>I keep asking for one more quarter of savings before I commit.</p>
+          <cite>2021-04-18</cite>
+        </blockquote>
+        <blockquote class="excerpt">
+          <p>The spreadsheet is a way to feel in motion without moving.</p>
+          <cite>2022-06-27</cite>
+        </blockquote>
+        <blockquote class="excerpt">
+          <p>It is the first time in years I chose motion over modeling.</p>
+          <cite>2024-02-21</cite>
+        </blockquote>
+      </div>
+    </section>
+
+    <section id="demo" class="landing-section" data-reveal>
+      <div class="section-lede">
+        <p class="eyebrow">Interactive sample</p>
+        <h2>Try it on fictional data.</h2>
+        <p>This runs entirely in your browser on a fictional journal. No account, no model call, and no journal content is sent to a backend or model.</p>
+      </div>
+      <div class="demo-embed">
+        <div class="demo-heading">
+          <span class="demo-badge">Sample data</span>
+        </div>
+        <div class="demo-shell" data-demo-root data-initial-view="timeline" data-fixture="data/sample-journal.json">
+          <nav class="demo-nav" aria-label="Demo views">
+            <button type="button" data-view="timeline">Timeline</button>
+            <button type="button" data-view="entry">Entry and commentary</button>
+            <button type="button" data-view="report">Life Report</button>
+            <button type="button" data-view="conversation">Conversation</button>
+            <button type="button" data-view="workshop">Prompt Workshop</button>
+          </nav>
+          <div class="demo-stage" data-demo-stage aria-live="polite">
+            <div class="demo-static-fallback" data-static-fallback>
+              <ul class="demo-fallback">
+                <li><img src="assets/images/demo-timeline.png" alt="Timeline view listing dated entries from the sample journal." width="1440" height="900"></li>
+                <li><img src="assets/images/demo-entry.png" alt="Entry and commentary view of one sample entry with its generated note." width="1440" height="900"></li>
+                <li><img src="assets/images/demo-report.png" alt="Life Report view with sections and dated evidence." width="1440" height="900"></li>
+                <li><img src="assets/images/demo-conversation.png" alt="Conversation view where the reflection is challenged rather than accepted." width="1440" height="900"></li>
+                <li><img src="assets/images/demo-workshop.png" alt="Prompt Workshop view comparing two persona prompts and their sample output." width="1440" height="900"></li>
+              </ul>
+              <p>The interactive demo needs JavaScript. The screenshots above show the five views, and you can view the source on <a href="https://github.com/sinmentis/unflincher">GitHub</a>.</p>
+            </div>
+          </div>
+        </div>
+        <p class="demo-embed-more"><a href="demo/">Open the full demo</a></p>
+      </div>
+    </section>
+
+    <section id="evidence" class="landing-section split split--reverse" data-reveal>
+      <figure class="evidence-canvas">
+        <img src="assets/images/demo-report.png" alt="Life Report view citing the specific sample entries behind each reading." width="1440" height="900">
+      </figure>
+      <div class="evidence-rail">
+        <p class="eyebrow">Traceable interpretation</p>
+        <h2>Every reading points back to the evidence.</h2>
+        <p>The Life Report does not just assert a pattern. It cites the specific entries it is reading, so you can check the interpretation against your own words.</p>
+        <ul class="evidence-list">
+          <li><span class="evidence-date">2021-04-18</span> The safe option, again</li>
+          <li><span class="evidence-date">2022-06-27</span> One more spreadsheet</li>
+          <li><span class="evidence-date">2023-10-15</span> Certainty is not coming</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- LANDING-PART-2: sections 5 to 8 are inserted here in Task 7 -->
+  </main>
+
+  <footer class="site-footer">
+    <p>Source available for noncommercial use under PolyForm Noncommercial 1.0.0. The demo uses fictional sample data only.</p>
+  </footer>
+
+  <script src="assets/js/demo.js" defer></script>
+</body>
+</html>
