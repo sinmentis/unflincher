@@ -6,9 +6,28 @@ TEMPLATES = ROOT / "src" / "unflincher" / "templates"
 STATIC_JS = ROOT / "src" / "unflincher" / "static"
 PAGES_CSS = STATIC_JS / "css" / "pages.css"
 
+# Single responsive breakpoint defined in pages.css (Task 10). Mobile governs <=700px.
+MOBILE_QUERY = "@media (max-width: 43.75rem)"
+
 
 def _template_source() -> str:
     return "\n".join(path.read_text() for path in TEMPLATES.rglob("*.html"))
+
+
+def _media_block(css: str, query: str) -> str:
+    """Return the declarations inside the (single) `@media <query> { ... }` block."""
+    start = css.index(query)
+    open_brace = css.index("{", start)
+    depth = 0
+    for index in range(open_brace, len(css)):
+        char = css[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return css[open_brace + 1:index]
+    raise AssertionError(f"unbalanced braces after {query!r}")
 
 
 def _rule_body(block: str, selector: str) -> str:
@@ -54,7 +73,7 @@ def test_stable_dom_hooks_remain_in_template_sources():
         "chat-input", "chat-send", "run-commentary", "retry-commentary",
         "commentary-status", "report-stream", "run-report", "prompt-draft",
         "model-select", "test-entry", "run-test", "preview-stream", "apply-btn",
-        "apply-all-btn", "regen-progress",
+        "apply-all-btn", "regen-progress", "report-body",
     ):
         assert f'id="{hook}"' in source
 
@@ -112,3 +131,195 @@ def test_chat_session_relies_on_global_contextual_back_navigation():
     assert "mobile-chat-back" not in source
     assert 'page_id == "chat-session"' in topbar
     assert 'back_href = "/chat"' in topbar
+
+
+def test_balanced_graphite_page_roles_exist():
+    source = _template_source()
+    for role in (
+        "primary-task",
+        "entry-body",
+        "ai-commentary",
+        "follow-up",
+        "year-filter",
+        "archive-index",
+        "entry-row",
+        "report-body",
+        "report-history",
+        "session-list",
+        "session-row",
+        "conversation",
+        "composer",
+        "entry-metadata",
+        "entry-editor",
+        "test-preview",
+    ):
+        assert f'data-role="{role}"' in source
+
+
+def test_visual_contract_has_no_quiet_brutalism_artifacts():
+    source = _template_source()
+    css = "\n".join(
+        path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))
+    )
+    for forbidden in (
+        "brand-seal",
+        "command-navigation",
+        "mobile-command-bar",
+        "archive-sequence",
+        "box-shadow",
+        "IBM Plex",
+        "#d0645a",
+    ):
+        assert forbidden not in source + css
+
+
+def test_mobile_layouts_collapse_in_source_order():
+    css = PAGES_CSS.read_text()
+    assert re.findall(r"@media \(max-width: [^)]+\)", css) == [MOBILE_QUERY]
+    assert not re.search(r"(?m)^\s*order\s*:", css)
+    mobile = _media_block(css, MOBILE_QUERY)
+    for selector in (
+        ".entry-layout",
+        ".timeline-layout",
+        ".report-layout",
+        ".chat-layout",
+        ".writing-desk",
+        ".workshop-layout",
+    ):
+        body = _rule_body(mobile, selector)
+        assert "grid-template-columns: 1fr" in body
+        assert not re.search(r"(?m)^\s*order\s*:", body)
+
+
+def test_accessibility_fallbacks_remain_present():
+    css = "\n".join(
+        path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))
+    )
+    assert "@media (prefers-reduced-motion: reduce)" in css
+    assert "@media (forced-colors: active)" in css
+    assert ":focus-visible" in css
+
+
+def _relative_luminance(hex_color: str) -> float:
+    channels = [
+        int(hex_color[index:index + 2], 16) / 255
+        for index in (1, 3, 5)
+    ]
+    linear = [
+        channel / 12.92
+        if channel <= 0.04045
+        else ((channel + 0.055) / 1.055) ** 2.4
+        for channel in channels
+    ]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast_ratio(first: str, second: str) -> float:
+    high, low = sorted(
+        (_relative_luminance(first), _relative_luminance(second)),
+        reverse=True,
+    )
+    return (high + 0.05) / (low + 0.05)
+
+
+def test_approved_text_and_control_pairings_meet_wcag_aa():
+    surfaces = ("#1d1e1d", "#222322", "#202220", "#232523", "#2c2e2c")
+    for foreground in ("#e0ddd6", "#c7c2ba"):
+        for background in surfaces:
+            assert _contrast_ratio(foreground, background) >= 4.5
+    for background in surfaces:
+        assert _contrast_ratio("#85827b", background) >= 3.0
+
+    css = "\n".join(
+        path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))
+    )
+    template_source = _template_source()
+    interactive_classes = set()
+    control_classes = set()
+    for tag, attributes in re.findall(
+        r"<(a|button|input|textarea|select|summary)\b([^>]*)>",
+        template_source,
+        flags=re.IGNORECASE,
+    ):
+        class_match = re.search(r"""class=["']([^"']+)["']""", attributes)
+        if not class_match:
+            continue
+        classes = {
+            name
+            for name in class_match.group(1).split()
+            if re.fullmatch(r"[A-Za-z_][\w-]*", name)
+        }
+        interactive_classes.update(classes)
+        if tag.lower() in {"button", "input", "textarea", "select"}:
+            control_classes.update(classes)
+
+    semantic_interactive = re.compile(
+        r"(^|[\s>+~,(:])(?:a|button|input|textarea|select|summary)\b",
+        flags=re.IGNORECASE,
+    )
+    semantic_control = re.compile(
+        r"(^|[\s>+~,(:])(?:button|input|textarea|select)\b",
+        flags=re.IGNORECASE,
+    )
+    muted_text = re.compile(
+        r"(?:^|;)\s*color\s*:\s*var\(--muted\)",
+        flags=re.IGNORECASE,
+    )
+    border_using_rule = re.compile(
+        r"border(?:-[a-z-]+)?\s*:[^;]*var\(--rule\)",
+        flags=re.IGNORECASE,
+    )
+    boundary_using_rule = re.compile(
+        r"border(?:-color)?\s*:[^;]*var\(--rule\)",
+        flags=re.IGNORECASE,
+    )
+    flat_css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    for match in re.finditer(r"([^{}]*)\{([^{}]*)\}", flat_css):
+        selectors, declarations = match.groups()
+        assert not muted_text.search(declarations), selectors
+        has_interactive_class = any(
+            re.search(rf"\.{re.escape(name)}(?![\w-])", selectors)
+            for name in interactive_classes
+        )
+        has_control_class = any(
+            re.search(rf"\.{re.escape(name)}(?![\w-])", selectors)
+            for name in control_classes
+        )
+        if semantic_control.search(selectors) or has_control_class:
+            assert not border_using_rule.search(declarations), selectors
+        elif semantic_interactive.search(selectors) or has_interactive_class:
+            assert not boundary_using_rule.search(declarations), selectors
+
+
+def test_writing_planes_keep_the_approved_baseline_texture():
+    css = PAGES_CSS.read_text()
+    assert "repeating-linear-gradient" in css
+
+
+def test_legacy_css_tokens_are_removed():
+    css = "\n".join(
+        path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))
+    )
+    tokens = (STATIC_JS / "css" / "tokens.css").read_text()
+    for legacy in (
+        "canvas",
+        "surface",
+        "surface-raised",
+        "ink",
+        "ink-soft",
+        "accent",
+        "font-command",
+        "font-reading",
+        "font-mono",
+        "header-height",
+        "radius-1",
+        "radius-2",
+        "motion-fast",
+        "motion-default",
+        "z-base",
+        "z-sticky",
+        "z-header",
+        "z-overlay",
+    ):
+        assert f"var(--{legacy})" not in css
+        assert f"--{legacy}:" not in tokens

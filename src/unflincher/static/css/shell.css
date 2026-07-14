@@ -6,7 +6,7 @@
 
 .skip-link {
   position: fixed;
-  z-index: var(--z-overlay);
+  z-index: var(--layer-overlay);
   top: var(--space-3);
   left: var(--space-3);
   padding: var(--space-3) var(--space-4);
@@ -22,7 +22,7 @@
    commands, and no bottom strip -- the menu is one native <details> dropdown. */
 .app-topbar {
   position: sticky;
-  z-index: var(--z-header);
+  z-index: var(--layer-header);
   top: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -72,7 +72,7 @@
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
-  z-index: var(--z-header);
+  z-index: var(--layer-header);
   display: flex;
   flex-direction: column;
   min-width: 13rem;
@@ -93,13 +93,13 @@
 }
 .quiet-nav-panel a:hover { background: var(--soft-surface); color: var(--text); }
 .quiet-nav-panel a[aria-current="page"] { background: var(--soft-surface); color: var(--text); }
-.quiet-nav-panel svg { color: var(--muted); }
+.quiet-nav-panel svg { color: var(--prose); }
 .quiet-nav-panel a:hover svg,
 .quiet-nav-panel a[aria-current="page"] svg { color: inherit; }
 
 .error-document { max-width: 48rem; padding-block: var(--space-8); }
 .error-document > .brand-lockup { justify-self: start; margin-bottom: var(--space-7); }
-.error-document .page-eyebrow { color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0.1em; }
+.error-document .page-eyebrow { color: var(--prose); font-variant-numeric: tabular-nums; letter-spacing: 0.1em; }
 .error-document h1 { margin-bottom: var(--space-5); }
 .error-document > p:not(.page-eyebrow) { max-width: 48ch; color: var(--prose); font-size: var(--text-lg); line-height: var(--leading-body); }
 

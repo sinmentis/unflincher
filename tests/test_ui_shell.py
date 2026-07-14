@@ -32,6 +32,8 @@ def test_get_ui_state(path, active_nav, page_id):
 def test_base_document_has_balanced_graphite_metadata_and_landmarks(client):
     body = client.get("/").text
     assert '<meta name="theme-color" content="#1d1e1d">' in body
+    assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in body
+    assert 'class="skip-link" href="#main-content"' in body
     assert 'class="app-topbar"' in body
     assert 'class="quiet-nav"' in body
     assert 'class="quiet-nav-panel"' in body
