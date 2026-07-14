@@ -231,19 +231,18 @@ async function initDemo(rootEl, fetchImpl, fixtureUrl) {
     });
   }
 
-  buttons.forEach(function (button) {
-    button.addEventListener("click", function () {
-      state.view = normalizeView(button.getAttribute("data-view"));
-      paint();
-    });
-  });
-
   try {
     var response = await fetchImpl(fixtureUrl, {cache: "no-store"});
     if (!response.ok) throw new Error("fixture status " + response.status);
     var parsed = parseFixture(await response.text());
     if (!parsed.ok) throw new Error(parsed.error);
     state.data = parsed.data;
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        state.view = normalizeView(button.getAttribute("data-view"));
+        paint();
+      });
+    });
     paint();
   } catch (error) {
     stage.innerHTML = renderError() + fallbackHtml;

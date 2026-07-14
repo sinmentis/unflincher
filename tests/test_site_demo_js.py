@@ -136,13 +136,23 @@ const stage = {
   innerHTML: '<div data-static-fallback>Static fallback</div>',
   querySelectorAll: () => [],
 };
+let navHandler = null;
+const navButton = {
+  getAttribute: () => "report",
+  classList: {toggle: () => {}},
+  setAttribute: () => {},
+  addEventListener: (type, handler) => {
+    if (type === "click") navHandler = handler;
+  },
+};
 const root = {
   getAttribute: () => "timeline",
   querySelector: (sel) => (sel === "[data-demo-stage]" ? stage : null),
-  querySelectorAll: () => [],
+  querySelectorAll: (sel) => (sel === "[data-view]" ? [navButton] : []),
 };
 const fakeFetch = async () => ({ok: false, status: 404, text: async () => ""});
 initDemo(root, fakeFetch, "data.json").then(() => {
+  if (navHandler) navHandler();
   process.stdout.write(JSON.stringify({
     error: stage.innerHTML.includes("could not be loaded"),
     github: stage.innerHTML.includes("github.com/sinmentis/unflincher"),
