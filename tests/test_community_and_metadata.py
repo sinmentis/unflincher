@@ -1,0 +1,88 @@
+import re
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+EMAIL = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]")
+DASHES = ("\u2014", "\u2013")
+NON_ENGLISH_SCRIPT = re.compile("[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0400-\u04ff]")
+
+
+def _problems(text: str) -> list[str]:
+    problems = []
+    if any(dash in text for dash in DASHES):
+        problems.append("em or en dash")
+    if EMOJI.search(text):
+        problems.append("emoji")
+    if NON_ENGLISH_SCRIPT.search(text):
+        problems.append("non-English script")
+    if "open source" in text.lower() or "open-source" in text.lower():
+        problems.append("open source phrase")
+    return problems
+
+
+def _personal_emails(text: str) -> list[str]:
+    return [email for email in EMAIL.findall(text) if not email.endswith("users.noreply.github.com")]
+
+
+def test_security_uses_private_reporting_not_personal_email():
+    text = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    assert "private vulnerability reporting" in text.lower()
+    assert "mailto:" not in text
+    assert _personal_emails(text) == []
+    assert _problems(text) == []
+
+
+def test_contributing_covers_setup_tests_and_license():
+    text = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    assert ".[dev]" in text
+    assert "pytest" in text
+    assert "noncommercial" in text.lower()
+    assert _problems(text) == []
+
+
+def test_code_of_conduct_exists_without_personal_email():
+    text = (ROOT / "CODE_OF_CONDUCT.md").read_text(encoding="utf-8")
+    assert _personal_emails(text) == []
+    assert _problems(text) == []
+
+
+def test_changelog_and_release_notes_document_v0_1_0():
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    notes = (ROOT / "docs" / "release-notes-v0.1.0.md").read_text(encoding="utf-8")
+    assert "0.1.0" in changelog
+    assert "0.1.0" in notes
+    assert "noncommercial" in notes.lower()
+    assert "local SQLite" in notes
+    assert "GitHub Pages" in notes
+    assert _problems(changelog) == []
+    assert _problems(notes) == []
+
+
+def test_readme_links_changelog_release_notes_and_support():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "CHANGELOG.md" in text
+    assert "docs/release-notes-v0.1.0.md" in text
+    assert "https://github.com/sinmentis/unflincher/discussions" in text
+
+
+def test_issue_and_pr_templates_exist_with_required_checks():
+    assert (ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.md").is_file()
+    assert (ROOT / ".github" / "ISSUE_TEMPLATE" / "feature_request.md").is_file()
+    assert (ROOT / ".github" / "ISSUE_TEMPLATE" / "config.yml").is_file()
+    pr = (ROOT / ".github" / "pull_request_template.md").read_text(encoding="utf-8").lower()
+    assert "test" in pr
+    assert "privacy" in pr
+    assert "public data" in pr
+
+
+def test_pyproject_metadata_is_enriched_without_osi_classifier():
+    data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    project = data["project"]
+    assert project["description"]
+    assert project["readme"] == "README.md"
+    assert project["keywords"]
+    assert "Homepage" in project["urls"]
+    for classifier in project.get("classifiers", []):
+        assert "OSI Approved" not in classifier

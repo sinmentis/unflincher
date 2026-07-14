@@ -73,6 +73,9 @@ commentary, reports, or chat additionally requires `COPILOT_GITHUB_TOKEN` to be 
 - Security policy: [SECURITY.md](SECURITY.md)
 - Source code: https://github.com/sinmentis/unflincher
 - Support and issues: https://github.com/sinmentis/unflincher/issues
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- v0.1.0 release notes: [docs/release-notes-v0.1.0.md](docs/release-notes-v0.1.0.md)
+- Questions and licensing: [GitHub Discussions](https://github.com/sinmentis/unflincher/discussions)
 
 ## License
 

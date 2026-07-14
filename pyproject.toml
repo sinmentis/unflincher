@@ -3,6 +3,16 @@ name = "unflincher"
 version = "0.1.0"
 requires-python = ">=3.12"
 license = {text = "PolyForm-Noncommercial-1.0.0"}
+description = "Self-hosted AI journal for entry commentary, life reports, and reflective conversations using GitHub Copilot."
+readme = "README.md"
+keywords = ["journaling", "diary", "self-hosted", "self-reflection", "llm", "github-copilot", "fastapi", "sqlite", "privacy"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing",
+]
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
@@ -17,6 +27,11 @@ dependencies = [
     "markdown-it-py>=3.0",
     "pyjwt[crypto]>=2.9",
 ]
+
+[project.urls]
+Homepage = "https://sinmentis.github.io/unflincher/"
+Repository = "https://github.com/sinmentis/unflincher"
+Documentation = "https://github.com/sinmentis/unflincher/tree/main/docs"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24"]
