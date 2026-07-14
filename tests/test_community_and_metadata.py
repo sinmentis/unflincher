@@ -75,6 +75,11 @@ def test_issue_and_pr_templates_exist_with_required_checks():
     assert "test" in pr
     assert "privacy" in pr
     assert "public data" in pr
+    assert "real diary content" in pr
+    assert "tokens" in pr
+    assert "production hostnames" in pr
+    assert "private databases" in pr
+    assert "synthetic" in pr
 
 
 def test_issue_templates_warn_against_real_private_data():
