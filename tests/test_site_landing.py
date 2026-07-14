@@ -91,6 +91,7 @@ def test_landing_second_half_sections_exist():
     assert "<!-- LANDING-PART-2" not in html
     assert ">Local<" in html
     assert "External processing" in html
+    assert "current request" in html
     assert "GitHub Pages" in html
     assert "platform logging and privacy practices" in html
 
