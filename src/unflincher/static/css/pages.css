@@ -123,17 +123,22 @@
 .archive-row time { color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
 .archive-title { overflow: hidden; font-family: var(--font-reading); font-size: 1.0625rem; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Life Report: investigation document (Task 7) */
-.report-layout { display: grid; grid-template-columns: minmax(0, 9fr) minmax(12rem, 3fr); gap: var(--space-8); }
-.report-document { min-width: 0; }
+/* Life Report: Balanced Graphite reading view (Task 6). The report body is the primary reading
+   plane (--entry-plane); the history/contents rail is a quiet secondary surface (--commentary-plane)
+   whose sections are parted by thin rules. Source and mobile order is report body, then history and
+   table of contents. Current and failed versions differ only through text, rules, and status
+   markers -- no evidence quotes, invented citations, or decorative dossier ornament. */
+.report-layout { display: grid; grid-template-columns: minmax(0, 7fr) minmax(15rem, 3fr); gap: var(--space-8); align-items: start; }
+.report-document { min-width: 0; padding: var(--space-8) var(--space-7); background-color: var(--entry-plane); }
 .report-document > .button { margin-bottom: var(--space-7); }
-.report-prose { padding-top: var(--space-7); border-top: 4px solid var(--accent); }
-.report-layout > aside { position: sticky; top: calc(var(--header-height) + var(--space-6)); align-self: start; }
+.report-prose { padding-top: var(--space-7); border-top: 1px solid var(--rule); }
+.report-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); position: sticky; top: calc(var(--header-height) + var(--space-6)); align-self: start; }
+.report-rail > * + * { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
 .report-version-index ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
 .report-version-index a { display: grid; grid-template-columns: 3rem 1fr auto; gap: var(--space-2); padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; text-decoration: none; }
 .report-version-index a[aria-current="true"] { color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); padding-left: var(--space-2); }
 .report-version-index li[data-status="failed"] a { text-decoration: line-through; text-decoration-color: var(--accent); }
-.report-toc { display: grid; margin-top: var(--space-6); border-top: 1px solid var(--rule); }
+.report-toc { display: grid; }
 .report-toc a { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 0.75rem; text-decoration: none; }
 .report-toc a:hover { color: var(--ink); }
 
@@ -187,13 +192,12 @@
 
 @media (max-width: 73.6875rem) {
   .timeline-layout, .entry-layout, .report-layout { grid-template-columns: 1fr; }
-  .report-layout > aside, .timeline-year-index {
+  .report-rail { position: static; }
+  .timeline-year-index {
     position: static;
     overflow-x: auto;
+    order: -1;
   }
-  .report-layout > aside, .timeline-year-index { order: -1; }
-  .report-version-index > ol,
-  .report-toc,
   .timeline-year-index > nav {
     display: flex;
     min-width: max-content;
@@ -220,6 +224,7 @@
   }
   .entry-record { padding: var(--space-6) var(--space-5); }
   .entry-record::before { display: none; }
+  .report-document { padding: var(--space-6) var(--space-5); }
   .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }
   .entry-follow-up .conversation-composer { max-width: none; }
   .chat-layout { display: block; min-height: auto; }

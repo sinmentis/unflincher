@@ -12,9 +12,12 @@ def test_report_page_shows_no_report_state(client):
     assert "No report generated yet." in response.text
 
 
-def test_report_page_uses_investigation_document_structure(client):
+def test_report_page_uses_balanced_report_structure(client):
     body = client.get("/report").text
     assert 'class="report-layout"' in body
+    assert 'data-role="primary-task"' in body
+    assert 'data-role="report-body"' in body
+    assert 'data-role="report-history"' in body
     assert 'class="report-version-index"' in body
     assert 'id="report-toc"' in body
     assert 'id="report-stream"' in body
@@ -54,6 +57,7 @@ def test_report_markdown_headings_stay_below_the_page_heading(client):
 
     body = client.get("/report").text
 
+    assert 'id="report-body"' in body
     assert body.count("<h1") == 1
     assert "<h2>Investigation</h2>" in body
     assert "<h3>Pattern</h3>" in body

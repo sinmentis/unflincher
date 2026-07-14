@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ t("report.heading") }}{% endblock %}
 {% block content %}
-<div class="report-layout" data-report-status="{{ report_status or 'empty' }}">
-  <article class="report-document">
+<div class="report-layout" data-role="primary-task" data-report-status="{{ report_status or 'empty' }}">
+  <article class="report-document" data-role="report-body">
     {% with eyebrow=t("report.heading"), heading=t("report.heading"),
       metadata=t("report.coverage", count=covered_count, range=covered_from ~ " — " ~ covered_to) if report_html else none %}
       {% include "partials/page_heading.html" %}
@@ -23,7 +23,7 @@
     {% endif %}
     <div id="report-stream" class="stream-surface" hidden aria-live="polite"></div>
   </article>
-  <aside>
+  <aside class="report-rail" data-role="report-history">
     {% include "partials/report_version_index.html" %}
     <nav id="report-toc" class="report-toc" aria-label="{{ t('report.toc_aria') }}" hidden></nav>
   </aside>

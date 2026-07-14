@@ -6,9 +6,7 @@ TEMPLATES = ROOT / "src" / "unflincher" / "templates"
 STATIC_JS = ROOT / "src" / "unflincher" / "static"
 PAGES_CSS = STATIC_JS / "css" / "pages.css"
 
-# Responsive breakpoints defined in pages.css (Task 10). Tablet governs <=1179px and, because it
-# is a wider max-width, also still applies at mobile widths; mobile governs <=767px.
-TABLET_QUERY = "@media (max-width: 73.6875rem)"
+# Responsive breakpoint defined in pages.css (Task 10). Mobile governs <=767px.
 MOBILE_QUERY = "@media (max-width: 47.9375rem)"
 
 
@@ -120,15 +118,11 @@ def test_archive_row_hover_has_no_horizontal_motion():
     assert "transform" not in row_body, f".archive-row must not transition transform: {row_body!r}"
 
 
-def test_horizontal_index_strip_has_tokenized_gap():
-    """At tablet/mobile widths the entry margin index, report version index, report TOC, and
-    timeline year index collapse into horizontal flex strips. They need tokenized spacing so the
-    index items are not concatenated together."""
-    tablet = _media_block(PAGES_CSS.read_text(), TABLET_QUERY)
-    body = _rule_body(tablet, ".report-toc")
-    assert "display: flex" in body, f"horizontal index strip must stay flex: {body!r}"
-    match = re.search(r"gap:\s*var\(--space-\d\)", body)
-    assert match, f"horizontal index strip must set a nonzero tokenized gap: {body!r}"
+def test_report_history_follows_report_body_in_source_order():
+    source = (TEMPLATES / "report.html").read_text()
+    assert source.index('data-role="report-body"') < source.index(
+        'data-role="report-history"'
+    )
 
 
 def test_mobile_session_ledger_drops_right_divider():
