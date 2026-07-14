@@ -1,0 +1,88 @@
+/* site/assets/css/demo.css -- styling for the interactive static demo shell. Depends on the
+   tokens in site.css. Flat surfaces, single amber accent, sharp corners. */
+
+.demo-main { max-width: var(--container); margin: 0 auto; padding: var(--space-6) var(--space-5) var(--space-8); }
+.demo-heading { display: flex; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; }
+.demo-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--night);
+  background: var(--accent);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius);
+}
+.demo-note { color: var(--muted); max-width: var(--measure); }
+
+.demo-shell { border: 1px solid var(--line); border-radius: var(--radius); background: var(--graphite); margin-top: var(--space-5); }
+.demo-nav { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--line); }
+.demo-nav button {
+  flex: 1 1 auto;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--dur) ease, background-color var(--dur) ease;
+}
+.demo-nav button:last-child { border-right: 0; }
+.demo-nav button:hover { color: var(--ink); }
+.demo-nav button.is-active { color: var(--ink); background: var(--graphite-raised); box-shadow: inset 0 -2px 0 var(--accent); }
+
+.demo-stage { padding: var(--space-5); min-height: 18rem; }
+.demo-stage > * { animation: demo-fade var(--dur) ease; }
+@keyframes demo-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.demo-list { list-style: none; margin: 0; padding: 0; }
+.demo-entry-link {
+  display: flex;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-3) 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.demo-entry-link:hover .demo-entry-title { text-decoration: underline; text-decoration-color: var(--accent); }
+.demo-entry-date { font-family: var(--font-mono); color: var(--muted); min-width: 6.5rem; }
+
+.demo-entry-meta { font-family: var(--font-mono); color: var(--muted); }
+.demo-commentary { border-left: 2px solid var(--accent); padding-left: var(--space-4); margin: var(--space-4) 0; background: var(--graphite-raised); }
+.demo-evidence { list-style: none; margin: var(--space-3) 0 0; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); }
+.demo-evidence li { padding: 0.2rem 0; }
+
+.demo-conversation { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.demo-message { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
+.demo-message--assistant { background: var(--graphite-raised); border-left: 2px solid var(--accent); }
+.demo-role { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+
+.demo-persona { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4); margin-bottom: var(--space-4); }
+.demo-persona-prompt span, .demo-persona-sample span { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); display: inline-block; margin-right: var(--space-2); }
+
+.demo-action { margin-top: var(--space-4); padding: var(--space-2) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--muted); font: inherit; }
+.demo-action[disabled] { cursor: not-allowed; opacity: 0.6; }
+.demo-locked { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); margin-top: var(--space-2); }
+.demo-error { border: 1px solid var(--accent); border-radius: var(--radius); padding: var(--space-4); }
+.demo-static-fallback { display: grid; gap: var(--space-3); }
+.demo-static-fallback > p { color: var(--muted); }
+.demo-fallback {
+  list-style: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(82%, 1fr);
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0 0 var(--space-2);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+.demo-fallback li { scroll-snap-align: start; }
+.demo-fallback img { border: 1px solid var(--line); border-radius: var(--radius); }

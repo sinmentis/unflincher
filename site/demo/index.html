@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unflincher interactive demo</title>
+  <meta name="description" content="Interactive demo of Unflincher using fictional sample data. Runs entirely in your browser with no model calls.">
+  <link rel="icon" href="../assets/images/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/site.css">
+  <link rel="stylesheet" href="../assets/css/demo.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-wordmark" href="../">Unflincher</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="../">Home</a>
+      <a href="https://github.com/sinmentis/unflincher">GitHub</a>
+    </nav>
+  </header>
+  <main class="demo-main">
+    <div class="demo-heading">
+      <h1>Interactive demo</h1>
+      <span class="demo-badge">Sample data</span>
+    </div>
+    <p class="demo-note">The interactive logic runs in your browser on fictional data. After the page assets load, it requests only the committed sample file and never contacts a model. Writing, regeneration, and live chat are disabled here and available in the self-hosted app. The public site is hosted on GitHub Pages and is subject to GitHub's platform logging and privacy practices.</p>
+    <h2>Explore five views</h2>
+    <section class="demo-shell" data-demo-root data-initial-view="timeline" data-fixture="../data/sample-journal.json">
+      <nav class="demo-nav" aria-label="Demo views">
+        <button type="button" data-view="timeline">Timeline</button>
+        <button type="button" data-view="entry">Entry and commentary</button>
+        <button type="button" data-view="report">Life Report</button>
+        <button type="button" data-view="conversation">Conversation</button>
+        <button type="button" data-view="workshop">Prompt Workshop</button>
+      </nav>
+      <div class="demo-stage" data-demo-stage aria-live="polite">
+        <div class="demo-static-fallback" data-static-fallback>
+          <ul class="demo-fallback">
+            <li><img src="../assets/images/demo-timeline.png" alt="Timeline view listing dated entries from the fictional sample journal." width="1440" height="900"></li>
+            <li><img src="../assets/images/demo-entry.png" alt="Entry and commentary view of one fictional sample entry with its generated note." width="1440" height="900"></li>
+            <li><img src="../assets/images/demo-report.png" alt="Life Report view with sections and dated evidence from fictional entries." width="1440" height="900"></li>
+            <li><img src="../assets/images/demo-conversation.png" alt="Conversation view where the fictional reflection is challenged with a follow-up question." width="1440" height="900"></li>
+            <li><img src="../assets/images/demo-workshop.png" alt="Prompt Workshop view comparing two fictional persona prompts and their sample output." width="1440" height="900"></li>
+          </ul>
+          <p>The interactive controls need JavaScript. The screenshots above show the five views.</p>
+          <p>The self-hosted app stores journal data in your local SQLite database. Generation sends the selected prompt and relevant context through GitHub Copilot. It requires GitHub Copilot access, a host you control, and basic terminal setup.</p>
+          <p>Read the product story on the <a href="../">home page</a> or view the source on <a href="https://github.com/sinmentis/unflincher">GitHub</a>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <p>Source available for noncommercial use. Sample data only, no real journal content.</p>
+  </footer>
+  <script src="../assets/js/demo.js" defer></script>
+</body>
+</html>
