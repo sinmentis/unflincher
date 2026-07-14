@@ -13,15 +13,13 @@
 # themselves (not just application code), copy and edit them into
 # ~/.config/containers/systemd/ by hand, once, deliberately -- not via this script.
 #
-# UNFLINCHER_COPILOT_SECRET lets you rename the shared podman secret without editing this
-# script -- just make sure it matches the Secret= line in your deployed unflincher.container.
-# NOTE: the default value below is deliberately still "diary-copilot-github-token" -- this
-# project was renamed from "diary" to "unflincher", but that one secret's name was
-# intentionally kept unchanged (see unflincher.container's own comment for why).
+# UNFLINCHER_COPILOT_SECRET lets an existing deployment keep its current podman secret
+# name without editing this script. It must match the Secret= line in the deployed
+# unflincher.container.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-SECRET_NAME="${UNFLINCHER_COPILOT_SECRET:-diary-copilot-github-token}"
+SECRET_NAME="${UNFLINCHER_COPILOT_SECRET:-unflincher-copilot-github-token}"
 
 podman build -t localhost/unflincher:latest .
 
