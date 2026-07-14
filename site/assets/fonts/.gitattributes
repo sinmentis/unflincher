@@ -1,4 +1,4 @@
 # Keep vendored font blobs byte-for-byte on fresh checkout so the SHA256 pins in
 # tests/test_public_assets.py hold regardless of a contributor core.autocrlf setting.
 *.woff2 binary
-*.txt -text
+*.txt -text -whitespace

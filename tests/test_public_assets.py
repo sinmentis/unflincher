@@ -23,6 +23,12 @@ def test_public_fonts_ship_license_notices():
     for name in ("OFL-IBMPlex.txt", "OFL-Newsreader.txt"):
         text = (FONTS / name).read_text(encoding="utf-8", errors="ignore")
         assert "SIL Open Font License" in text
+    # The vendored OFL notices are stored byte-for-byte (upstream IBM Plex uses
+    # CRLF and both texts carry a canonical trailing space), so Git's whitespace
+    # gate must be disabled for them or `git diff --check` fails. Assert the exact
+    # rule that exempts vendored *.txt from both EOL normalization and whitespace.
+    rules = (FONTS / ".gitattributes").read_text(encoding="utf-8").splitlines()
+    assert "*.txt -text -whitespace" in rules
 
 
 def test_site_css_uses_midnight_manuscript_tokens():
