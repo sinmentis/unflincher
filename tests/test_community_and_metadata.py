@@ -77,6 +77,21 @@ def test_issue_and_pr_templates_exist_with_required_checks():
     assert "public data" in pr
 
 
+def test_issue_templates_warn_against_real_private_data():
+    bug = (ROOT / ".github" / "ISSUE_TEMPLATE" / "bug_report.md").read_text(encoding="utf-8")
+    feature = (ROOT / ".github" / "ISSUE_TEMPLATE" / "feature_request.md").read_text(encoding="utf-8")
+
+    for text in (bug, feature):
+        lowered = text.lower()
+        assert "## privacy check" in lowered
+        assert "real diary content" in lowered
+        assert "fictional examples" in lowered
+        assert _problems(text) == []
+
+    assert "private databases" in bug.lower()
+    assert "private databases" in feature.lower()
+
+
 def test_pyproject_metadata_is_enriched_without_osi_classifier():
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]

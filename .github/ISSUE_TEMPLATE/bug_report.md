@@ -19,4 +19,4 @@ labels: bug
 
 ## Privacy check
 
-Do not paste real diary content, tokens, or production hostnames. Use fictional examples.
+Do not paste real diary content, tokens, production hostnames, or private databases. Use fictional examples.
