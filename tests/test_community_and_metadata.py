@@ -85,6 +85,8 @@ def test_issue_templates_warn_against_real_private_data():
         lowered = text.lower()
         assert "## privacy check" in lowered
         assert "real diary content" in lowered
+        assert "tokens" in lowered
+        assert "production hostnames" in lowered
         assert "fictional examples" in lowered
         assert _problems(text) == []
 
