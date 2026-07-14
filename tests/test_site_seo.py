@@ -6,6 +6,7 @@ from xml.dom import minidom
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 BASE = "https://sinmentis.github.io/unflincher/"
+SOCIAL_ALT = "Dark social card with the text Source available for noncommercial use, the promise A self-hosted AI journal that reads across years of your writing, and the Unflincher repository URL."
 
 
 def _json_ld(html: str) -> dict:
@@ -21,9 +22,9 @@ def test_index_has_canonical_and_social_metadata():
     assert '<meta property="og:type" content="website">' in html
     assert '<meta property="og:image:width" content="1280">' in html
     assert '<meta property="og:image:height" content="640">' in html
-    assert '<meta property="og:image:alt"' in html
+    assert f'<meta property="og:image:alt" content="{SOCIAL_ALT}">' in html
     assert '<meta name="twitter:card" content="summary_large_image">' in html
-    assert '<meta name="twitter:image:alt"' in html
+    assert f'<meta name="twitter:image:alt" content="{SOCIAL_ALT}">' in html
 
 
 def test_index_json_ld_is_accurate_and_makes_no_offer():
@@ -44,6 +45,8 @@ def test_demo_page_has_its_own_canonical():
     assert f'<link rel="canonical" href="{BASE}demo/">' in html
     assert '<meta name="twitter:title" content="Unflincher interactive demo">' in html
     assert '<meta name="twitter:description"' in html
+    assert f'<meta property="og:image:alt" content="{SOCIAL_ALT}">' in html
+    assert f'<meta name="twitter:image:alt" content="{SOCIAL_ALT}">' in html
 
 
 def test_public_robots_allows_crawling_and_points_to_sitemap():
