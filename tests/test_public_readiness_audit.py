@@ -155,6 +155,39 @@ def test_find_public_copy_issues_rejects_non_english_scripts():
     assert issues == ["localized.md: non-English script"]
 
 
+def test_find_public_copy_issues_flags_additional_non_latin_scripts():
+    scripts = {
+        "greek.md": "\u03b1\u03b2",
+        "arabic.md": "\u0627\u0644",
+        "hebrew.md": "\u05e9\u05dc",
+        "thai.md": "\u0e2a\u0e27",
+        "devanagari.md": "\u0905\u0906",
+        "cyrillic.md": "\u0414\u043d",
+        "cjk-supplementary.md": "\U00020000",
+    }
+    for name, text in scripts.items():
+        assert audit.find_public_copy_issues({name: text}) == [
+            f"{name}: non-English script"
+        ]
+    assert audit.find_public_copy_issues(
+        {"ascii.md": "Plain English copy with caf\u00e9 and na\u00efve, 123."}
+    ) == []
+
+
+def test_find_public_copy_issues_flags_emoji_foss_and_fabricated_adoption():
+    files = {
+        "emoji.md": "Ship it \U0001F680 today.",
+        "free.md": "This is free software for everyone.",
+        "foss.md": "A proud FOSS project.",
+        "adopt.md": "Trusted by teams everywhere.",
+    }
+    issues = audit.find_public_copy_issues(files)
+    assert "emoji.md: emoji" in issues
+    assert "free.md: inaccurate licensing phrase" in issues
+    assert "foss.md: inaccurate licensing phrase" in issues
+    assert "adopt.md: fabricated claim phrase 'trusted by'" in issues
+
+
 def test_find_public_copy_issues_requires_label_on_primary_surfaces():
     issues = audit.find_public_copy_issues(
         {
@@ -172,6 +205,8 @@ def test_find_secret_matches_detects_common_credentials():
     key = "-----BEGIN RSA " + "PRIVATE KEY-----"
     aws = "AKIA" + "B" * 16
     cloudflare = "CF_TOKEN=" + "c" * 40
+    copilot = "COPILOT_GITHUB_TOKEN=" + "d" * 40
+    azure = "AZURE_CLIENT_SECRET=" + "e" * 40
     findings = audit.find_secret_matches(
         {
             "f.txt": token,
@@ -179,10 +214,12 @@ def test_find_secret_matches_detects_common_credentials():
             "h.pem": key,
             "i.txt": aws,
             "j.txt": cloudflare,
+            "k.txt": copilot,
+            "l.txt": azure,
             "ok.txt": "CF_TOKEN=...",
         }
     )
-    for name in ("f.txt", "g.txt", "h.pem", "i.txt", "j.txt"):
+    for name in ("f.txt", "g.txt", "h.pem", "i.txt", "j.txt", "k.txt", "l.txt"):
         assert any(name in item for item in findings)
     assert not any("ok.txt" in item for item in findings)
 
@@ -201,6 +238,37 @@ def test_find_private_term_matches_redacts_the_term_itself():
         "b.txt: private denylist term #2",
     ]
     assert "private.example.test" not in "\n".join(findings)
+
+
+def test_find_private_term_matches_redacts_term_appearing_in_path():
+    path = "docs/internal/private-host.invalid/config.md"
+    findings = audit.find_private_term_matches(
+        {path: path},
+        ["private-host.invalid"],
+    )
+    assert findings == [
+        "docs/internal/[redacted]/config.md: private denylist term #1"
+    ]
+    assert "private-host.invalid" not in "\n".join(findings)
+
+
+def test_redact_private_terms_sanitizes_arbitrary_findings():
+    finding = "disallowed current path: import/private-host.invalid/dump.db"
+    redacted = audit._redact_private_terms(finding, ["private-host.invalid"])
+    assert redacted == "disallowed current path: import/[redacted]/dump.db"
+    assert "private-host.invalid" not in redacted
+
+
+def test_redact_private_terms_replaces_longest_first_case_insensitively():
+    text = "host reserved-node and reserved-node-01 both leak"
+    redacted = audit._redact_private_terms(
+        text, ["reserved-node", "reserved-node-01"]
+    )
+    assert redacted == "host [redacted] and [redacted] both leak"
+    assert "reserved-node" not in redacted
+    assert audit._redact_private_terms("Host RESERVED-NODE up", ["reserved-node"]) == (
+        "Host [redacted] up"
+    )
 
 
 def test_find_personal_commit_emails_flags_non_noreply_addresses():

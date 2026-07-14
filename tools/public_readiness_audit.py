@@ -14,12 +14,13 @@ import os
 import re
 import stat
 import subprocess
+import unicodedata
 from pathlib import Path
 
 EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]")
 DASHES = ("\u2014", "\u2013")
 EMAIL = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
-NON_ENGLISH_SCRIPT = re.compile("[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0400-\u04ff]")
+REDACTION_MARKER = "[redacted]"
 
 SECRET_PATTERNS = {
     "github-oauth-token": re.compile(r"gh[opusr]_[A-Za-z0-9]{36,}"),
@@ -168,6 +169,18 @@ def find_unapproved_historical_public_media(
     return sorted(issues)
 
 
+def _has_non_english_script(text: str) -> bool:
+    """Return True when text contains a letter or mark from a non-Latin script."""
+    for char in text:
+        if char.isascii():
+            continue
+        if unicodedata.category(char)[0] not in ("L", "M"):
+            continue
+        if not unicodedata.name(char, "").startswith("LATIN"):
+            return True
+    return False
+
+
 def find_public_copy_issues(files: dict[str, str]) -> list[str]:
     issues: list[str] = []
     for name, text in files.items():
@@ -175,7 +188,7 @@ def find_public_copy_issues(files: dict[str, str]) -> list[str]:
             issues.append(f"{name}: em or en dash")
         if EMOJI.search(text):
             issues.append(f"{name}: emoji")
-        if NON_ENGLISH_SCRIPT.search(text):
+        if _has_non_english_script(text):
             issues.append(f"{name}: non-English script")
         lowered = text.lower()
         if (
@@ -212,15 +225,28 @@ def find_secret_matches(files: dict[str, str]) -> list[str]:
     return findings
 
 
+def _redact_private_terms(text: str, terms: list[str]) -> str:
+    """Replace every private term with a neutral marker, longest terms first."""
+    for term in sorted((term for term in terms if term), key=len, reverse=True):
+        text = re.sub(
+            re.escape(term),
+            lambda _match: REDACTION_MARKER,
+            text,
+            flags=re.IGNORECASE,
+        )
+    return text
+
+
 def find_private_term_matches(
     files: dict[str, str], terms: list[str]
 ) -> list[str]:
     findings: list[str] = []
     for name, text in files.items():
+        display = _redact_private_terms(name, terms)
         lowered = text.lower()
         for index, term in enumerate(terms, start=1):
             if term.lower() in lowered:
-                findings.append(f"{name}: private denylist term #{index}")
+                findings.append(f"{display}: private denylist term #{index}")
     return findings
 
 
@@ -484,6 +510,10 @@ def main(argv=None) -> int:
         for error in fixture_module.validate_fixture(fixture)
     ]
 
+    if private_terms:
+        findings = [
+            _redact_private_terms(finding, private_terms) for finding in findings
+        ]
     for finding in findings:
         print(finding)
     if not findings:
