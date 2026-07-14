@@ -234,7 +234,27 @@ def test_entry_detail_uses_balanced_graphite_reading_layout(client):
     assert 'id="ai-commentary"' not in body
     assert 'id="chat-section"' in body
     assert 'data-role="follow-up"' in body
-    assert body.index('id="diary-text"') < body.index('id="chat-section"')
+    assert 'class="entry-margin-index"' in body
+
+    # Owner decision: keep chat last. The production render order is pinned to
+    # diary-text -> commentary-section -> .entry-margin-index -> chat-section.
+    # Assert on stable structural hooks only (ids/classes), never translated text.
+    order_markers = [
+        'id="diary-text"',
+        'id="commentary-section"',
+        'class="entry-margin-index"',
+        'id="chat-section"',
+    ]
+    positions = [body.index(marker) for marker in order_markers]
+    assert positions == sorted(positions), (
+        "Entry Detail render order must be "
+        "diary-text -> commentary-section -> .entry-margin-index -> chat-section; "
+        f"got positions {dict(zip(order_markers, positions))}"
+    )
+    # Each hook must appear exactly once so the ordering above is unambiguous.
+    for marker in order_markers:
+        assert body.count(marker) == 1, f"expected exactly one {marker}"
+
     assert 'data-entry-source="manual"' in body
     assert 'src="/static/js/entry.js"' in body
 
