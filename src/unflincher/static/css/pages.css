@@ -165,7 +165,6 @@
 }
 .writing-title { width: 100%; margin-top: var(--space-7); border: 0; border-bottom: 3px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); font: 700 clamp(2.5rem, 7vw, 6rem)/0.95 var(--font-command); letter-spacing: -0.045em; }
 .writing-body { width: 100%; min-height: calc(100dvh - 24rem); margin-top: var(--space-6); border: 0; border-radius: 0; background: transparent; color: var(--ink-soft); font: 1.125rem/1.9 var(--font-reading); resize: vertical; }
-.field-error { color: var(--accent); font-size: 0.75rem; }
 .writing-desk > .button { margin-top: var(--space-5); }
 @media (forced-colors: active) {
   .writing-editor::before { display: none; }
