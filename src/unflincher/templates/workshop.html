@@ -4,10 +4,10 @@
 {% with eyebrow=t("nav.workshop"), heading=t("workshop.heading"), metadata="" %}
   {% include "partials/page_heading.html" %}
 {% endwith %}
-<div class="workshop-grid">
+<div class="workshop-layout" data-role="primary-task">
   <section class="workshop-stage" data-workshop-stage="draft">
     <header><span>01</span><h2>{{ t("workshop.persona_label") }}</h2></header>
-    <textarea id="prompt-draft" aria-label="{{ t('workshop.persona_label') }}">{{ active_prompt }}</textarea>
+    <textarea id="prompt-draft" class="workshop-editor" aria-label="{{ t('workshop.persona_label') }}">{{ active_prompt }}</textarea>
     <div class="workshop-model-row">
       <label for="model-select">{{ t("workshop.model_label") }}</label>
       {% if models_error %}
@@ -34,27 +34,27 @@
 
   <section class="workshop-stage" data-workshop-stage="test">
     <header><span>02</span><h2>{{ t("workshop.preview_label") }}</h2></header>
-    <label for="test-entry">{{ t("workshop.test_run_label") }}</label>
-    <select id="test-entry"{% if not entries %} disabled{% endif %}>
-      {% for entry in entries %}<option value="{{ entry.id }}">{{ entry.title }}</option>{% endfor %}
-    </select>
-    <button id="run-test" class="button" type="button"{% if not entries %} disabled{% endif %}>{{ t("workshop.test_run_button") }}</button>
+    <div class="workshop-test-controls">
+      <label for="test-entry">{{ t("workshop.test_run_label") }}</label>
+      <select id="test-entry"{% if not entries %} disabled{% endif %}>
+        {% for entry in entries %}<option value="{{ entry.id }}">{{ entry.title }}</option>{% endfor %}
+      </select>
+      <button id="run-test" class="button" type="button"{% if not entries %} disabled{% endif %}>{{ t("workshop.test_run_button") }}</button>
+    </div>
     {% if not entries %}<p class="notice">{{ t("timeline.empty_state") }}</p>{% endif %}
-    <div id="preview-stream" class="stream-surface" hidden aria-live="polite"></div>
+    <div id="preview-stream" class="stream-surface" data-role="test-preview" hidden aria-live="polite"></div>
   </section>
 
-  <section class="workshop-stage workshop-commit" data-workshop-stage="commit">
+  <section class="workshop-stage" data-workshop-stage="commit">
     <header><span>03</span><h2>{{ t("workshop.apply_section_label") }}</h2></header>
-    <p>{{ t("workshop.apply_hint") }}</p>
-    <div class="workshop-actions">
-      <div class="workshop-save-boundary">
-        <button id="apply-btn" class="button button--accent" type="button"
-                data-saved-label="{{ t('workshop.saved') }}">{{ t("workshop.apply_button") }}</button>
-      </div>
-      <div class="expensive-operation">
+    <div class="workshop-commit-actions">
+      <button id="apply-btn" class="button button--accent" type="button"
+              data-saved-label="{{ t('workshop.saved') }}">{{ t("workshop.apply_button") }}</button>
+      <div class="workshop-apply-all">
         <button id="apply-all-btn" class="button button--danger" type="button">{{ t("workshop.apply_all_button") }}</button>
       </div>
     </div>
+    <p class="workshop-commit-hint">{{ t("workshop.apply_hint") }}</p>
     {% with notice_id="workshop-notice", tone="saved", message="", hidden=true, live="polite" %}
       {% include "partials/inline_notice.html" %}
     {% endwith %}

@@ -170,35 +170,29 @@
   .writing-editor::before { display: none; }
 }
 
-/* Prompt Workshop: draft / test / commit workbench (Task 9) */
-.workshop-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-6); }
+/* Prompt Workshop: one Draft -> Test -> Commit workflow (Task 9). A single primary column of flat
+   ruled stages -- no cards. The prompt editor is the dominant work surface; the test selector,
+   action, and preview read as one stage; apply-and-regenerate-all is bounded as a consequential
+   action by a muted-or-stronger rule rather than a bright accent. */
+.workshop-layout { display: flex; flex-direction: column; gap: var(--space-7); max-width: 54rem; }
 .workshop-stage { min-width: 0; padding-top: var(--space-5); border-top: 3px solid var(--ink); }
-.workshop-stage header { display: flex; gap: var(--space-3); align-items: baseline; color: var(--accent); font-family: var(--font-mono); }
+.workshop-stage header { display: flex; gap: var(--space-3); align-items: baseline; color: var(--muted); font-family: var(--font-mono); }
 .workshop-stage h2 { color: var(--ink); font: 600 1rem/1.2 var(--font-command); text-transform: uppercase; }
-.workshop-stage textarea { width: 100%; min-height: 22rem; }
+.workshop-editor { width: 100%; min-height: 24rem; margin-top: var(--space-4); }
 .workshop-model-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
-.workshop-stage[data-workshop-stage="test"] select { width: 100%; margin-bottom: var(--space-3); }
-.workshop-commit { grid-column: 1 / -1; border-top: 4px solid var(--accent); }
-.workshop-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); }
-.workshop-save-boundary, .expensive-operation { padding: var(--space-5); border: 1px solid var(--rule); }
-.expensive-operation { border-left: 4px solid var(--accent); }
+.workshop-test-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); margin-top: var(--space-4); }
+.workshop-test-controls label { grid-column: 1 / -1; }
+.workshop-commit-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-5); margin-top: var(--space-4); }
+.workshop-apply-all { padding-left: var(--space-4); border-left: 3px solid var(--muted); }
+.workshop-commit-hint { margin-top: var(--space-4); color: var(--muted); font-size: var(--text-sm); }
 .workshop-settings { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-7); padding-top: var(--space-4); border-top: 1px solid var(--rule); color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem; }
-.progress-rail { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--rule); }
-.progress-summary { display: flex; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-3); font-family: var(--font-mono); font-size: 0.75rem; }
-.progress-track { height: 3px; background: var(--rule); }
-.progress-track span { display: block; width: 0; height: 100%; background: var(--accent); }
-.progress-track[data-progress-bucket="1"] span { width: 10%; }
-.progress-track[data-progress-bucket="2"] span { width: 20%; }
-.progress-track[data-progress-bucket="3"] span { width: 30%; }
-.progress-track[data-progress-bucket="4"] span { width: 40%; }
-.progress-track[data-progress-bucket="5"] span { width: 50%; }
-.progress-track[data-progress-bucket="6"] span { width: 60%; }
-.progress-track[data-progress-bucket="7"] span { width: 70%; }
-.progress-track[data-progress-bucket="8"] span { width: 80%; }
-.progress-track[data-progress-bucket="9"] span { width: 90%; }
-.progress-track[data-progress-bucket="10"] span { width: 100%; }
-.progress-failures { margin: var(--space-4) 0 0; padding: 0; list-style: none; }
-.progress-failures li { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--rule); }
+/* Regen progress reuses the shared .progress-rail component (components.css). The workshop only
+   sets it off from the commit actions with a top rule and renders each failed item as a ruled row,
+   keeping every count, status, and retry control -- a flat progress track, not stacked cards. */
+.workshop-stage .progress-rail { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--rule); }
+.workshop-stage .progress-summary { font-family: var(--font-mono); }
+.workshop-stage .progress-failures li { align-items: baseline; padding: var(--space-3) 0; border-top: 1px solid var(--rule); }
+.workshop-stage .progress-failure-detail { min-width: 0; color: var(--prose); }
 
 /* Responsive page layout (Task 10). Shell breakpoints (.command-*, .app-footer, .mobile-*,
    .page-shell) live in shell.css; every page-layout selector -- plus mobile-ledger-enter, whose
@@ -225,7 +219,7 @@
 }
 
 @media (max-width: 47.9375rem) {
-  .timeline-layout, .entry-layout, .report-layout, .workshop-grid { grid-template-columns: 1fr; }
+  .timeline-layout, .entry-layout, .report-layout { grid-template-columns: 1fr; }
   .timeline-year-index { order: -1; }
   .archive-row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3) var(--space-4); }
   /* Date sits above the title in column 1; the status mark keeps column 2 and spans both rows.
@@ -256,8 +250,7 @@
   .writing-ledger { align-items: flex-start; flex-direction: column; }
   .writing-title { font-size: clamp(2.5rem, 15vw, 4.5rem); }
   .writing-body { min-height: 55dvh; }
-  .workshop-commit { grid-column: auto; }
-  .workshop-actions, .session-inline-form { grid-template-columns: 1fr; }
+  .workshop-test-controls, .session-inline-form { grid-template-columns: 1fr; }
   .workshop-model-row { grid-template-columns: 1fr; }
   .workshop-settings { align-items: flex-start; flex-direction: column; }
 }

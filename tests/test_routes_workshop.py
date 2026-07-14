@@ -44,6 +44,19 @@ def test_workshop_renders_draft_test_commit_stages(client):
     assert "<script>" not in body
 
 
+def test_workshop_renders_balanced_draft_test_commit_stages(client):
+    body = client.get("/workshop").text
+    assert 'class="workshop-layout"' in body
+    assert 'data-role="primary-task"' in body
+    assert 'data-workshop-stage="draft"' in body
+    assert 'data-workshop-stage="test"' in body
+    assert 'data-workshop-stage="commit"' in body
+    assert 'data-role="test-preview"' in body
+    assert 'id="apply-all-confirmation"' in body
+    assert 'id="workshop-notice"' in body
+    assert 'src="/static/js/workshop.js"' in body
+
+
 def test_job_progress_uses_progress_rail(client):
     db = client.app.state.db
     prompt_id = db.execute("SELECT id FROM persona_prompt WHERE is_active = 1").fetchone()["id"]

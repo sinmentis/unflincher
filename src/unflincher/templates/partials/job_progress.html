@@ -11,7 +11,7 @@
   <ul class="progress-failures">
     {% for item in failed_items %}
     <li>
-      <span>{{ t("job.item_failed", entry_id=item.entry_id, error=item.error) if item.entry_id else t("job.item_failed_report", error=item.error) }}</span>
+      <span class="progress-failure-detail">{{ t("job.item_failed", entry_id=item.entry_id, error=item.error) if item.entry_id else t("job.item_failed_report", error=item.error) }}</span>
       <button class="button" hx-post="/workshop/jobs/{{ job_id }}/item/{{ item.id }}/retry"
               hx-target="#regen-progress" hx-swap="outerHTML">{{ t("common.retry") }}</button>
     </li>
