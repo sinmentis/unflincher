@@ -36,4 +36,32 @@
 
 [data-reveal] { opacity: 1; }
 
-/* LANDING-PART-2-STYLES: appended in Task 7 */
+/* Part two: conversation, workshop, privacy, final call to action. */
+.chat-artifact { margin-top: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius); background: var(--graphite); padding: var(--space-4); }
+.chat-q, .chat-a { margin: 0 0 var(--space-3); }
+.chat-q span, .chat-a span { display: block; font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.chat-a { border-left: 2px solid var(--accent); padding-left: var(--space-4); }
+.conversation-canvas, .workshop-canvas { margin: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--graphite); }
+
+.privacy-grid { display: grid; grid-template-columns: 1.3fr 0.7fr; gap: var(--space-7); align-items: start; }
+.privacy-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.flow-node { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4); background: var(--graphite); }
+.flow-label { display: inline-block; font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-right: var(--space-3); }
+.flow-arrow { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; padding-left: var(--space-2); }
+.requirements ul { padding-left: 1.1rem; }
+.requirements li { margin-bottom: var(--space-2); }
+
+.final-cta { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: var(--space-6); align-items: center; border-bottom: 0; }
+.cta-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+
+/* Progressive reveal. Hidden state applies only when JavaScript is active, so the
+   no-JavaScript experience stays fully visible. Reduced motion is honored by site.css
+   and by site.js revealing every target immediately. */
+.js-reveal [data-reveal] { opacity: 0; transform: translateY(12px); transition: opacity 500ms ease, transform 500ms ease; }
+.js-reveal [data-reveal].is-revealed { opacity: 1; transform: none; }
+
+@media (max-width: 768px) {
+  .hero, .split, .split--reverse, .privacy-grid, .final-cta { grid-template-columns: 1fr; gap: var(--space-6); }
+  .landing-section { padding: var(--space-7) var(--space-5); }
+  .hero-artifact, .evidence-canvas, .conversation-canvas, .workshop-canvas { order: 2; }
+}

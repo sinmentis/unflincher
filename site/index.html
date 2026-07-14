@@ -110,7 +110,67 @@
       </div>
     </section>
 
-    <!-- LANDING-PART-2: sections 5 to 8 are inserted here in Task 7 -->
+    <section id="conversation" class="landing-section split" data-reveal>
+      <div class="split-lede">
+        <p class="eyebrow">Reflection as dialogue</p>
+        <h2>A conversation, not a verdict.</h2>
+        <p>The reading is a starting point you can push back on. Ask a question and the response engages with your objection instead of simply agreeing.</p>
+        <div class="chat-artifact">
+          <p class="chat-q"><span>You</span> The report says I avoid decisions. That feels harsh.</p>
+          <p class="chat-a"><span>Unflincher</span> Saving was responsible. The entries also show the target moved every time you got close, which looks less like budgeting and more like postponing.</p>
+        </div>
+      </div>
+      <figure class="conversation-canvas">
+        <img src="assets/images/demo-conversation.png" alt="Conversation view where the first interpretation is challenged with follow-up questions." width="1440" height="900">
+      </figure>
+    </section>
+
+    <section id="workshop" class="landing-section split split--reverse" data-reveal>
+      <figure class="workshop-canvas">
+        <img src="assets/images/demo-workshop.png" alt="Prompt Workshop view comparing a direct mentor prompt and a gentle companion prompt." width="1440" height="900">
+      </figure>
+      <div class="split-lede">
+        <p class="eyebrow">You control the voice</p>
+        <h2>Change the prompt, change the reflection.</h2>
+        <p>Unflincher does not ship one fixed AI voice. The Prompt Workshop lets you rewrite the persona and see how the same entries get read in a different register.</p>
+      </div>
+    </section>
+
+    <section id="privacy" class="landing-section" data-reveal>
+      <div class="section-lede">
+        <p class="eyebrow">Privacy and setup</p>
+        <h2>Where your words live, and what leaves the host.</h2>
+      </div>
+      <div class="privacy-grid">
+        <ol class="privacy-flow">
+          <li class="flow-node"><span class="flow-label">Local</span> Diary entries, prompts, commentary, reports, and chat history stay in your local SQLite database.</li>
+          <li class="flow-arrow" aria-hidden="true">then</li>
+          <li class="flow-node"><span class="flow-label">External processing</span> Generation sends the selected persona prompt and relevant diary context through GitHub Copilot to the chosen model.</li>
+        </ol>
+        <div class="requirements">
+          <h3>What you need</h3>
+          <ul>
+            <li>GitHub Copilot access</li>
+            <li>A host you control</li>
+            <li>Basic terminal setup</li>
+          </ul>
+          <p class="muted">The public demo contains only fictional data and never performs generation.</p>
+          <p class="muted">The public site is hosted on GitHub Pages and is subject to GitHub's platform logging and privacy practices.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta" class="landing-section final-cta" data-reveal>
+      <div class="cta-copy">
+        <p class="eyebrow">Start reflecting</p>
+        <h2>Read yourself across time.</h2>
+        <p>Try the fictional demo first, then read the source and decide whether to self-host.</p>
+      </div>
+      <div class="cta-actions">
+        <a class="btn btn--primary" href="demo/">Explore the demo</a>
+        <a class="btn" href="https://github.com/sinmentis/unflincher">View on GitHub</a>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
@@ -118,5 +178,6 @@
   </footer>
 
   <script src="assets/js/demo.js" defer></script>
+  <script src="assets/js/site.js" defer></script>
 </body>
 </html>
