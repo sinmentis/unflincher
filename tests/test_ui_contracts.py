@@ -109,6 +109,17 @@ def test_timeline_archive_no_longer_depends_on_sequence_numbers():
     assert 'data-role="entry-row"' in source
 
 
+def test_archive_row_hover_has_no_horizontal_motion():
+    """The Balanced Graphite design prohibits decorative horizontal row translation. The
+    `.archive-row:hover` rule may keep its quiet background tint but must not translate the row
+    or declare a transform transition."""
+    css = PAGES_CSS.read_text()
+    hover_body = _rule_body(css, ".archive-row:hover")
+    assert "transform" not in hover_body, f".archive-row:hover must not translate the row: {hover_body!r}"
+    row_body = _rule_body(css, ".archive-row")
+    assert "transform" not in row_body, f".archive-row must not transition transform: {row_body!r}"
+
+
 def test_horizontal_index_strip_has_tokenized_gap():
     """At tablet/mobile widths the entry margin index, report version index, report TOC, and
     timeline year index collapse into horizontal flex strips. They need tokenized spacing so the

@@ -118,8 +118,8 @@
 .year-density[data-density="5"] { transform: scaleX(1); }
 .archive-index { border-top: 3px solid var(--ink); }
 .archive-year { margin: var(--space-6) 0 var(--space-2); color: var(--accent); font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.12em; }
-.archive-row { display: grid; grid-template-columns: 7rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); min-height: 4.25rem; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none; transition: transform var(--motion-fast); }
-.archive-row:hover { transform: translateX(4px); background: var(--surface); }
+.archive-row { display: grid; grid-template-columns: 7rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); min-height: 4.25rem; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none; }
+.archive-row:hover { background: var(--surface); }
 .archive-row time { color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
 .archive-title { overflow: hidden; font-family: var(--font-reading); font-size: 1.0625rem; text-overflow: ellipsis; white-space: nowrap; }
 
