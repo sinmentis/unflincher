@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,4 +68,19 @@ def test_conversation_rejects_unknown_roles():
     assert any(
         "role must be user or assistant" in error
         for error in validator.validate_fixture(data)
+    )
+
+
+def test_public_fixture_is_not_gitignored():
+    result = subprocess.run(
+        ["git", "check-ignore", "--no-index", "site/data/sample-journal.json"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    # git check-ignore exits 0 when a path IS ignored, 1 when it is not.
+    assert result.returncode == 1, (
+        "site/data/sample-journal.json must not be gitignored so it can be added "
+        f"without `git add -f` (check-ignore matched: {result.stdout.strip()!r}, "
+        f"stderr: {result.stderr.strip()!r})"
     )
