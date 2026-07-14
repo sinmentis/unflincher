@@ -215,7 +215,7 @@ def test_view_specific_historical_commentary_version(client):
     # this route only swaps the commentary display, per Global Constraints.
 
 
-def test_entry_detail_uses_three_act_editorial_structure(client):
+def test_entry_detail_uses_balanced_graphite_reading_layout(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -227,13 +227,16 @@ def test_entry_detail_uses_three_act_editorial_structure(client):
 
     assert 'data-page="entry"' in body
     assert 'class="entry-layout"' in body
+    assert 'data-role="primary-task"' in body
     assert 'id="diary-text"' in body
+    assert 'data-role="entry-body"' in body
+    assert 'data-role="ai-commentary"' in body
     assert 'id="ai-commentary"' not in body
     assert 'id="chat-section"' in body
-    assert 'class="entry-margin-index"' in body
+    assert 'data-role="follow-up"' in body
+    assert body.index('id="diary-text"') < body.index('id="chat-section"')
     assert 'data-entry-source="manual"' in body
     assert 'src="/static/js/entry.js"' in body
-    assert 'id="chat-input"' in body and "<textarea" in body
 
 
 def test_entry_detail_preserves_generation_and_version_hooks(client):
@@ -260,6 +263,7 @@ def test_entry_detail_preserves_generation_and_version_hooks(client):
     )
     body = client.get(f"/entry/{entry_id}").text
     assert 'id="ai-commentary"' in body
+    assert 'data-role="ai-commentary"' in body
     assert f'href="/entry/{entry_id}/commentary/{ok_id}"' in body
     assert 'id="run-commentary"' in body or 'id="retry-commentary"' in body
 

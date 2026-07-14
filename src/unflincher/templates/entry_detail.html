@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ entry.title }}{% endblock %}
 {% block content %}
-<div class="entry-layout" data-entry-source="{{ entry.source }}">
+<div class="entry-layout" data-role="primary-task" data-entry-source="{{ entry.source }}">
   <article class="entry-record">
     {% with eyebrow=t("entry.toc_body") ~ " / " ~ ("%03d" % entry.id), heading=entry.title, metadata=entry.entry_date[:10] %}
       {% include "partials/page_heading.html" %}
@@ -10,17 +10,13 @@
       <div><dt>{{ t("entry.source_label") }}</dt><dd>{{ t("entry.source." ~ entry.source) }}</dd></div>
       <div><dt>{{ t("entry.archive_id_label") }}</dt><dd>{{ "%03d" % entry.id }}</dd></div>
     </dl>
-    <div class="diary-prose" id="diary-text">{{ entry.content_html | safe }}</div>
+    <div class="diary-prose" id="diary-text" data-role="entry-body">{{ entry.content_html | safe }}</div>
   </article>
 
-  {% include "partials/entry_margin_index.html" %}
-
-  <section class="margin-note-section" id="commentary-section" aria-labelledby="commentary-heading">
-    <header class="section-index">
-      <span>02</span>
-      <h2 id="commentary-heading">{{ t("entry.toc_commentary") }}</h2>
-    </header>
-    <div class="section-body">
+  <aside class="entry-commentary-rail">
+    <section class="commentary-panel" id="commentary-section" data-role="ai-commentary"
+             aria-labelledby="commentary-heading">
+      <h2 class="rail-heading" id="commentary-heading">{{ t("entry.toc_commentary") }}</h2>
       {% if commentary_html %}
       <div class="analysis-prose" id="ai-commentary">{{ commentary_html | safe }}</div>
       {% else %}
@@ -42,30 +38,28 @@
         <button id="run-commentary" class="button button--accent" type="button"
                 data-endpoint="/entry/{{ entry.id }}/commentary">{{ t("entry.run_commentary_button") }}</button>
       {% endif %}
-    </div>
-  </section>
+    </section>
 
-  <section class="inquiry-section" id="chat-section" aria-labelledby="inquiry-heading">
-    <header class="section-index">
-      <span>03</span>
-      <h2 id="inquiry-heading">{{ t("entry.toc_chat") }}</h2>
-    </header>
-    <div class="section-body">
-      <div id="chat-thread" class="conversation-thread">
-        {% for msg in chat_history %}
-        <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
-          <div class="message-stamp">{{ t("common.me") if msg.role == "user" else t("common.mentor") }} / {{ "%02d" % loop.index }}</div>
-          <div class="message-copy">{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
-        </article>
-        {% endfor %}
-      </div>
-      <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
-      {% with composer_id="entry-chat-composer", input_id="chat-input", send_id="chat-send",
-        placeholder=t("entry.chat_input_placeholder"), input_aria=t("entry.chat_input_aria"),
-        send_label=t("common.send"), endpoint="/entry/" ~ entry.id ~ "/chat", stream_target_id="chat-stream" %}
-        {% include "partials/conversation_composer.html" %}
-      {% endwith %}
+    {% include "partials/entry_margin_index.html" %}
+  </aside>
+
+  <section class="entry-follow-up" id="chat-section" data-role="follow-up"
+           aria-labelledby="inquiry-heading">
+    <h2 class="follow-up-heading" id="inquiry-heading">{{ t("entry.toc_chat") }}</h2>
+    <div id="chat-thread" class="conversation-thread">
+      {% for msg in chat_history %}
+      <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
+        <div class="message-stamp">{{ t("common.me") if msg.role == "user" else t("common.mentor") }} / {{ "%02d" % loop.index }}</div>
+        <div class="message-copy">{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
+      </article>
+      {% endfor %}
     </div>
+    <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
+    {% with composer_id="entry-chat-composer", input_id="chat-input", send_id="chat-send",
+      placeholder=t("entry.chat_input_placeholder"), input_aria=t("entry.chat_input_aria"),
+      send_label=t("common.send"), endpoint="/entry/" ~ entry.id ~ "/chat", stream_target_id="chat-stream" %}
+      {% include "partials/conversation_composer.html" %}
+    {% endwith %}
   </section>
 </div>
 {% endblock %}

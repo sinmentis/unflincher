@@ -5,21 +5,39 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Entry detail: body / margin note / inquiry (Task 4) */
-/* Unscoped like its sibling layout roots (.timeline-layout/.report-layout) -- the class is already
-   entry-only, and the earlier [data-page="entry"] prefix raised specificity above the Task 10
-   responsive `.entry-layout { grid-template-columns: 1fr }` collapse, which crushed the body column
-   on tablet/mobile. Dropping the redundant prefix lets the single-column breakpoints win. */
+/* Entry detail: Balanced Graphite reading reference (Task 4). Diary is the primary reading plane;
+   the commentary rail is secondary; the follow-up thread is last in the DOM and in the mobile
+   single-column flow. Unscoped like its .report-layout sibling so the responsive collapse wins. */
 .entry-layout {
   display: grid;
-  grid-template-columns: minmax(0, 9fr) minmax(12rem, 3fr);
+  grid-template-columns: minmax(0, 7fr) minmax(18rem, 3fr);
   gap: var(--space-8);
+  align-items: start;
 }
-.entry-record { min-width: 0; }
-.record-metadata { display: flex; gap: var(--space-6); margin: 0 0 var(--space-7); color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
+
+/* Primary reading plane. The 48px baseline texture is a faint decorative ::before painted above
+   the plane and below the text; it is removed at narrow width and in forced colours. */
+.entry-record {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  padding: var(--space-8) var(--space-7);
+  background-color: var(--entry-plane);
+}
+.entry-record::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.1;
+  background-image: repeating-linear-gradient(
+    to bottom, var(--rule) 0, var(--rule) 1px, transparent 1px, transparent 48px);
+}
+.record-metadata { display: flex; flex-wrap: wrap; gap: var(--space-6); margin: 0 0 var(--space-7); color: var(--muted); font-size: 0.6875rem; }
 .record-metadata div { display: flex; gap: var(--space-2); }
 .record-metadata dt { text-transform: uppercase; }
-.record-metadata dd { margin: 0; color: var(--ink-soft); }
+.record-metadata dd { margin: 0; color: var(--prose); }
 .diary-prose, .analysis-prose { max-width: var(--reading-max); font-family: var(--font-reading); font-size: clamp(1.0625rem, 1.4vw, 1.1875rem); line-height: 1.95; text-wrap: pretty; }
 .diary-prose > :first-child, .analysis-prose > :first-child { margin-top: 0; }
 .diary-prose > :last-child, .analysis-prose > :last-child { margin-bottom: 0; }
@@ -29,24 +47,39 @@
 .diary-prose a, .analysis-prose a { color: var(--ink); text-decoration-color: var(--accent); text-underline-offset: 0.2em; }
 .diary-prose img, .analysis-prose img { display: block; margin: 2rem 0; border: 1px solid var(--rule); }
 .diary-prose :is(h2, h3, h4), .analysis-prose :is(h2, h3, h4) { margin: 2em 0 0.6em; line-height: 1.1; }
-.entry-margin-index { position: sticky; top: calc(var(--header-height) + var(--space-6)); align-self: start; }
-.entry-margin-index nav, .version-ledger { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
-.entry-margin-index a { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; text-decoration: none; }
-.entry-margin-index nav a { display: block; }
-.version-ledger a { display: grid; grid-template-columns: 3rem 1fr auto; gap: var(--space-2); }
-.entry-margin-index a.is-active, .entry-margin-index a[aria-current="true"] { color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); padding-left: var(--space-2); }
-.margin-note-section, .inquiry-section { grid-column: 1 / -1; display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: var(--space-6); padding-block: var(--space-7); }
-.margin-note-section { border-top: 4px solid var(--accent); border-bottom: 1px solid var(--rule); }
-.inquiry-section { padding-bottom: 0; }
-.section-index { color: var(--accent); font-family: var(--font-mono); text-transform: uppercase; }
-.section-index h2 { margin: var(--space-2) 0 0; font: 600 0.75rem/1.2 var(--font-command); letter-spacing: 0.1em; }
-.section-body { min-width: 0; }
+.entry-margin-index { align-self: start; }
+.entry-margin-index nav, .entry-margin-index .version-ledger { display: grid; margin: 0; padding: 0; list-style: none; }
+.entry-margin-index .version-ledger { margin-top: var(--space-4); }
+.entry-margin-index a { display: block; padding: var(--space-2) 0; color: var(--muted); font-size: 0.75rem; text-decoration: none; }
+.entry-margin-index a:hover { color: var(--text); }
+.version-ledger a { display: grid; grid-template-columns: 2.5rem 1fr auto; gap: var(--space-2); font-size: 0.6875rem; }
+.entry-margin-index a.is-active, .entry-margin-index a[aria-current="true"] { color: var(--text); box-shadow: inset 3px 0 0 var(--muted); padding-left: var(--space-2); }
+
+/* Commentary rail (secondary). Children -- the commentary panel and the quiet index -- are
+   separated by rules, never nested as cards. */
+.entry-commentary-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); }
+.entry-commentary-rail > * + * { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
+.commentary-panel { display: grid; gap: var(--space-4); }
+.commentary-panel .analysis-prose { max-width: none; font-size: 0.9375rem; line-height: 1.75; }
+.rail-heading { margin: 0; color: var(--muted); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Follow-up thread (last). Full width beneath both planes, separated by a rule; never sticky. */
+.entry-follow-up { grid-column: 1 / -1; min-width: 0; padding-top: var(--space-7); border-top: 1px solid var(--rule); }
+.follow-up-heading { margin: 0; color: var(--muted); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.entry-follow-up .conversation-thread { padding-top: var(--space-4); }
+.entry-follow-up .conversation-composer { max-width: var(--reading-max); }
+
+/* Conversation rows shared with the general chat page (chat_session.html); rules, not cards. */
 .conversation-message { display: grid; grid-template-columns: 6rem minmax(0, var(--reading-max)); gap: var(--space-5); padding: var(--space-5) 0; border-top: 1px solid var(--rule); }
 .message-stamp { color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
 .conversation-message.is-user { padding-inline: var(--space-4); background: var(--surface); }
 .conversation-message.is-user .message-stamp { color: var(--accent); }
-.message-copy { color: var(--ink-soft); font-family: var(--font-reading); line-height: 1.8; }
-.inquiry-section .conversation-composer { position: sticky; bottom: 0; z-index: var(--z-sticky); }
+.message-copy { color: var(--ink-soft); font-family: var(--font-reading); line-height: 1.8; overflow-wrap: anywhere; min-width: 0; }
+
+/* The decorative baseline texture is purely cosmetic; drop it where system colours are enforced. */
+@media (forced-colors: active) {
+  .entry-record::before { display: none; }
+}
 
 /* General chat: session ledger + conversation workspace (Task 5) */
 [data-page^="chat"] .page-shell { padding-top: 0; }
@@ -156,13 +189,11 @@
 
 @media (max-width: 73.6875rem) {
   .timeline-layout, .entry-layout, .report-layout { grid-template-columns: 1fr; }
-  .entry-margin-index, .report-layout > aside, .timeline-year-index {
+  .report-layout > aside, .timeline-year-index {
     position: static;
     overflow-x: auto;
   }
-  .entry-margin-index, .report-layout > aside, .timeline-year-index { order: -1; }
-  .entry-margin-index > nav,
-  .entry-margin-index > .version-ledger,
+  .report-layout > aside, .timeline-year-index { order: -1; }
   .report-version-index > ol,
   .report-toc,
   .timeline-year-index > nav {
@@ -170,7 +201,6 @@
     min-width: max-content;
     gap: var(--space-4);
   }
-  .margin-note-section, .inquiry-section { grid-template-columns: 9rem minmax(0, 1fr); }
 }
 
 @media (max-width: 47.9375rem) {
@@ -191,8 +221,10 @@
     white-space: nowrap;
   }
   .archive-open { display: none; }
-  .margin-note-section, .inquiry-section { grid-template-columns: 1fr; gap: var(--space-4); }
+  .entry-record { padding: var(--space-6) var(--space-5); }
+  .entry-record::before { display: none; }
   .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }
+  .entry-follow-up .conversation-composer { max-width: none; }
   .chat-layout { display: block; min-height: auto; }
   /* The ledger fills the single mobile column, so its desktop right divider becomes a stray edge. */
   .session-ledger { border-right: 0; }
@@ -201,7 +233,6 @@
   .conversation-workspace { min-height: calc(100dvh - 8rem); padding: 0; }
   [data-page="chat-session"] .conversation-workspace { animation: mobile-ledger-enter var(--motion-default) ease-out both; }
   .mobile-chat-back { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; }
-  .inquiry-section .conversation-composer,
   .conversation-workspace .conversation-composer {
     position: sticky;
     bottom: calc(4.5rem + env(safe-area-inset-bottom));
