@@ -169,6 +169,10 @@
 .workshop-model-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
 .workshop-test-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); margin-top: var(--space-4); }
 .workshop-test-controls label { grid-column: 1 / -1; }
+/* Selects size to their widest <option> by default; a long entry title or model name would floor
+   the grid track and force horizontal overflow (worst on mobile). min-width:0 lets the select
+   shrink to its track so real long content wraps/clips instead of overflowing. */
+.workshop-model-row select, .workshop-test-controls select { min-width: 0; }
 .workshop-commit-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-5); margin-top: var(--space-4); }
 .workshop-apply-all { padding-left: var(--space-4); border-left: 3px solid var(--muted); }
 .workshop-commit-hint { margin-top: var(--space-4); color: var(--prose); font-size: var(--text-sm); }
@@ -239,7 +243,7 @@
   .writing-ledger { align-items: flex-start; flex-direction: column; }
   .writing-title { font-size: clamp(2.5rem, 15vw, 4.5rem); }
   .writing-body { min-height: 55dvh; }
-  .workshop-test-controls, .session-inline-form { grid-template-columns: 1fr; }
-  .workshop-model-row { grid-template-columns: 1fr; }
+  .workshop-test-controls, .session-inline-form { grid-template-columns: minmax(0, 1fr); }
+  .workshop-model-row { grid-template-columns: minmax(0, 1fr); }
   .workshop-settings { align-items: flex-start; flex-direction: column; }
 }

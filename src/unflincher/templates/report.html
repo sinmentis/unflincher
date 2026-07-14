@@ -4,7 +4,7 @@
 <div class="report-layout" data-role="primary-task" data-report-status="{{ report_status or 'empty' }}">
   <article class="report-document" data-role="report-body">
     {% with eyebrow=t("report.heading"), heading=t("report.heading"),
-      metadata=t("report.coverage", count=covered_count, range=covered_from ~ " — " ~ covered_to) if report_html else none %}
+      metadata=t("report.coverage", count=covered_count, range=(covered_from or "")[:10] ~ " — " ~ (covered_to or "")[:10]) if report_html else none %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
     <button id="run-report" class="button button--accent" type="button">{{ t("report.generate_button") }}</button>

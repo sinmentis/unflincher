@@ -191,6 +191,22 @@ def test_mobile_layouts_collapse_in_source_order():
         assert not re.search(r"(?m)^\s*order\s*:", body)
 
 
+def test_workshop_select_grids_can_shrink_below_option_width():
+    """Regression: a <select> defaults to min-width:auto (its widest <option>), which floors its
+    grid track and forces horizontal overflow -- worst on mobile with a long entry title or model
+    name. The fix requires BOTH min-width:0 on the selects AND minmax(0, 1fr) tracks so the column
+    can shrink below the intrinsic option width instead of overflowing the viewport."""
+    css = PAGES_CSS.read_text()
+    shrink = _rule_body(css, ".workshop-test-controls select")
+    assert "min-width: 0" in shrink
+    mobile = _media_block(css, MOBILE_QUERY)
+    for selector in (".workshop-test-controls", ".workshop-model-row"):
+        body = _rule_body(mobile, selector)
+        assert "grid-template-columns: minmax(0, 1fr)" in body
+        # A bare `1fr` track (== minmax(auto, 1fr)) would floor at the widest option and overflow.
+        assert not re.search(r"grid-template-columns:\s*1fr\b", body)
+
+
 def test_accessibility_fallbacks_remain_present():
     css = "\n".join(
         path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))

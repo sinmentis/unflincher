@@ -101,6 +101,28 @@ def test_report_page_shows_current_report_after_generation(client, monkeypatch):
     assert "反复出现的主题" in response.text
 
 
+def test_report_coverage_dates_render_as_calendar_dates_not_timestamps(client):
+    """Regression: coverage metadata must slice entry timestamps to YYYY-MM-DD, matching the
+    [:10] date convention used across timeline/entry/version templates. Full ISO timestamps
+    (with H:M:S) leak seconds-level noise and wrap the coverage line onto two rows on mobile."""
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "covered_from_date, covered_to_date, status) "
+        "VALUES (?, 'm', '主题', 79, '2014-10-01 20:57:17', '2026-01-08 06:46:57', 'ok')",
+        (prompt_id,),
+    )
+
+    body = client.get("/report").text
+
+    assert "2014-10-01 — 2026-01-08" in body
+    assert "20:57:17" not in body
+    assert "06:46:57" not in body
+
+
 def test_view_specific_historical_report_version(client):
     db = client.app.state.db
     # is_active=0: the startup lifespan already seeds an active default persona and the
