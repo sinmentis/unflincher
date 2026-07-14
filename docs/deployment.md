@@ -20,7 +20,8 @@ secret you already created.
 Every AI feature (commentary, reports, chat) calls the model through the GitHub Copilot SDK.
 
 - The SDK runtime auto-detects `COPILOT_GITHUB_TOKEN`, which is the highest-priority source it
-  checks. The image bakes the runtime at build time with `python -m copilot download-runtime`.
+  checks. Generation runs through a Copilot CLI runtime that downloads on first use; the image
+  bakes it at build time with `python -m copilot download-runtime`.
 - Use a fine-grained personal access token owned by your personal GitHub account (not an
   organization) with the account-level `Copilot Requests` permission. No repository permissions are
   required. Classic `ghp_` tokens are not supported, and an active Copilot seat is required.
@@ -53,7 +54,7 @@ Every AI feature (commentary, reports, chat) calls the model through the GitHub 
 
 3. If migrating existing entries, run the importer before the first start:
    `deploy/scripts/import-unflincher.sh /path/to/your-export.xlsx`. See
-   [local-development.md](local-development.md) for what the importer expects.
+   [import.md](import.md) for what the importer expects.
 
 4. Fill in the placeholder values in `deploy/quadlet/unflincher.container`, then copy the units and
    start the service:
@@ -88,7 +89,7 @@ Every AI feature (commentary, reports, chat) calls the model through the GitHub 
    an API token with the `Account.Access: Apps and Policies` permission set to Edit.
 
 7. Install the backup scripts and enable the nightly timer. See
-   [backup-and-restore.md](backup-and-restore.md).
+   [backup-and-recovery.md](backup-and-recovery.md).
 
 Private by design: `deploy/quadlet/unflincher.container` publishes to `127.0.0.1:8096` only, and the
 tunnel maps `unflincher.yourdomain.com` to that loopback port. The hostname must always stay paired

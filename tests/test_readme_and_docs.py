@@ -45,10 +45,10 @@ def test_readme_is_clean_public_english():
 def test_readme_links_to_all_split_docs_and_community_files():
     text = README.read_text(encoding="utf-8")
     for reference in (
-        "docs/local-development.md",
         "docs/deployment.md",
-        "docs/backup-and-restore.md",
+        "docs/backup-and-recovery.md",
         "docs/configuration.md",
+        "docs/import.md",
         "SECURITY.md",
         "CONTRIBUTING.md",
         "LICENSE",
@@ -79,18 +79,6 @@ def test_readme_links_support_issue_tracker():
     assert "https://github.com/sinmentis/unflincher/issues" in text
 
 
-def test_local_development_doc_matches_project_commands():
-    text = (DOCS / "local-development.md").read_text(encoding="utf-8")
-    for token in (
-        "pip install -e",
-        "uvicorn unflincher.app:app",
-        ".venv/bin/pytest",
-        "COPILOT_GITHUB_TOKEN",
-    ):
-        assert token in text
-    assert _problems(text) == []
-
-
 def test_deployment_doc_retains_key_operations():
     text = (DOCS / "deployment.md").read_text(encoding="utf-8")
     for token in (
@@ -116,7 +104,7 @@ def test_public_deployment_files_use_product_scoped_secret_default():
 
 
 def test_backup_doc_retains_backup_and_restore():
-    text = (DOCS / "backup-and-restore.md").read_text(encoding="utf-8")
+    text = (DOCS / "backup-and-recovery.md").read_text(encoding="utf-8")
     for token in (
         "unflincher-backup.sh",
         "unflincher-restore-drill.sh",
@@ -131,4 +119,11 @@ def test_configuration_doc_retains_env_table():
     text = (DOCS / "configuration.md").read_text(encoding="utf-8")
     for token in ("UNFLINCHER_DB", "UNFLINCHER_REQUIRE_ACCESS_AUTH", "src/unflincher/config.py"):
         assert token in text
+    assert _problems(text) == []
+
+
+def test_import_doc_retains_importer_command():
+    text = (DOCS / "import.md").read_text(encoding="utf-8")
+    assert "import-unflincher.sh" in text
+    assert ".xlsx" in text
     assert _problems(text) == []

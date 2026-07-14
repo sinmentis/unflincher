@@ -1,4 +1,4 @@
-# Backups and restore
+# Backups and recovery
 
 The nightly timer `unflincher-backup.timer` runs `~/.local/bin/unflincher-backup.sh`. The script
 uses SQLite online `.backup`, so it is safe while the WAL-mode application is running. It writes a

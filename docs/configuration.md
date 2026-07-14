@@ -6,7 +6,7 @@ GitHub Copilot SDK and the deploy tooling.
 
 ## Application settings
 
-The defaults below are the local-development defaults from `src/unflincher/config.py`. Production
+The defaults below are the local development defaults from `src/unflincher/config.py`. Production
 values are injected by the Quadlet unit's `Environment=` and `Secret=` directives (see
 `deploy/quadlet/unflincher.container`).
 
@@ -39,4 +39,4 @@ sessions run on it at once.
 
 The backup and restore scripts read their own environment variables, such as the backup directory,
 retention window, and restore port. Those are documented in
-[backup-and-restore.md](backup-and-restore.md).
+[backup-and-recovery.md](backup-and-recovery.md).

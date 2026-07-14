@@ -58,15 +58,14 @@ UNFLINCHER_REQUIRE_ACCESS_AUTH=false .venv/bin/uvicorn unflincher.app:app --relo
 ```
 
 Open http://localhost:8000. Browsing, writing, and reading work immediately. Generating AI
-commentary, reports, or chat additionally requires `COPILOT_GITHUB_TOKEN` to be set. See
-[docs/local-development.md](docs/local-development.md) for the full setup.
+commentary, reports, or chat additionally requires `COPILOT_GITHUB_TOKEN` to be set.
 
 ## Documentation
 
-- Local development: [docs/local-development.md](docs/local-development.md)
 - Installation and deployment behind Cloudflare Access: [docs/deployment.md](docs/deployment.md)
-- Backups and restore: [docs/backup-and-restore.md](docs/backup-and-restore.md)
+- Backups and recovery: [docs/backup-and-recovery.md](docs/backup-and-recovery.md)
 - Configuration reference: [docs/configuration.md](docs/configuration.md)
+- Importing existing entries: [docs/import.md](docs/import.md)
 
 ## Contributing, security, and support
 
