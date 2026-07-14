@@ -58,5 +58,15 @@
     "viewport": "64x64",
     "source": "site/assets/images/favicon.svg",
     "fixture": ""
+  },
+  {
+    "file": "social-preview.png",
+    "sha256": "a9eb951547a5560a876739810a1a973a4c4f933379123ca4503c518a2afc9734",
+    "bytes": 57795,
+    "origin": "synthetic-social-template",
+    "view": "social-preview",
+    "viewport": "1280x640",
+    "source": "tools/public-assets/social-preview.html",
+    "fixture": ""
   }
 ]

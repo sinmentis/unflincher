@@ -40,5 +40,12 @@
     "viewport": "1440x900",
     "source": "site/demo/index.html",
     "fixture": "site/data/sample-journal.json"
+  },
+  "social-preview.png": {
+    "origin": "synthetic-social-template",
+    "view": "social-preview",
+    "viewport": "1280x640",
+    "source": "tools/public-assets/social-preview.html",
+    "fixture": ""
   }
 }
