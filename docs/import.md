@@ -13,8 +13,9 @@ SQLite database:
 deploy/scripts/import-unflincher.sh /path/to/your-export.xlsx
 ```
 
-The wrapper copies the workbook into the `unflincher-data` volume, runs the import inside the
-container image, and prints the resulting entry count.
+The wrapper stages the workbook in a repository-local `import/` directory, mounts that directory
+read-only at `/import` inside the container, writes only the resulting SQLite database to the
+`unflincher-data` volume, and prints the entry count.
 
 ## Local import
 
