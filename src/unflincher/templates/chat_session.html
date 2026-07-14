@@ -4,10 +4,6 @@
 <div class="chat-layout">
   {% include "partials/chat_sidebar.html" %}
   <section class="conversation-workspace" aria-labelledby="chat-heading">
-    <a class="mobile-chat-back" href="/chat">
-      <svg class="icon" aria-hidden="true"><use href="#icon-back"></use></svg>
-      <span>{{ t("nav.chat") }}</span>
-    </a>
     <header class="conversation-heading">
       <p class="page-eyebrow">{{ t("nav.chat") }}</p>
       <h1 id="chat-heading">{{ active_session_title or t("chat.default_title") }}</h1>
@@ -16,7 +12,7 @@
     {% with notice_id="chat-notice", tone="failed", message="", hidden=true, live="polite" %}
       {% include "partials/inline_notice.html" %}
     {% endwith %}
-    <div id="chat-thread" class="conversation-thread">
+    <div id="chat-thread" class="conversation-thread" data-role="conversation">
       {% for msg in history %}
       <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
         <div class="message-stamp">
@@ -30,11 +26,13 @@
     </div>
     <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
     {% set message_endpoint = "/chat/" ~ active_session_id ~ "/message" if active_session_id else "/chat/message" %}
-    {% with composer_id="general-chat-composer", input_id="chat-input", send_id="chat-send",
-      placeholder=t("chat.input_placeholder"), input_aria=t("chat.input_aria"),
-      send_label=t("chat.send"), endpoint=message_endpoint, stream_target_id="chat-stream" %}
-      {% include "partials/conversation_composer.html" %}
-    {% endwith %}
+    <div class="conversation-dock" data-role="composer">
+      {% with composer_id="general-chat-composer", input_id="chat-input", send_id="chat-send",
+        placeholder=t("chat.input_placeholder"), input_aria=t("chat.input_aria"),
+        send_label=t("chat.send"), endpoint=message_endpoint, stream_target_id="chat-stream" %}
+        {% include "partials/conversation_composer.html" %}
+      {% endwith %}
+    </div>
   </section>
 </div>
 {% endblock %}

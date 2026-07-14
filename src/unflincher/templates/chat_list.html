@@ -3,7 +3,7 @@
 {% block content %}
 <div class="chat-layout">
   {% include "partials/chat_sidebar.html" %}
-  <section class="conversation-workspace" aria-labelledby="chat-heading">
+  <section class="conversation-workspace" data-role="primary-task" aria-labelledby="chat-heading">
     <header class="conversation-heading">
       <p class="page-eyebrow">{{ t("nav.chat") }}</p>
       <h1 id="chat-heading">{{ t("chat.heading") }}</h1>

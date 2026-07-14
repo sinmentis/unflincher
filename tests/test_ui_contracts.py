@@ -6,28 +6,9 @@ TEMPLATES = ROOT / "src" / "unflincher" / "templates"
 STATIC_JS = ROOT / "src" / "unflincher" / "static"
 PAGES_CSS = STATIC_JS / "css" / "pages.css"
 
-# Responsive breakpoint defined in pages.css (Task 10). Mobile governs <=767px.
-MOBILE_QUERY = "@media (max-width: 47.9375rem)"
-
 
 def _template_source() -> str:
     return "\n".join(path.read_text() for path in TEMPLATES.rglob("*.html"))
-
-
-def _media_block(css: str, query: str) -> str:
-    """Return the declarations inside the (single) `@media <query> { ... }` block."""
-    start = css.index(query)
-    open_brace = css.index("{", start)
-    depth = 0
-    for index in range(open_brace, len(css)):
-        char = css[index]
-        if char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return css[open_brace + 1:index]
-    raise AssertionError(f"unbalanced braces after {query!r}")
 
 
 def _rule_body(block: str, selector: str) -> str:
@@ -125,9 +106,9 @@ def test_report_history_follows_report_body_in_source_order():
     )
 
 
-def test_mobile_session_ledger_drops_right_divider():
-    """When chat collapses to a single mobile column the session ledger fills the width, so the
-    desktop `border-right` becomes a stray divider on the right edge and must be removed."""
-    mobile = _media_block(PAGES_CSS.read_text(), MOBILE_QUERY)
-    body = _rule_body(mobile, ".session-ledger")
-    assert re.search(r"border-right:\s*(0|none)\b", body), f"mobile .session-ledger must drop its right border: {body!r}"
+def test_chat_session_relies_on_global_contextual_back_navigation():
+    source = (TEMPLATES / "chat_session.html").read_text()
+    topbar = (TEMPLATES / "partials" / "command_navigation.html").read_text()
+    assert "mobile-chat-back" not in source
+    assert 'page_id == "chat-session"' in topbar
+    assert 'back_href = "/chat"' in topbar

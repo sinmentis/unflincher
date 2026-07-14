@@ -3,7 +3,7 @@
     <p class="session-ledger-title">{{ t("chat.heading") }}</p>
     <a class="button button--accent" href="/chat/new">{{ t("chat_sidebar.new") }}</a>
   </header>
-  <ol class="session-ledger-list">
+  <ol class="session-ledger-list" data-role="session-list">
     {% for s in sessions %}
     <li class="session-row{% if s.id == active_session_id %} is-active{% endif %}" data-role="session-row">
       <a class="session-link" href="/chat/{{ s.id }}"
