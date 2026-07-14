@@ -116,7 +116,7 @@ def test_timeline_shows_generating_badge_for_entry_with_active_job(client):
     assert "Generating" in body
 
 
-def test_timeline_renders_archive_summary_and_status_marks(client):
+def test_timeline_renders_quiet_archive_with_role_hooks(client):
     db = client.app.state.db
     db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -127,11 +127,14 @@ def test_timeline_renders_archive_summary_and_status_marks(client):
         "entry_date, source) VALUES ('Latest', '<p>x</p>', '<p>x</p>', 'x', '2026-07-13', 'manual')"
     )
     body = client.get("/").text
-    assert 'class="archive-index"' in body
+    assert 'data-role="primary-task"' in body
+    assert 'data-role="year-filter"' in body
+    assert 'data-role="archive-index"' in body
+    assert body.count('data-role="entry-row"') == 2
     assert 'data-entry-count="2"' in body
     assert "2020-01-01" in body and "2026-07-13" in body
     assert 'class="status-mark"' in body
-    assert "Open record" in body
+    assert 'class="archive-sequence"' not in body
     assert 'src="/static/js/timeline.js"' in body
 
 

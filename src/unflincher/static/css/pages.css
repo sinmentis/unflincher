@@ -118,12 +118,10 @@
 .year-density[data-density="5"] { transform: scaleX(1); }
 .archive-index { border-top: 3px solid var(--ink); }
 .archive-year { margin: var(--space-6) 0 var(--space-2); color: var(--accent); font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.12em; }
-.archive-row { display: grid; grid-template-columns: 4rem 7rem minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-4); min-height: 4.25rem; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none; transition: transform var(--motion-fast), opacity var(--motion-fast); }
+.archive-row { display: grid; grid-template-columns: 7rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); min-height: 4.25rem; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none; transition: transform var(--motion-fast); }
 .archive-row:hover { transform: translateX(4px); background: var(--surface); }
-.archive-sequence, .archive-row time { color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
+.archive-row time { color: var(--muted); font-family: var(--font-mono); font-size: 0.6875rem; }
 .archive-title { overflow: hidden; font-family: var(--font-reading); font-size: 1.0625rem; text-overflow: ellipsis; white-space: nowrap; }
-.archive-open { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--accent); font-family: var(--font-mono); font-size: 0.6875rem; opacity: 0; transform: translateX(-0.25rem); transition: transform var(--motion-fast), opacity var(--motion-fast); }
-.archive-row:hover .archive-open, .archive-row:focus-visible .archive-open { opacity: 1; transform: translateX(0); }
 
 /* Life Report: investigation document (Task 7) */
 .report-layout { display: grid; grid-template-columns: minmax(0, 9fr) minmax(12rem, 3fr); gap: var(--space-8); }
@@ -206,12 +204,12 @@
 @media (max-width: 47.9375rem) {
   .timeline-layout, .entry-layout, .report-layout, .workshop-grid { grid-template-columns: 1fr; }
   .timeline-year-index { order: -1; }
-  .archive-row { grid-template-columns: 3rem minmax(0, 1fr) auto; gap: var(--space-3); }
-  .archive-row time { grid-column: 2; }
-  /* Span the title across the sequence + date columns on its own row so it cannot auto-flow into
-     the 3rem sequence column and truncate to the first word (status mark keeps column 3). */
-  .archive-title { grid-column: 1 / 3; grid-row: 2; }
-  .archive-row .status-mark { grid-column: 3; grid-row: 1 / span 2; }
+  .archive-row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3) var(--space-4); }
+  /* Date sits above the title in column 1; the status mark keeps column 2 and spans both rows.
+     The title wraps instead of truncating so long titles stay fully readable on narrow screens. */
+  .archive-row time { grid-column: 1; grid-row: 1; }
+  .archive-title { grid-column: 1; grid-row: 2; overflow: visible; text-overflow: clip; white-space: normal; }
+  .archive-row .status-mark { grid-column: 2; grid-row: 1 / span 2; }
   .archive-row .status-label {
     position: absolute;
     width: 1px;
@@ -220,7 +218,6 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
   }
-  .archive-open { display: none; }
   .entry-record { padding: var(--space-6) var(--space-5); }
   .entry-record::before { display: none; }
   .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }

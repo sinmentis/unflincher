@@ -101,15 +101,12 @@ def test_legacy_component_selectors_are_removed():
         assert selector not in source
 
 
-def test_mobile_archive_title_spans_content_row_not_sequence_column():
-    """The mobile archive row is `3rem minmax(0,1fr) auto` with the status mark spanning both
-    rows in column 3. Without an explicit placement the title auto-flows into the 3rem sequence
-    column on its own row and truncates to the first word. It must instead span the content
-    columns (line 1 through the status column) so the full title is readable."""
-    mobile = _media_block(PAGES_CSS.read_text(), MOBILE_QUERY)
-    body = _rule_body(mobile, ".archive-title")
-    match = re.search(r"grid-column:\s*1\s*/\s*(-1|-2|3)\b", body)
-    assert match, f"mobile .archive-title must span from line 1 across the content columns: {body!r}"
+def test_timeline_archive_no_longer_depends_on_sequence_numbers():
+    source = (TEMPLATES / "timeline.html").read_text()
+    css = PAGES_CSS.read_text()
+    assert "archive-sequence" not in source
+    assert ".archive-sequence" not in css
+    assert 'data-role="entry-row"' in source
 
 
 def test_horizontal_index_strip_has_tokenized_gap():
