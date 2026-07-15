@@ -213,6 +213,17 @@ def test_find_public_copy_issues_requires_label_on_primary_surfaces():
     assert "README.md: missing source-available label" in issues
 
 
+def test_public_text_scope_includes_new_aeo_and_domain_surfaces():
+    for path in (
+        "AGENTS.md",
+        "CONTEXT.md",
+        "site/llms.txt",
+        "docs/release-notes-v0.1.0.md",
+        "src/unflincher/perspectives.py",
+    ):
+        assert audit._is_public_text(path), path
+
+
 def test_find_secret_matches_detects_common_credentials():
     token = "ghp_" + "a" * 36
     pat = "github_pat_" + "b" * 30

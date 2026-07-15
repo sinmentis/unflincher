@@ -1,0 +1,58 @@
+# Unflincher
+
+Unflincher is an evidence-grounded AI reflection partner for people with years of journal entries.
+It reads across a Journal Archive, finds recurring patterns, points back to dated entries, and keeps
+the interpretation open to Conversation.
+
+## Capabilities
+
+- Entry Reflection reads one entry in the context of the Journal Archive.
+- Life Report creates a cross-year synthesis with dated Entry References.
+- Conversation lets the owner challenge an Entry Reflection, Life Report, or archive-level reading.
+- Prompt Workshop applies one globally active Perspective: Companion, Coach, Challenger, Analyst, and Custom.
+- Changing the active Perspective affects future generation only and does not rewrite existing output.
+
+## Supported archive
+
+The supported archive import is an untouched Douban diary Excel export from the Tofu Chrome extension,
+handled by the CLI importer. Entries can also be written directly in Unflincher. There is no browser
+upload or generic spreadsheet importer.
+
+## Privacy and data flow
+
+Unflincher is single-user and self-hosted. Entries, prompts, generated reflections, reports, and
+Conversation history stay in local SQLite. GitHub Copilot is the only model integration.
+
+- Entry Reflection sends the full Journal Archive, the active prompt, and the selected-entry focus.
+- Life Report sends the full Journal Archive and the active prompt.
+- General Conversation sends the full Journal Archive, the active prompt, the complete current-session history, and the current message.
+- Entry Conversation sends the selected entry, its latest reflection when present, the complete thread history, the active prompt, and the current message.
+- Prompt Workshop preview sends the full Journal Archive, the selected-entry focus, the draft instructions, and the selected model without persisting the output.
+- When its separate model passes preflight, the first message of a new general Conversation is also sent once to generate a short session title. Otherwise the date title remains.
+
+The complete request must fit the selected model's context window. Unflincher fails clearly instead of
+silently dropping older entries or Conversation history.
+
+## Public demo
+
+The public demo contains only fictional data and performs no model calls, tracking, cookies, storage,
+or writable operations. The public site is hosted on GitHub Pages and is subject to GitHub's platform
+logging and privacy practices.
+
+## Product boundary
+
+Unflincher is not therapy, does not diagnose or treat, and does not impersonate a licensed
+professional. It does not replace professional care or relationships with other people.
+
+## License
+
+Source available for noncommercial use under PolyForm Noncommercial 1.0.0. Commercial use requires a
+separate license.
+
+## Canonical links
+
+- Product overview and FAQ: https://sinmentis.github.io/unflincher/
+- Fictional demo: https://sinmentis.github.io/unflincher/demo/
+- Source repository: https://github.com/sinmentis/unflincher
+- Import guide: https://github.com/sinmentis/unflincher/blob/main/docs/import.md
+- Deployment guide: https://github.com/sinmentis/unflincher/blob/main/docs/deployment.md

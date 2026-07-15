@@ -87,12 +87,17 @@ PUBLIC_TEXT_SUFFIXES = {
     ".toml",
 }
 PUBLIC_ROOT_FILES = {
+    "AGENTS.md",
     "README.md",
     "CHANGELOG.md",
     "SECURITY.md",
     "CONTRIBUTING.md",
     "CODE_OF_CONDUCT.md",
+    "CONTEXT.md",
     "pyproject.toml",
+}
+PUBLIC_SOURCE_FILES = {
+    "src/unflincher/perspectives.py",
 }
 REQUIRED_SOURCE_LABELS = {"README.md", "site/index.html", "site/demo/index.html"}
 SOURCE_LABEL_PHRASES = (
@@ -319,7 +324,7 @@ def _read_text(root: Path, rel: str) -> str | None:
 
 
 def _is_public_text(rel: str) -> bool:
-    if rel in PUBLIC_ROOT_FILES:
+    if rel in PUBLIC_ROOT_FILES or rel in PUBLIC_SOURCE_FILES:
         return True
     if rel.startswith("site/") and not rel.startswith("site/assets/fonts/"):
         return Path(rel).suffix in PUBLIC_TEXT_SUFFIXES

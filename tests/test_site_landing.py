@@ -106,6 +106,7 @@ def test_landing_second_half_sections_exist():
         'id="conversation"',
         'id="archive"',
         'id="privacy"',
+        'id="faq"',
         'id="cta"',
     ):
         assert section_id in html
@@ -130,10 +131,30 @@ def test_landing_sections_follow_the_product_story_order():
         "conversation",
         "archive",
         "privacy",
+        "faq",
         "cta",
     )
     positions = [html.index(f'id="{section_id}"') for section_id in section_ids]
     assert positions == sorted(positions)
+
+
+def test_landing_faq_is_immediately_before_the_final_action():
+    html = INDEX.read_text(encoding="utf-8")
+    faq_start = html.index('id="faq"')
+    faq_end = html.index("</section>", faq_start) + len("</section>")
+    cta_start = html.index('id="cta"')
+    cta_tag_start = html.rfind("<section", 0, cta_start)
+    assert not html[faq_end:cta_tag_start].strip()
+    for question in (
+        "What is Unflincher?",
+        "What is a Perspective?",
+        "What is a Life Report?",
+        "What archive can I import?",
+        "What leaves my host during generation?",
+        "How is Unflincher licensed?",
+        "Is Unflincher a substitute for therapy?",
+    ):
+        assert question in html[faq_start:faq_end]
 
 
 def test_landing_perspectives_and_proof_use_real_demo_views():

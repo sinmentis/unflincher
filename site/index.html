@@ -34,6 +34,16 @@
         "name": "Unflincher",
         "applicationCategory": "LifestyleApplication",
         "description": "AI reflection partner that finds recurring patterns across a Journal Archive, points back to dated entries, and keeps each interpretation open to conversation.",
+        "featureList": [
+          "Cross-year pattern reflection across a Journal Archive",
+          "Entry Reflections grounded in journal context",
+          "Life Reports with dated Entry References",
+          "Follow-up Conversations about generated interpretations",
+          "Companion, Coach, Challenger, Analyst, and Custom Perspectives",
+          "Prompt Workshop previews without persistence",
+          "Douban diary Excel import and manual writing",
+          "Single-user self-hosting with local SQLite storage"
+        ],
         "url": "https://sinmentis.github.io/unflincher/",
         "license": "https://polyformproject.org/licenses/noncommercial/1.0.0"
       },
@@ -43,6 +53,67 @@
         "codeRepository": "https://github.com/sinmentis/unflincher",
         "programmingLanguage": "Python",
         "license": "https://polyformproject.org/licenses/noncommercial/1.0.0"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is Unflincher?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Unflincher is an evidence-grounded AI reflection partner for people with years of journal entries. It reads across your Journal Archive, finds recurring patterns, points back to dated entries, and lets you challenge the interpretation in Conversation."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is a Perspective?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A Perspective is the globally active stance used for future Entry Reflections, Life Reports, and Conversations. Choose Companion, Coach, Challenger, Analyst, or Custom in Prompt Workshop. Changing it does not rewrite existing generated content."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is a Life Report?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A Life Report is a cross-year synthesis of recurring patterns, changes, contradictions, and goals. It names dated Entry References so you can compare the interpretation with the original writing."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What archive can I import?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "The supported archive import is an untouched Douban diary Excel export from the Tofu Chrome extension, handled by the CLI importer. You can also write entries directly in Unflincher. There is no browser upload or generic spreadsheet importer."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What leaves my host during generation?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Entries, prompts, generated output, and Conversation history stay in local SQLite. GitHub Copilot is the only model integration. Depending on the feature, it receives the full Journal Archive or selected entry context, active or draft instructions, applicable Conversation history, and the current message. A separate model may receive the first general Conversation message once to generate a short title. The complete request must fit the selected model's context window, and Unflincher fails clearly instead of silently dropping older content."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is Unflincher licensed?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Unflincher is source available for noncommercial use under PolyForm Noncommercial 1.0.0. Commercial use requires a separate license."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Unflincher a substitute for therapy?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Unflincher is not therapy, does not diagnose or treat, and does not impersonate a licensed professional. It does not replace professional care or relationships with other people."
+            }
+          }
+        ]
       }
     ]
   }
@@ -314,6 +385,43 @@
           <p>The public site is hosted on GitHub Pages and is subject to GitHub's platform logging and privacy practices.</p>
           <p>Source available for noncommercial use under PolyForm Noncommercial 1.0.0.</p>
         </div>
+      </div>
+    </section>
+
+    <section id="faq" class="landing-section faq-section" data-reveal>
+      <div class="section-heading">
+        <h2>Questions before you self-host.</h2>
+        <p>The short version of what the product does, what it sends, and where its boundaries are.</p>
+      </div>
+      <div class="faq-list">
+        <details>
+          <summary>What is Unflincher?</summary>
+          <p>Unflincher is an evidence-grounded AI reflection partner for people with years of journal entries. It reads across your Journal Archive, finds recurring patterns, points back to dated entries, and lets you challenge the interpretation in Conversation.</p>
+        </details>
+        <details>
+          <summary>What is a Perspective?</summary>
+          <p>A Perspective is the globally active stance used for future Entry Reflections, Life Reports, and Conversations. Choose Companion, Coach, Challenger, Analyst, or Custom in Prompt Workshop. Changing it does not rewrite existing generated content.</p>
+        </details>
+        <details>
+          <summary>What is a Life Report?</summary>
+          <p>A Life Report is a cross-year synthesis of recurring patterns, changes, contradictions, and goals. It names dated Entry References so you can compare the interpretation with the original writing.</p>
+        </details>
+        <details>
+          <summary>What archive can I import?</summary>
+          <p>The supported archive import is an untouched Douban diary Excel export from the Tofu Chrome extension, handled by the CLI importer. You can also write entries directly in Unflincher. There is no browser upload or generic spreadsheet importer.</p>
+        </details>
+        <details>
+          <summary>What leaves my host during generation?</summary>
+          <p>Entries, prompts, generated output, and Conversation history stay in local SQLite. GitHub Copilot is the only model integration. Depending on the feature, it receives the full Journal Archive or selected entry context, active or draft instructions, applicable Conversation history, and the current message. A separate model may receive the first general Conversation message once to generate a short title. The complete request must fit the selected model's context window, and Unflincher fails clearly instead of silently dropping older content.</p>
+        </details>
+        <details>
+          <summary>How is Unflincher licensed?</summary>
+          <p>Unflincher is source available for noncommercial use under PolyForm Noncommercial 1.0.0. Commercial use requires a separate license.</p>
+        </details>
+        <details>
+          <summary>Is Unflincher a substitute for therapy?</summary>
+          <p>Unflincher is not therapy, does not diagnose or treat, and does not impersonate a licensed professional. It does not replace professional care or relationships with other people.</p>
+        </details>
       </div>
     </section>
 
