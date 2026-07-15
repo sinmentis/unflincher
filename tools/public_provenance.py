@@ -115,6 +115,21 @@ def verify_manifest(images_dir: Path, manifest: list[dict]) -> list[str]:
                 )
                 if result.returncode != 0:
                     errors.append(f"source_ref does not resolve to a Git commit for {name}")
+                else:
+                    for field in ("source", "fixture"):
+                        source_path = entry.get(field)
+                        if not source_path:
+                            continue
+                        result = subprocess.run(
+                            ["git", "diff", "--quiet", source_ref, "--", source_path],
+                            cwd=repository_root,
+                            capture_output=True,
+                            text=True,
+                        )
+                        if result.returncode != 0:
+                            errors.append(
+                                f"{field} differs from source_ref for {name}: {source_path}"
+                            )
         approved_historical = entry.get("approved_historical_sha256")
         if not isinstance(approved_historical, list) or not all(
             isinstance(item, str) for item in approved_historical

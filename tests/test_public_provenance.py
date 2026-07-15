@@ -192,6 +192,57 @@ def test_verify_manifest_rejects_non_commit_source_ref(tmp_path):
     )
 
 
+def test_verify_manifest_rejects_source_changed_since_capture_commit(tmp_path):
+    root = tmp_path / "repo"
+    images_dir = root / "site" / "assets" / "images"
+    source_path = root / "site" / "demo" / "index.html"
+    images_dir.mkdir(parents=True)
+    source_path.parent.mkdir(parents=True)
+    _write_png(images_dir / "demo-timeline.png", b"alpha")
+    source_path.write_text("first source\n", encoding="utf-8")
+
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "capture source",
+        ],
+        cwd=root,
+        check=True,
+    )
+    source_ref = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    entry = provenance.build_manifest(
+        images_dir,
+        {
+            "demo-timeline.png": {
+                "origin": "synthetic-static-demo",
+                "source": "site/demo/index.html",
+                "source_ref": source_ref,
+            }
+        },
+    )[0]
+    assert provenance.verify_manifest(images_dir, [entry]) == []
+
+    source_path.write_text("changed source\n", encoding="utf-8")
+    assert any(
+        "source differs from source_ref for demo-timeline.png" in error
+        for error in provenance.verify_manifest(images_dir, [entry])
+    )
+
+
 def test_committed_provenance_matches_committed_images():
     manifest = json.loads((IMAGES / "provenance.json").read_text(encoding="utf-8"))
     sources = json.loads(
