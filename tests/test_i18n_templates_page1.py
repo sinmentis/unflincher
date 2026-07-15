@@ -3,7 +3,7 @@ def test_base_nav_switches_with_cookie(client):
     res = client.get("/")
     assert "タイムライン" in res.text
     assert "人生レポート" in res.text
-    assert "<title>Unflincher — 成長し、向上し、人生を楽しむ</title>" in res.text
+    assert "<title>Unflincher: 日記を振り返る</title>" in res.text
     assert "時間線" not in res.text  # old hardcoded Chinese must be gone
 
 
@@ -11,7 +11,7 @@ def test_base_nav_defaults_to_english_with_no_cookie(client):
     res = client.get("/")
     assert "Timeline" in res.text
     assert "Life Report" in res.text
-    assert "<title>Unflincher — Grow, Improve, Enjoy Life</title>" in res.text
+    assert "<title>Unflincher: Reflect on your journal</title>" in res.text
 
 
 def test_timeline_badges_translate(client, tmp_path):
@@ -25,7 +25,7 @@ def test_timeline_badges_translate(client, tmp_path):
     conn.commit()
     client.cookies.set("unflincher_lang", "fr")
     res = client.get("/")
-    assert "Non commenté" in res.text
+    assert "Sans réflexion" in res.text
 
 
 def test_entry_detail_translates(client):
@@ -40,5 +40,5 @@ def test_entry_detail_translates(client):
     entry_id = cur.lastrowid
     client.cookies.set("unflincher_lang", "de")
     res = client.get(f"/entry/{entry_id}")
-    assert "Noch kein Kommentar." in res.text
-    assert "KI-Kommentar" in res.text
+    assert "Noch keine Reflexion." in res.text
+    assert "Eintragsreflexion" in res.text

@@ -23,12 +23,12 @@ def _freeze_utc_now(monkeypatch):
 def test_new_entry_form_renders(client):
     response = client.get("/new")
     assert response.status_code == 200
-    assert "New Entry" in response.text
+    assert "Write" in response.text
 
 
 def test_new_entry_css_does_not_override_field_error_color():
     # Regression (Task 8): the shared, accessible `.field-error { color: var(--text) }`
-    # in components.css must win. The New Entry page CSS previously redefined
+    # in components.css must win. The Write page CSS previously redefined
     # `.field-error` to `var(--accent)`, which aliases `--muted` (#85827b) and fails
     # 4.5:1 contrast on /new. The page-specific stylesheet must not re-color it.
     css = PAGES_CSS.read_text()

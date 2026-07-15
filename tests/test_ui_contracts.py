@@ -153,12 +153,12 @@ def test_conversation_turns_are_flat_and_unnumbered():
 
     components = (STATIC_JS / "css" / "components.css").read_text()
     pages = PAGES_CSS.read_text()
-    mentor = _rule_body(components, ".conversation-message.is-mentor")
-    workspace_mentor = _rule_body(
-        pages, ".conversation-workspace .conversation-message.is-mentor"
+    assistant = _rule_body(components, ".conversation-message.is-assistant")
+    workspace_assistant = _rule_body(
+        pages, ".conversation-workspace .conversation-message.is-assistant"
     )
-    assert "border-left" in mentor
-    assert "background" not in workspace_mentor
+    assert "border-left" in assistant
+    assert "background" not in workspace_assistant
 
 
 def test_entry_commentary_generation_uses_quiet_buttons():

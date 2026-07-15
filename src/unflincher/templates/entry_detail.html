@@ -49,7 +49,7 @@
     <h2 class="follow-up-heading" id="inquiry-heading">{{ t("entry.toc_chat") }}</h2>
     <div id="chat-thread" class="conversation-thread">
       {% for msg in chat_history %}
-      <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
+      <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-assistant' }}">
         <div class="message-stamp">{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</div>
         <div class="message-copy">{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
       </article>

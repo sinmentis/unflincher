@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONTEXT = ROOT / "CONTEXT.md"
 ADR = ROOT / "docs" / "adr" / "0001-reflection-partner-and-global-perspective.md"
+TEMPLATES = ROOT / "src" / "unflincher" / "templates"
+STATIC_CSS = ROOT / "src" / "unflincher" / "static" / "css"
 
 DOMAIN_TERMS = (
     "Reflection Partner",
@@ -57,3 +59,61 @@ def test_adr_locks_the_repositioning_and_behavioral_decisions():
     assert "Per-conversation Perspective" in text
     assert "In-app Excel upload" in text
     _clean_public_copy(text)
+
+
+def test_application_uses_the_canonical_english_product_language():
+    from unflincher.i18n import TRANSLATIONS
+
+    english = TRANSLATIONS["en"]
+    expected = {
+        "nav.title": "Unflincher: Reflect on your journal",
+        "nav.chat": "Conversations",
+        "nav.new_entry": "Write",
+        "nav.workshop": "Prompt Workshop",
+        "entry.toc_commentary": "Entry Reflection",
+        "entry.toc_chat": "Conversation",
+        "entry.no_commentary_yet": "No reflection yet.",
+        "entry.run_commentary_button": "Generate reflection",
+        "chat.heading": "Conversations",
+        "workshop.heading": "Prompt Workshop",
+        "common.mentor": "Unflincher",
+    }
+    for key, value in expected.items():
+        assert english[key] == value
+
+    rendered_copy = "\n".join(english.values())
+    for forbidden in ("AI Mentor", "AI Commentary", "Prompt Settings", "New Entry", "Chat"):
+        assert forbidden not in rendered_copy
+
+
+def test_all_languages_use_unflincher_as_the_assistant_name():
+    from unflincher.i18n import TRANSLATIONS
+
+    for catalog in TRANSLATIONS.values():
+        assert catalog["common.mentor"] == "Unflincher"
+
+    rendered_copy = "\n".join(
+        value
+        for catalog in TRANSLATIONS.values()
+        for value in catalog.values()
+    ).lower()
+    for forbidden in (
+        "ai mentor",
+        "mentor ia",
+        "ki-mentor",
+        "ии-наставник",
+        "aiメンター",
+        "ai 멘토",
+        "ai 人生导师",
+        "mentor de ia",
+    ):
+        assert forbidden not in rendered_copy
+
+
+def test_assistant_message_css_uses_role_language_not_mentor_language():
+    source = "\n".join(path.read_text() for path in TEMPLATES.rglob("*.html"))
+    css = "\n".join(path.read_text() for path in STATIC_CSS.glob("*.css"))
+
+    assert "is-mentor" not in source + css
+    assert "is-assistant" in source
+    assert ".conversation-message.is-assistant" in css

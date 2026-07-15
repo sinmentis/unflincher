@@ -1,5 +1,6 @@
 import pytest
 
+from unflincher.i18n import SUPPORTED_LANGUAGE_CODES, TRANSLATIONS
 from unflincher import perspectives
 
 
@@ -20,6 +21,16 @@ def test_each_preset_has_unique_translation_keys_and_prompt():
     for preset in presets:
         assert preset.name_key == f"perspective.{preset.key}.name"
         assert preset.description_key == f"perspective.{preset.key}.description"
+
+
+def test_every_perspective_has_names_and_descriptions_in_all_languages():
+    for language in SUPPORTED_LANGUAGE_CODES:
+        catalog = TRANSLATIONS[language]
+        for preset in perspectives.list_presets():
+            assert catalog[preset.name_key].strip()
+            assert catalog[preset.description_key].strip()
+        assert catalog["perspective.custom.name"].strip()
+        assert catalog["perspective.custom.description"].strip()
 
 
 @pytest.mark.parametrize("key", EXPECTED_KEYS)

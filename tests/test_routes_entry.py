@@ -91,7 +91,7 @@ def test_entry_detail_shows_pending_state_when_no_commentary(client):
 
     response = client.get(f"/entry/{entry_id}")
 
-    assert "No commentary yet." in response.text
+    assert "No reflection yet." in response.text
 
 
 def test_entry_detail_404_for_missing_entry(client):
@@ -341,7 +341,7 @@ def test_entry_detail_has_toc_anchors_and_sidebar(client):
     assert 'class="entry-margin-index"' in body
     assert 'href="#diary-text"' in body
     assert 'href="#chat-section"' in body
-    # No commentary yet on this entry — its TOC link must not be offered.
+    # No reflection yet on this entry, so its TOC link must not be offered.
     assert 'href="#ai-commentary"' not in body
 
 
@@ -363,7 +363,7 @@ def test_entry_detail_chat_uses_bubble_classes_per_role(client):
     body = client.get(f"/entry/{entry_id}").text
 
     assert 'class="conversation-message is-user"' in body
-    assert 'class="conversation-message is-mentor"' in body
+    assert 'class="conversation-message is-assistant"' in body
 
 
 def test_entry_detail_shows_busy_state_when_job_is_running(client):
@@ -386,7 +386,7 @@ def test_entry_detail_shows_busy_state_when_job_is_running(client):
     response = client.get(f"/entry/{entry_id}")
 
     assert response.status_code == 200
-    assert "Generating commentary…" in response.text
+    assert "Generating reflection…" in response.text
     assert 'id="run-commentary"' not in response.text
 
 

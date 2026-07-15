@@ -89,7 +89,7 @@
 .conversation-heading h1 { font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: 500; }
 .conversation-context { max-width: 48ch; color: var(--prose); font-size: 0.6875rem; }
 .conversation-thread { flex: 1; overflow-y: auto; padding-top: var(--space-7); }
-.conversation-workspace .conversation-message.is-mentor { padding-inline: var(--space-4); }
+.conversation-workspace .conversation-message.is-assistant { padding-inline: var(--space-4); }
 /* Composer sits at the foot of the conversation column in normal flow (never floats over content). */
 .conversation-workspace .conversation-dock { margin-top: auto; }
 
@@ -131,7 +131,7 @@
 .report-toc a { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--prose); font-size: 0.75rem; text-decoration: none; }
 .report-toc a:hover { color: var(--text); }
 
-/* New Entry: focused writing desk (Task 8) */
+/* Write: focused writing desk (Task 8) */
 .writing-desk { max-width: 64rem; margin-inline: auto; }
 .writing-ledger { display: flex; align-items: end; justify-content: space-between; gap: var(--space-5); padding-bottom: var(--space-5); border-bottom: 1px solid var(--rule); }
 .writing-ledger label, .draft-status { color: var(--prose); font-size: 0.6875rem; text-transform: uppercase; }
@@ -229,7 +229,7 @@
   .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }
   .entry-follow-up .conversation-composer { max-width: none; }
 
-  /* Chat: the ledger fills the single column, so its desktop right divider becomes a stray edge;
+  /* Conversations: the ledger fills the single column, so its desktop right divider becomes a stray edge;
      an open conversation collapses the ledger entirely. */
   .chat-layout { min-height: auto; }
   .session-ledger { border-right: 0; }

@@ -8,14 +8,14 @@ def test_report_page_translates(client):
 def test_new_entry_page_translates(client):
     client.cookies.set("unflincher_lang", "es")
     res = client.get("/new")
-    assert "Nueva entrada" in res.text
+    assert "Escribir" in res.text
     assert "Guardar entrada" in res.text
 
 
 def test_chat_list_page_translates(client):
     client.cookies.set("unflincher_lang", "pt")
     res = client.get("/chat")
-    assert "Conversa" in res.text
+    assert "Conversas" in res.text
     assert "primeira" in res.text
 
 

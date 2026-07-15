@@ -14,7 +14,7 @@
     {% endwith %}
     <div id="chat-thread" class="conversation-thread" data-role="conversation">
       {% for msg in history %}
-      <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-mentor' }}">
+      <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-assistant' }}">
         <div class="message-stamp">
           {{ t("common.me") if msg.role == "user" else t("common.mentor") }}
         </div>
