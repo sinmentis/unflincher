@@ -20,7 +20,7 @@ from unflincher.db import (
     lock_maintenance_for_bootstrap,
     prompt_identity_manifest,
     remove_prompt_identity_guard,
-    require_no_running_regen_jobs,
+    require_generation_idle,
     require_v02_operational_schema,
     set_maintenance_locked,
     unlock_maintenance_if_idle,
@@ -72,7 +72,7 @@ def _run_bootstrap(db_path: str) -> dict[str, object]:
     conn = get_existing_connection(db_path)
     try:
         verify_v01_upgrade_schema(conn)
-        require_no_running_regen_jobs(conn)
+        require_generation_idle(conn)
         prompts_before = prompt_identity_manifest(conn)
         bootstrap_state = get_bootstrap_state(conn)
         if bootstrap_state is not None:

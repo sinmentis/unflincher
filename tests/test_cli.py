@@ -422,6 +422,40 @@ def test_cli_bootstrap_rejects_running_regeneration_job_before_any_migration(tmp
     conn.close()
 
 
+def test_cli_bootstrap_rerun_rejects_active_generation_lease_without_relocking(
+    tmp_path,
+):
+    db_path = tmp_path / "active-lease.db"
+    _write_upgrade_database(db_path)
+    assert _run_cli("bootstrap", "--db", str(db_path), "--json").returncode == 0
+    assert _run_cli(
+        "maintenance",
+        "unlock",
+        "--db",
+        str(db_path),
+        "--confirm-service-healthy",
+        "--json",
+    ).returncode == 0
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO generation_lease (target_key, lease_kind, owner_token) "
+        "VALUES ('entry:1', 'direct', 'owner')"
+    )
+    conn.commit()
+    conn.close()
+
+    result = _run_cli("bootstrap", "--db", str(db_path), "--json")
+
+    assert result.returncode == 1
+    assert "active generation lease(s): 1" in result.stderr
+    conn = sqlite3.connect(db_path)
+    assert conn.execute(
+        "SELECT locked FROM maintenance_control WHERE id = 1"
+    ).fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM generation_lease").fetchone()[0] == 1
+    conn.close()
+
+
 def test_cli_bootstrap_rechecks_unverified_state_before_locking(tmp_path):
     db_path = tmp_path / "unverified-ambiguous.db"
     _write_upgrade_database(db_path)
