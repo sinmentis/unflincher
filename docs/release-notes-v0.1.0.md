@@ -1,7 +1,6 @@
 # Release notes: v0.1.0
 
-Status: prepared but not yet published. Version 0.1.0 is not yet live, and publication is gated on a
-separate approved rollout.
+Published: 2026-07-15.
 
 Unflincher v0.1.0 is the first source-available release.
 
