@@ -129,7 +129,25 @@ if [[ -n "${BEFORE_PROMPT[id]:-}" ]]; then
   AFTER_PROMPT_MODEL="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT model FROM persona_prompt WHERE is_active=1;")"
   AFTER_PROMPT_IS_ACTIVE="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT is_active FROM persona_prompt WHERE is_active=1;")"
   AFTER_PROMPT_CREATED_AT="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT created_at FROM persona_prompt WHERE is_active=1;")"
-  AFTER_PROMPT_PRESET_KEY="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT COALESCE(preset_key,'NULL') FROM persona_prompt WHERE is_active=1;")"
+  AFTER_PROMPT_HAS_PRESET_KEY="$(
+    podman exec "$CONTAINER" sqlite3 /data/unflincher.db \
+      "SELECT COUNT(*) FROM pragma_table_info('persona_prompt') WHERE name='preset_key';"
+  )"
+  case "$AFTER_PROMPT_HAS_PRESET_KEY" in
+    0)
+      AFTER_PROMPT_PRESET_KEY="NULL"
+      ;;
+    1)
+      AFTER_PROMPT_PRESET_KEY="$(
+        podman exec "$CONTAINER" sqlite3 /data/unflincher.db \
+          "SELECT COALESCE(preset_key,'NULL') FROM persona_prompt WHERE is_active=1;"
+      )"
+      ;;
+    *)
+      echo "restore drill failed: could not determine persona_prompt.preset_key schema" >&2
+      exit 1
+      ;;
+  esac
   # Compute the raw digest inside Python (the image is Python 3.12), matching
   # active_prompt_manifest()'s sha256(body_text.encode('utf-8')) exactly -- no synthetic
   # newline, and body_text itself is never printed, only the digest.

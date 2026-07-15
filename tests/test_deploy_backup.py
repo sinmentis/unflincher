@@ -52,10 +52,11 @@ def _write_backup_archive(tmp_path: Path, entry_count: int = 2) -> Path:
 def _write_backup_archive_with_real_active_prompt(
     tmp_path: Path, entry_count: int = 2, *, body_text: str, model: str, preset_key: str | None,
     version_no: int = 1, prompt_id: int = 1, created_at: str = "2026-01-01T00:00:00+00:00",
+    include_preset_key: bool = True,
 ) -> Path:
     """Same COUNT_TABLES shape as _write_backup_archive, except persona_prompt gets a REAL row
-    (id/version_no/body_text/model/is_active/preset_key/created_at) so the restore drill's
-    active-prompt manifest comparison has something real to compare, end to end."""
+    so the restore drill's active-prompt manifest comparison has something real to compare, end to
+    end. include_preset_key=False reproduces the released v0.1 schema."""
     db_path = tmp_path / "source-with-prompt.db"
     archive_path = tmp_path / "source-with-prompt.db.gz"
     conn = sqlite3.connect(db_path)
@@ -69,23 +70,37 @@ def _write_backup_archive_with_real_active_prompt(
             f"INSERT INTO {table} (id) VALUES (?)",
             [(index + 1,) for index in range(entry_count)],
         )
+    preset_column = ", preset_key TEXT" if include_preset_key else ""
     conn.execute(
         "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
-        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+        f"body_text TEXT, model TEXT, is_active INTEGER{preset_column}, created_at TEXT)"
     )
-    conn.execute(
-        "INSERT INTO persona_prompt VALUES (?, ?, ?, ?, 1, ?, ?)",
-        (prompt_id, version_no, body_text, model, preset_key, created_at),
-    )
+    if include_preset_key:
+        conn.execute(
+            "INSERT INTO persona_prompt VALUES (?, ?, ?, ?, 1, ?, ?)",
+            (prompt_id, version_no, body_text, model, preset_key, created_at),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO persona_prompt VALUES (?, ?, ?, ?, 1, ?)",
+            (prompt_id, version_no, body_text, model, created_at),
+        )
     # Pad with inactive filler rows so persona_prompt's row COUNT also matches entry_count, like
     # every other table -- only the one row above (is_active=1) participates in the manifest
     # comparison the restore drill performs.
     for filler_id in range(entry_count - 1):
-        conn.execute(
-            "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, "
-            "preset_key, created_at) VALUES (?, ?, 'superseded', 'gpt-5.4', 0, NULL, ?)",
-            (prompt_id + filler_id + 1000, filler_id + 1, created_at),
-        )
+        if include_preset_key:
+            conn.execute(
+                "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, "
+                "preset_key, created_at) VALUES (?, ?, 'superseded', 'gpt-5.4', 0, NULL, ?)",
+                (prompt_id + filler_id + 1000, filler_id + 1, created_at),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, "
+                "created_at) VALUES (?, ?, 'superseded', 'gpt-5.4', 0, ?)",
+                (prompt_id + filler_id + 1000, filler_id + 1, created_at),
+            )
     conn.commit()
     conn.close()
     with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
@@ -615,7 +630,9 @@ def _write_fake_restore_commands(fake_bin: Path) -> Path:
         """#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$FAKE_PODMAN_LOG"
-if [[ "$*" == *"SELECT COUNT(*) FROM "* ]]; then
+if [[ "$*" == *"SELECT COUNT(*) FROM pragma_table_info('persona_prompt') WHERE name='preset_key';"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_HAS_PRESET_KEY:-1}"
+elif [[ "$*" == *"SELECT COUNT(*) FROM "* ]]; then
   printf '%s\n' "$FAKE_RESTORED_COUNT"
 elif [[ "$*" == *"SELECT id FROM diary_entry ORDER BY id LIMIT 1;"* ]]; then
   printf '1\n'
@@ -630,6 +647,7 @@ elif [[ "$*" == *"SELECT is_active FROM persona_prompt WHERE is_active=1;"* ]]; 
 elif [[ "$*" == *"SELECT created_at FROM persona_prompt WHERE is_active=1;"* ]]; then
   printf '%s\n' "${FAKE_PROMPT_CREATED_AT:-}"
 elif [[ "$*" == *"SELECT COALESCE(preset_key,'NULL') FROM persona_prompt WHERE is_active=1;"* ]]; then
+  [[ "${FAKE_PROMPT_HAS_PRESET_KEY:-1}" == "1" ]] || exit 1
   printf '%s\n' "${FAKE_PROMPT_PRESET_KEY:-}"
 elif [[ "$*" == *"python3 -c"* ]]; then
   printf '%s\n' "${FAKE_PROMPT_BODY_SHA256:-}"
@@ -686,6 +704,7 @@ def _run_restore_drill(
                 "FAKE_PROMPT_IS_ACTIVE": prompt_fields["is_active"],
                 "FAKE_PROMPT_CREATED_AT": prompt_fields["created_at"],
                 "FAKE_PROMPT_PRESET_KEY": prompt_fields["preset_key"],
+                "FAKE_PROMPT_HAS_PRESET_KEY": prompt_fields.get("has_preset_key", "1"),
                 # The restore drill computes the digest via `podman exec ... python3 -c ...`
                 # (see item 5) -- the fake just prints this precomputed digest for that call.
                 "FAKE_PROMPT_BODY_SHA256": body_sha256,
@@ -769,6 +788,39 @@ def test_restore_drill_passes_when_active_prompt_manifest_is_preserved(tmp_path)
     assert body_text not in result.stdout
     assert body_text not in result.stderr
     assert body_text not in podman_log
+
+
+def test_restore_drill_preserves_v0_1_prompt_without_preset_key_column(tmp_path):
+    body_text = "the owner's private reflective instructions"
+    archive = _write_backup_archive_with_real_active_prompt(
+        tmp_path,
+        entry_count=2,
+        body_text=body_text,
+        model="gpt-5.4",
+        preset_key=None,
+        include_preset_key=False,
+    )
+
+    result, podman_log = _run_restore_drill(
+        tmp_path,
+        archive,
+        restored_count=2,
+        prompt_fields={
+            "id": "1",
+            "version_no": "1",
+            "model": "gpt-5.4",
+            "is_active": "1",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "preset_key": "NULL",
+            "body_text": body_text,
+            "has_preset_key": "0",
+        },
+    )
+
+    assert result.returncode == 0
+    assert "restore drill passed: entries=2" in result.stdout
+    assert "pragma_table_info('persona_prompt')" in podman_log
+    assert "SELECT COALESCE(preset_key,'NULL')" not in podman_log
 
 
 def test_restore_drill_fails_when_active_prompt_preset_key_changes(tmp_path):
