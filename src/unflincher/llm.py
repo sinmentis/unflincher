@@ -611,6 +611,35 @@ async def get_model_max_prompt_tokens(model: str) -> int:
     raise ModelLimitsUnavailableError(model, "model not found in current catalog")
 
 
+class UnsupportedModelError(RuntimeError):
+    """The requested model id is not present in the current model catalog. Maps to a stable,
+    NON-retryable 400 unsupported_model -- unlike ModelLimitsUnavailableError (503), this means
+    the catalog loaded fine and simply does not contain this id, so retrying with the same id
+    would never succeed; the caller must pick a different model."""
+
+    def __init__(self, model: str):
+        self.model = model
+        super().__init__(f"model {model!r} is not present in the current model catalog")
+
+
+async def validate_selected_model(model: str, active_model: str) -> None:
+    """Validate a client-selected model before the Prompt Workshop generates or persists
+    anything. The CURRENTLY ACTIVE model is always accepted without a catalog round trip, even
+    when the catalog is temporarily unreachable -- continuing to use the model already in
+    production use must never be blocked by a transient model-list outage. Any OTHER (changed)
+    model must exist in the latest catalog: raises UnsupportedModelError (stable 400) if the
+    catalog loads but doesn't contain it, or ModelLimitsUnavailableError (retryable 503) if the
+    catalog itself could not be fetched."""
+    if model == active_model:
+        return
+    try:
+        models = await _list_model_infos()
+    except Exception as exc:
+        raise ModelLimitsUnavailableError(model, f"model catalog unavailable: {exc}") from exc
+    if not any(info.id == model for info in models):
+        raise UnsupportedModelError(model)
+
+
 async def refresh_available_models() -> list[tuple[str, str]]:
     """Force a fresh fetch, busting the SDK's in-process model-list cache. The SDK only clears
     that cache when the client disconnects (no public API invalidates just the cache), so this is

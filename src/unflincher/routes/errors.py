@@ -19,6 +19,7 @@ from unflincher.db import (
     StaleOrSupersededRetryError,
     TargetBusyError,
 )
+from unflincher.llm import UnsupportedModelError
 
 
 def generation_safety_http_exception(exc: Exception) -> HTTPException:
@@ -42,6 +43,10 @@ def generation_safety_http_exception(exc: Exception) -> HTTPException:
     if isinstance(exc, ModelLimitsUnavailableError):
         return HTTPException(status_code=503, detail={
             "reason": "model_limits_unavailable", "model": exc.model,
+        })
+    if isinstance(exc, UnsupportedModelError):
+        return HTTPException(status_code=400, detail={
+            "reason": "unsupported_model", "model": exc.model,
         })
     if isinstance(exc, MaintenanceLockedError):
         return HTTPException(status_code=503, detail={"reason": "maintenance_locked"})

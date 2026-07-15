@@ -14,17 +14,91 @@ async function applyAndRegenerate(fetchImpl, payload, csrfToken) {
     error.detail = await parseStableErrorDetail(regenResponse);
     throw error;
   }
-  const {job_id: jobId} = await regenResponse.json();
-  return jobId;
+  // presetKey is the SERVER's resolved classification (read back from the actual persisted row --
+  // see routes/workshop.py), never the browser's sent intent: a stale/forged/edited intent (or
+  // Custom text that happens to exactly match a shipped preset) must not misdrive the caller's
+  // "active Perspective" label update.
+  const {job_id: jobId, preset_key: presetKey} = await regenResponse.json();
+  return {jobId, presetKey};
+}
+
+// Reads the Choose-a-Perspective stage's server-rendered data blob (Task: Workshop): exact
+// preset text/name per key, keyed by preset key plus "custom". Never reconstructs prompt text
+// itself -- this is read-only data authored by perspectives.py (see routes/workshop.py).
+function readPerspectiveData(doc = document) {
+  const node = doc.getElementById("perspective-data");
+  if (!node) return {};
+  try {
+    return JSON.parse(node.textContent || "{}");
+  } catch {
+    return {};
+  }
 }
 
 function initWorkshopPage(doc = document) {
   const notice = doc.getElementById("workshop-notice");
   const modelNotice = doc.getElementById("model-notice");
-  const payload = () => ({
-    draft_prompt: doc.getElementById("prompt-draft").value,
+  const textarea = doc.getElementById("prompt-draft");
+  const perspectiveData = readPerspectiveData(doc);
+  const perspectiveRadios = Array.from(doc.querySelectorAll('input[name="perspective-choice"]'));
+  const activePerspectiveLabel = doc.querySelector('[data-role="active-perspective"]');
+
+  // The draft's CURRENT preset intent, one of the shipped keys or null (Custom). Starts at
+  // whichever radio the server pre-checked (matching the persisted active preset_key); the
+  // server always re-derives the REAL stored value from exact text, so this is only an
+  // optimistic client-side intent hint (see ApplyRequest's docstring in routes/workshop.py).
+  let currentPresetKey = null;
+  const initiallyChecked = perspectiveRadios.find((radio) => radio.checked);
+  if (initiallyChecked && initiallyChecked.value !== "custom") {
+    currentPresetKey = initiallyChecked.value;
+  }
+
+  function selectRadioForKey(key) {
+    const value = key || "custom";
+    const radio = perspectiveRadios.find((candidate) => candidate.value === value);
+    if (radio) radio.checked = true;
+  }
+
+  perspectiveRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      if (radio.value === "custom") {
+        // Selecting Custom never overwrites the textarea -- it just stops claiming a preset.
+        currentPresetKey = null;
+        return;
+      }
+      const preset = perspectiveData[radio.value];
+      if (preset && typeof preset.prompt === "string") textarea.value = preset.prompt;
+      currentPresetKey = radio.value;
+    });
+  });
+
+  // Any edit that makes the textarea differ from the currently selected preset's exact text
+  // switches the selection to Custom immediately (plan requirement 3) -- but never the reverse:
+  // typing back to an exact match is left for the server's own exact-text classification on
+  // Apply/Apply-all, not re-detected here.
+  textarea.addEventListener("input", () => {
+    if (!currentPresetKey) return;
+    const preset = perspectiveData[currentPresetKey];
+    if (preset && textarea.value !== preset.prompt) {
+      currentPresetKey = null;
+      selectRadioForKey(null);
+    }
+  });
+
+  function updateActivePerspectiveLabel(presetKey) {
+    if (!activePerspectiveLabel) return;
+    const entry = perspectiveData[presetKey || "custom"];
+    const name = entry ? entry.name : "";
+    const template = (window.UI_MESSAGES && window.UI_MESSAGES.activePerspectiveLabel) || "";
+    activePerspectiveLabel.textContent = template.replace("{name}", name);
+  }
+
+  const basePayload = () => ({
+    draft_prompt: textarea.value,
     model: doc.getElementById("model-select").value,
   });
+  const applyPayload = () => ({...basePayload(), preset_key: currentPresetKey});
 
   const refreshModels = doc.getElementById("refresh-models");
   refreshModels.addEventListener("click", async () => {
@@ -52,8 +126,9 @@ function initWorkshopPage(doc = document) {
   runTest.addEventListener("click", async () => {
     if (runTest.disabled) return;
     runTest.disabled = true;
+    // test-run NEVER accepts or persists a preset_key (see TestRunRequest) -- basePayload() only.
     await streamInto("/workshop/test-run", {
-      ...payload(),
+      ...basePayload(),
       entry_id: Number.parseInt(doc.getElementById("test-entry").value, 10),
     }, doc.getElementById("preview-stream"));
     runTest.disabled = false;
@@ -67,12 +142,22 @@ function initWorkshopPage(doc = document) {
       const response = await fetch("/workshop/apply", {
         method: "POST",
         headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
-        body: JSON.stringify(payload()),
+        body: JSON.stringify(applyPayload()),
       });
-      if (!response.ok) throw new Error(`apply failed: ${response.status}`);
+      if (!response.ok) {
+        const error = new Error(`apply failed: ${response.status}`);
+        error.status = response.status;
+        error.detail = await parseStableErrorDetail(response);
+        throw error;
+      }
+      const {preset_key: resolvedPresetKey} = await response.json();
+      updateActivePerspectiveLabel(resolvedPresetKey);
       setNotice(notice, applyButton.dataset.savedLabel, "saved");
-    } catch {
-      setNotice(notice, window.UI_MESSAGES.requestFailed, "failed");
+    } catch (error) {
+      const message = error.status === 409
+        ? window.UI_MESSAGES.busy
+        : stableErrorNoticeMessage(error.detail, window.UI_MESSAGES.requestFailed);
+      setNotice(notice, message, error.status === 409 ? "busy" : "failed");
     } finally {
       applyButton.disabled = false;
     }
@@ -98,7 +183,7 @@ function initWorkshopPage(doc = document) {
     applyAllButton.disabled = true;
     holder.replaceChildren(doc.getElementById("loading-state-template").content.cloneNode(true));
     try {
-      const jobId = await applyAndRegenerate(fetch, payload(), getCsrfToken());
+      const {jobId, presetKey} = await applyAndRegenerate(fetch, applyPayload(), getCsrfToken());
       const progress = doc.createElement("div");
       progress.id = "regen-progress";
       progress.setAttribute("hx-get", `/workshop/jobs/${jobId}/progress`);
@@ -106,6 +191,11 @@ function initWorkshopPage(doc = document) {
       progress.setAttribute("hx-swap", "outerHTML");
       holder.replaceChildren(progress);
       htmx.process(progress);
+      // Apply-all activates the prompt+preset atomically before this response returns (see
+      // routes/workshop.py) -- update the label from the SERVER's resolved classification, never
+      // the browser's sent intent (currentPresetKey): a stale/forged/edited intent, or Custom
+      // text that happens to exactly match a shipped preset, must not misdrive this label.
+      updateActivePerspectiveLabel(presetKey);
       confirmation.hidden = true;
     } catch (error) {
       holder.replaceChildren();
@@ -141,5 +231,5 @@ if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => initWorkshopPage(document));
 }
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {applyAndRegenerate, initWorkshopPage};
+  module.exports = {applyAndRegenerate, initWorkshopPage, readPerspectiveData};
 }

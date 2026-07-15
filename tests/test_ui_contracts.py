@@ -291,6 +291,20 @@ def test_workshop_select_grids_can_shrink_below_option_width():
         assert not re.search(r"grid-template-columns:\s*1fr\b", body)
 
 
+def test_workshop_commit_actions_stack_cleanly_on_mobile():
+    css = PAGES_CSS.read_text()
+    mobile = _media_block(css, MOBILE_QUERY)
+    actions = _rule_body(mobile, ".workshop-commit-actions")
+    assert "flex-direction: column" in actions
+    assert "align-items: stretch" in actions
+    apply_all = _rule_body(mobile, ".workshop-apply-all")
+    assert "padding-left: 0" in apply_all
+    assert "border-left: 0" in apply_all
+    assert "width: 100%" in apply_all
+    button = _rule_body(mobile, ".workshop-commit-actions .button")
+    assert "width: 100%" in button
+
+
 def test_accessibility_fallbacks_remain_present():
     css = "\n".join(
         path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))

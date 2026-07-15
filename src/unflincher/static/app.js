@@ -88,13 +88,25 @@ function contextTooLargeMessage(detail) {
 
 // One shared renderer for the small single-line `.notice` divs used outside streamInto's own
 // (larger, two-paragraph) rendering: entry.js's single-entry commentary trigger, workshop.js's
-// apply-all, and the htmx retry handler below. Combines the capacity message with its actions
-// into ONE string (these notices are plain text nodes, see setNotice) for context_too_large;
-// anything else (a different stable reason, or no parseable detail at all) falls through to
-// `fallbackMessage`, preserving each caller's exact previous generic-failure text.
+// apply/apply-all/test-run, and the htmx retry handler below. Combines the capacity message with
+// its actions into ONE string (these notices are plain text nodes, see setNotice) for
+// context_too_large; a handful of OTHER Workshop typed-contract reasons (Task: Workshop) get
+// their own short localized message; anything else (an unrecognized reason, or no parseable
+// detail at all) falls through to `fallbackMessage`, preserving each caller's exact previous
+// generic-failure text.
 function stableErrorNoticeMessage(detail, fallbackMessage) {
-  if (detail && detail.reason === "context_too_large") {
+  if (!detail) return fallbackMessage;
+  if (detail.reason === "context_too_large") {
     return `${contextTooLargeMessage(detail)} ${UI_MESSAGES.contextTooLargeActions || ""}`.trim();
+  }
+  if (detail.reason === "unsupported_model") {
+    return UI_MESSAGES.unsupportedModel || fallbackMessage;
+  }
+  if (detail.reason === "model_limits_unavailable") {
+    return UI_MESSAGES.modelCatalogOutage || fallbackMessage;
+  }
+  if (detail.reason === "empty_instructions") {
+    return UI_MESSAGES.emptyInstructions || fallbackMessage;
   }
   return fallbackMessage;
 }
@@ -197,7 +209,14 @@ async function streamInto(url, body, targetEl, onDone, onError) {
       actionsNode.textContent = UI_MESSAGES.contextTooLargeActions || "";
       targetEl.append(errorNode, actionsNode);
     } else {
-      errorNode.textContent = UI_MESSAGES.streamInterrupted || UI_MESSAGES.requestFailed || "";
+      // Any OTHER stable typed-contract reason (Workshop's unsupported model / catalog outage /
+      // empty instructions) gets its own short localized message via the SAME shared renderer
+      // used by the plain-fetch callers below; anything unrecognized (or a network error) keeps
+      // the existing generic "stream interrupted" text.
+      const fallback = UI_MESSAGES.streamInterrupted || UI_MESSAGES.requestFailed || "";
+      errorNode.textContent = error instanceof StreamRequestError
+        ? stableErrorNoticeMessage(error.detail, fallback)
+        : fallback;
       targetEl.append(errorNode);
     }
     onError?.(error);

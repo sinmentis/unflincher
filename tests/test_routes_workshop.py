@@ -2,16 +2,25 @@ import pytest
 
 import unflincher.llm as llm_module
 from unflincher.db import start_regen_job
+from unflincher.llm import validate_selected_model as _real_validate_selected_model
 
 
 @pytest.fixture(autouse=True)
 def _fake_model_limit(monkeypatch):
     """Every workshop route that generates (preview, apply-all, retry) now preflights against
     get_model_max_prompt_tokens() before opening SSE or enqueueing -- fake it so tests never need
-    a real Copilot client just to pass preflight."""
+    a real Copilot client just to pass preflight. Also fakes the typed-contract's model-existence
+    validation (llm.validate_selected_model) to accept ANY model by default, so tests that pass
+    an arbitrary model string (unrelated to model-validation itself) never need a real Copilot
+    client either; the small number of tests that DO exercise the real validation semantics
+    (unsupported id / catalog outage) restore the real function via monkeypatch."""
     async def _fake_limit(model):
         return 200_000
     monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _fake_limit)
+
+    async def _accept_any_model(model, active_model):
+        return None
+    monkeypatch.setattr(llm_module, "validate_selected_model", _accept_any_model)
 
 
 async def _fake_preview_tokens(*args, **kwargs):
@@ -844,3 +853,488 @@ def test_retry_job_item_413_when_current_context_too_large_never_requeues(client
     assert response.json()["detail"]["reason"] == "context_too_large"
     item = db.execute("SELECT status FROM regen_job_item WHERE id = ?", (failed_item["id"],)).fetchone()
     assert item["status"] == "failed"  # never requeued
+
+
+# ---------------------------------------------------------------------------
+# Workstream 5 (Prompt Workshop Perspective controls): choose-stage rendering, typed contract
+# validation, and server-side preset-key classification (never trusting the browser's claim).
+# ---------------------------------------------------------------------------
+
+def test_workshop_renders_choose_stage_with_all_perspective_radios(client):
+    body = client.get("/workshop").text
+    assert 'data-workshop-stage="choose"' in body
+    for key in ("companion", "coach", "challenger", "analyst", "custom"):
+        assert f'id="perspective-{key}"' in body
+    assert 'name="perspective-choice"' in body
+    assert 'id="perspective-data"' in body
+    assert 'data-role="active-perspective"' in body
+
+
+def test_workshop_choose_stage_prechecks_active_preset_key(client):
+    """A fresh install seeds the Analyst preset active -- its radio must be pre-checked, and
+    Custom must NOT be (plan requirement 9: derive initial selection from persisted preset_key)."""
+    body = client.get("/workshop").text
+    analyst_start = body.index('id="perspective-analyst"')
+    analyst_tag = body[analyst_start:body.index(">", analyst_start)]
+    assert "checked" in analyst_tag
+    custom_start = body.index('id="perspective-custom"')
+    custom_tag = body[custom_start:body.index(">", custom_start)]
+    assert "checked" not in custom_tag
+
+
+def test_workshop_choose_stage_defaults_to_custom_for_arbitrary_active_text(client):
+    from unflincher.db import set_active_prompt
+
+    db = client.app.state.db
+    set_active_prompt(db, "my own custom instructions", "gpt-5.4")
+
+    body = client.get("/workshop").text
+    custom_start = body.index('id="perspective-custom"')
+    custom_tag = body[custom_start:body.index(">", custom_start)]
+    assert "checked" in custom_tag
+    analyst_start = body.index('id="perspective-analyst"')
+    analyst_tag = body[analyst_start:body.index(">", analyst_start)]
+    assert "checked" not in analyst_tag
+
+
+def test_apply_persists_preset_key_for_exact_preset_text(client):
+    from unflincher.perspectives import get_preset
+
+    coach = get_preset("coach")
+    response = client.post("/workshop/apply", json={"draft_prompt": coach.prompt, "model": "test-model"})
+
+    assert response.status_code == 200
+    assert response.json()["preset_key"] == "coach"
+    db = client.app.state.db
+    active = db.execute("SELECT preset_key FROM persona_prompt WHERE is_active = 1").fetchone()
+    assert active["preset_key"] == "coach"
+
+
+def test_apply_persists_analyst_despite_forged_coach_hint_for_exact_analyst_text(client):
+    from unflincher.perspectives import get_preset
+
+    analyst = get_preset("analyst")
+    response = client.post(
+        "/workshop/apply",
+        json={"draft_prompt": analyst.prompt, "model": "test-model", "preset_key": "coach"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["preset_key"] == "analyst"
+    db = client.app.state.db
+    active = db.execute("SELECT preset_key FROM persona_prompt WHERE is_active = 1").fetchone()
+    assert active["preset_key"] == "analyst"
+
+
+def test_apply_persists_null_for_edited_preset_despite_matching_hint(client):
+    from unflincher.perspectives import get_preset
+
+    analyst = get_preset("analyst")
+    edited = analyst.prompt + " (edited by the owner)"
+    response = client.post(
+        "/workshop/apply",
+        json={"draft_prompt": edited, "model": "test-model", "preset_key": "analyst"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["preset_key"] is None
+    db = client.app.state.db
+    active = db.execute("SELECT preset_key FROM persona_prompt WHERE is_active = 1").fetchone()
+    assert active["preset_key"] is None
+
+
+def test_apply_rejects_unknown_preset_key(client):
+    db = client.app.state.db
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply",
+        json={"draft_prompt": "custom text", "model": "test-model", "preset_key": "nonexistent"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["reason"] == "unknown_preset_key"
+    after = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+    assert after == before
+
+
+def test_apply_rejects_empty_instructions(client):
+    db = client.app.state.db
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post("/workshop/apply", json={"draft_prompt": "   ", "model": "test-model"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["reason"] == "empty_instructions"
+    after = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+    assert after == before
+
+
+def test_apply_all_rejects_empty_instructions_and_writes_nothing(client):
+    db = client.app.state.db
+    _seed_entries(db)
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post("/workshop/apply-all", json={"draft_prompt": "\n\t ", "model": "test-model"})
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["reason"] == "empty_instructions"
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+
+
+def test_apply_all_rejects_unknown_preset_key_and_writes_nothing(client):
+    db = client.app.state.db
+    _seed_entries(db)
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply-all",
+        json={"draft_prompt": "custom text", "model": "test-model", "preset_key": "forged"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["reason"] == "unknown_preset_key"
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+
+
+def test_apply_all_response_includes_resolved_preset_key_for_exact_preset(client, monkeypatch):
+    from unflincher.perspectives import get_preset
+
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(_fake_gen_ok, _fake_report_ok)
+    )
+    db = client.app.state.db
+    _seed_entries(db)
+    challenger = get_preset("challenger")
+
+    response = client.post(
+        "/workshop/apply-all",
+        json={"draft_prompt": challenger.prompt, "model": "test-model", "preset_key": "challenger"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["preset_key"] == "challenger"
+    active = db.execute("SELECT preset_key FROM persona_prompt WHERE is_active = 1").fetchone()
+    assert active["preset_key"] == "challenger"
+
+
+def test_apply_all_legacy_no_body_response_includes_existing_preset_key(client, monkeypatch):
+    """The legacy no-body call regenerates under the ALREADY-active prompt -- its response must
+    mirror whatever preset_key that prompt already has (fresh install: Analyst)."""
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(_fake_gen_ok, _fake_report_ok)
+    )
+    db = client.app.state.db
+    _seed_entries(db)
+
+    response = client.post("/workshop/apply-all")
+
+    assert response.status_code == 200
+    assert response.json()["preset_key"] == "analyst"
+
+
+def test_apply_all_busy_rollback_persists_no_prompt_or_preset_key(client):
+    from unflincher.db import get_active_prompt, start_regen_job
+
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    original = db.execute(
+        "SELECT id, preset_key FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()
+    active_prompt = get_active_prompt(db)
+    start_regen_job(db, active_prompt["id"], entry_ids)
+
+    response = client.post(
+        "/workshop/apply-all",
+        json={"draft_prompt": "must roll back", "model": "test-model", "preset_key": "coach"},
+    )
+
+    assert response.status_code == 409
+    active = db.execute("SELECT id, preset_key FROM persona_prompt WHERE is_active = 1").fetchone()
+    assert dict(active) == dict(original)
+
+
+def test_test_run_rejects_empty_instructions_before_lease(client):
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+
+    response = client.post(
+        "/workshop/test-run", json={"draft_prompt": "   ", "entry_id": entry_ids[0]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["reason"] == "empty_instructions"
+    assert db.execute("SELECT COUNT(*) AS n FROM generation_lease").fetchone()["n"] == 0
+
+
+def test_test_run_rejects_a_preset_key_field_before_route_execution(client, monkeypatch):
+    """The approved contract says test-run accepts ONLY entry_id/draft_prompt/model. Sending a
+    preset_key at all is a stable 422 raised by FastAPI's request validation, BEFORE the route
+    body ever runs -- so no lease is acquired and nothing is written, exactly like any other
+    malformed request."""
+    def _boom(*args, **kwargs):
+        raise AssertionError("the route must never execute for a rejected extra field")
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _boom)
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/test-run",
+        json={"draft_prompt": "草稿", "entry_id": entry_ids[0], "preset_key": "coach"},
+    )
+
+    assert response.status_code == 422
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+    assert db.execute("SELECT COUNT(*) AS n FROM generation_lease").fetchone()["n"] == 0
+
+
+def test_apply_rejects_an_unknown_extra_field_before_route_execution(client):
+    db = client.app.state.db
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply",
+        json={"draft_prompt": "custom text", "model": "test-model", "bogus_field": "x"},
+    )
+
+    assert response.status_code == 422
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+
+
+def test_apply_all_rejects_an_unknown_extra_field_before_route_execution(client):
+    db = client.app.state.db
+    _seed_entries(db)
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply-all",
+        json={"draft_prompt": "custom text", "model": "test-model", "bogus_field": "x"},
+    )
+
+    assert response.status_code == 422
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+
+
+class _FakeModelInfo:
+    def __init__(self, id):
+        self.id = id
+
+
+def test_apply_400_for_unsupported_changed_model(client, monkeypatch):
+    """Restores the REAL validate_selected_model (the autouse fixture fakes it to accept
+    anything) so this test exercises the actual unsupported-id classification end to end."""
+    monkeypatch.setattr(llm_module, "validate_selected_model", _real_validate_selected_model)
+
+    async def _fake_infos():
+        return [_FakeModelInfo("gpt-5.4")]
+    monkeypatch.setattr(llm_module, "_list_model_infos", _fake_infos)
+
+    db = client.app.state.db
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply", json={"draft_prompt": "custom text", "model": "nonexistent-model"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["reason"] == "unsupported_model"
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+
+
+def test_apply_503_when_changed_model_catalog_unavailable(client, monkeypatch):
+    monkeypatch.setattr(llm_module, "validate_selected_model", _real_validate_selected_model)
+
+    async def _broken_infos():
+        raise RuntimeError("copilot CLI unreachable")
+    monkeypatch.setattr(llm_module, "_list_model_infos", _broken_infos)
+
+    db = client.app.state.db
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply", json={"draft_prompt": "custom text", "model": "some-other-model"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["reason"] == "model_limits_unavailable"
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+
+
+def test_apply_accepts_the_currently_active_model_despite_catalog_outage(client, monkeypatch):
+    """The active model must never require a catalog round trip (plan requirement 7) -- posting
+    Apply with the SAME model as the current active prompt must succeed even though the catalog
+    is completely broken."""
+    monkeypatch.setattr(llm_module, "validate_selected_model", _real_validate_selected_model)
+
+    async def _broken_infos():
+        raise RuntimeError("copilot CLI unreachable")
+    monkeypatch.setattr(llm_module, "_list_model_infos", _broken_infos)
+
+    db = client.app.state.db
+    active_model = db.execute(
+        "SELECT model FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["model"]
+
+    response = client.post(
+        "/workshop/apply", json={"draft_prompt": "custom text", "model": active_model},
+    )
+
+    assert response.status_code == 200
+
+
+def test_test_run_400_for_unsupported_changed_model(client, monkeypatch):
+    monkeypatch.setattr(llm_module, "validate_selected_model", _real_validate_selected_model)
+
+    async def _fake_infos():
+        return [_FakeModelInfo("gpt-5.4")]
+    monkeypatch.setattr(llm_module, "_list_model_infos", _fake_infos)
+
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+
+    response = client.post(
+        "/workshop/test-run",
+        json={"draft_prompt": "草稿", "entry_id": entry_ids[0], "model": "nonexistent-model"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["reason"] == "unsupported_model"
+    assert db.execute("SELECT COUNT(*) AS n FROM generation_lease").fetchone()["n"] == 0
+
+
+def test_apply_all_503_when_changed_model_catalog_unavailable_writes_nothing(client, monkeypatch):
+    monkeypatch.setattr(llm_module, "validate_selected_model", _real_validate_selected_model)
+
+    async def _broken_infos():
+        raise RuntimeError("copilot CLI unreachable")
+    monkeypatch.setattr(llm_module, "_list_model_infos", _broken_infos)
+
+    db = client.app.state.db
+    _seed_entries(db)
+    before = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply-all",
+        json={"draft_prompt": "custom text", "model": "some-other-model"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["reason"] == "model_limits_unavailable"
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+
+
+def test_apply_all_legacy_no_body_returns_409_when_no_active_prompt_exists(client):
+    """A compatible upgraded database may have zero persona_prompt rows (see the persistence
+    workstream) -- the legacy no-body Apply-all path must not dereference None and 500; it must
+    return a stable 409 telling the caller to Apply a prompt first, with no job/write."""
+    db = client.app.state.db
+    _seed_entries(db)
+    db.execute("DELETE FROM persona_prompt")
+
+    response = client.post("/workshop/apply-all")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["reason"] == "no_active_prompt"
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+
+
+def test_apply_response_preset_key_reflects_the_actual_stored_row_not_a_recomputed_value(client, monkeypatch):
+    """Regression: the response must read back the row db.py actually persisted (queried by
+    new_id) rather than independently re-running classify_prompt() in the route -- proven here
+    by counting calls to the real classify_prompt: exactly ONE call (db.py's own internal
+    classification), never a second one from the route re-deriving the same value."""
+    from unflincher.perspectives import classify_prompt as _real_classify_prompt
+    from unflincher.perspectives import get_preset
+
+    calls = []
+
+    def _counting(prompt):
+        calls.append(prompt)
+        return _real_classify_prompt(prompt)
+    monkeypatch.setattr("unflincher.perspectives.classify_prompt", _counting)
+
+    coach = get_preset("coach")
+    response = client.post("/workshop/apply", json={"draft_prompt": coach.prompt, "model": "test-model"})
+
+    assert response.status_code == 200
+    assert response.json()["preset_key"] == "coach"
+    assert len(calls) == 1
+
+
+def test_apply_all_response_preset_key_reflects_the_activated_row_not_a_recomputed_value(client, monkeypatch):
+    from unflincher.perspectives import classify_prompt as _real_classify_prompt
+    from unflincher.perspectives import get_preset
+
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(_fake_gen_ok, _fake_report_ok)
+    )
+    db = client.app.state.db
+    _seed_entries(db)
+
+    calls = []
+
+    def _counting(prompt):
+        calls.append(prompt)
+        return _real_classify_prompt(prompt)
+    monkeypatch.setattr("unflincher.perspectives.classify_prompt", _counting)
+
+    challenger = get_preset("challenger")
+    response = client.post(
+        "/workshop/apply-all", json={"draft_prompt": challenger.prompt, "model": "test-model"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["preset_key"] == "challenger"
+    assert len(calls) == 1
+
+
+def test_workshop_page_normalizes_an_unknown_stored_preset_key_to_custom(client):
+    """A historical/removed preset key must never leave every radio unchecked -- it renders as
+    Custom, and must NOT be reclassified by body text."""
+    from unflincher.perspectives import get_preset
+
+    db = client.app.state.db
+    analyst = get_preset("analyst")
+    db.execute(
+        "UPDATE persona_prompt SET preset_key = 'retired-preset' WHERE is_active = 1 "
+        "AND body_text = ?",
+        (analyst.prompt,),
+    )
+
+    body = client.get("/workshop").text
+
+    custom_start = body.index('id="perspective-custom"')
+    custom_tag = body[custom_start:body.index(">", custom_start)]
+    assert "checked" in custom_tag
+    analyst_start = body.index('id="perspective-analyst"')
+    analyst_tag = body[analyst_start:body.index(">", analyst_start)]
+    assert "checked" not in analyst_tag
+    # Never reclassified by body text despite the stored text being an exact Analyst match.
+    assert "Active Perspective: Analyst" not in body
+
+
+def test_workshop_page_always_selects_the_active_model_even_when_missing_from_catalog(client, monkeypatch):
+    """If model discovery succeeds but omits the current active model, the page must still
+    render and select it (using its own ID as display text) rather than silently defaulting the
+    <select> to whatever the browser picks first."""
+    from unflincher.db import set_active_prompt
+
+    db = client.app.state.db
+    set_active_prompt(db, "custom instructions", "orphaned-model")
+
+    async def _fake_models():
+        return [("gpt-5.5", "GPT-5.5"), ("claude-opus-4.8", "Claude Opus 4.8")]
+    monkeypatch.setattr(llm_module, "list_available_models", _fake_models)
+
+    body = client.get("/workshop").text
+
+    assert 'value="orphaned-model"' in body
+    option_start = body.index('value="orphaned-model"')
+    option_tag = body[option_start:body.index("</option>", option_start) + len("</option>")]
+    assert "selected" in option_tag
+    assert ">orphaned-model<" in option_tag

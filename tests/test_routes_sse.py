@@ -201,6 +201,10 @@ def _fake_model_limit_and_forbid_generation(monkeypatch):
         return 200_000
     monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _fake_limit)
 
+    async def _accept_any_model(model, active_model):
+        return None
+    monkeypatch.setattr(llm_module, "validate_selected_model", _accept_any_model)
+
     async def _forbidden(envelope):
         raise AssertionError(
             "the model must never be called when the client disconnected before the SSE body "
@@ -254,7 +258,7 @@ async def test_trigger_report_releases_report_lease_on_disconnect_before_iterati
 
 
 async def test_workshop_test_run_releases_request_lease_on_disconnect_before_iteration(client):
-    from unflincher.routes.workshop import workshop_test_run
+    from unflincher.routes.workshop import TestRunRequest, workshop_test_run
 
     db = client.app.state.db
     entry_id = db.execute(
@@ -268,7 +272,8 @@ async def test_workshop_test_run_releases_request_lease_on_disconnect_before_ite
     request = _make_json_request(
         client.app, {"entry_id": entry_id, "draft_prompt": "测试人设", "model": "test-model"},
     )
-    response = await workshop_test_run(request)
+    body = TestRunRequest(entry_id=entry_id, draft_prompt="测试人设", model="test-model")
+    response = await workshop_test_run(request, body)
     assert response.background is not None
 
     await _drive_disconnect_before_body_ever_iterates(response)

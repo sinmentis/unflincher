@@ -155,7 +155,7 @@
   .writing-editor::before { display: none; }
 }
 
-/* Prompt Workshop: one Draft -> Test -> Commit workflow (Task 9). A single primary column of flat
+/* Prompt Workshop: Choose -> Tune -> Preview -> Apply workflow. A single primary column of flat
    ruled stages -- no cards. The prompt editor is the dominant work surface; the test selector,
    action, and preview read as one stage; apply-and-regenerate-all is bounded as a consequential
    action by a muted-or-stronger rule rather than a bright accent. */
@@ -181,6 +181,30 @@
 .workshop-stage .progress-rail { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--rule); }
 .workshop-stage .progress-failures li { align-items: baseline; padding: var(--space-3) 0; border-top: 1px solid var(--rule); }
 .workshop-stage .progress-failure-detail { min-width: 0; color: var(--prose); }
+
+/* Perspective picker (Choose stage): native radio inputs styled as flat ruled rows, matching the
+   workshop's existing "no cards" rule rather than boxed/shadowed cards. Real <input type="radio">
+   + <label for> keeps arrow-key and screen-reader semantics entirely native -- no custom widget,
+   no extra JS beyond reading which one ended up checked. */
+.workshop-active-perspective { margin-top: var(--space-3); color: var(--text); font-weight: 600; }
+.workshop-perspective-scope-note { margin-top: var(--space-2); color: var(--prose); font-size: var(--text-sm); }
+.perspective-picker { display: grid; gap: var(--space-3); margin: var(--space-5) 0 0; padding: 0; border: 0; }
+.perspective-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule);
+}
+.perspective-option:first-child { border-top: 0; }
+.perspective-radio { margin-top: 0.2em; accent-color: var(--text); }
+.perspective-option-label { display: flex; flex-direction: column; gap: var(--space-1); cursor: pointer; }
+.perspective-option-name { color: var(--text); font-weight: 600; }
+.perspective-option-description { color: var(--prose); font-size: var(--text-sm); }
+/* has() lets the whole row read as "selected" via CSS alone -- purely a visual affordance, the
+   input's own :checked state (native) remains the single source of truth. */
+.perspective-option:has(.perspective-radio:checked) .perspective-option-name { color: var(--text); text-decoration: underline; text-underline-offset: 0.2em; }
 
 /* Responsive page layout (Task 10). One mobile breakpoint collapses the six principal layouts to a
    single column. The DOM already emits each region in the intended reading order, so the collapse
@@ -242,5 +266,8 @@
   .writing-body { min-height: 55dvh; }
   .workshop-test-controls, .session-inline-form { grid-template-columns: minmax(0, 1fr); }
   .workshop-model-row { grid-template-columns: minmax(0, 1fr); }
+  .workshop-commit-actions { align-items: stretch; flex-direction: column; }
+  .workshop-apply-all { width: 100%; padding-left: 0; border-left: 0; }
+  .workshop-commit-actions .button { width: 100%; }
   .workshop-settings { align-items: flex-start; flex-direction: column; }
 }

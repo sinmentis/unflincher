@@ -100,6 +100,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Send',
         'common.busy_alert': 'A job is already running, please try again later.',
         'app_js.stream_interrupted': 'Generation interrupted',
+        'app_js.unsupported_model': "That model isn't available right now. Choose another model.",
+        'app_js.model_catalog_outage': "Couldn't verify the model list. Try again in a moment, or keep the current model.",
+        'app_js.empty_instructions': "Instructions can't be empty.",
         'app_js.context_too_large': (
             'This request is too large: about {estimated} tokens, but the selected model '
             'allows up to {limit}.'
@@ -109,6 +112,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
             'conversation history, then try again.'
         ),
         'workshop.test_run_button': 'Test run',
+        'workshop.choose_perspective_heading': 'Choose a Perspective',
+        'workshop.tune_instructions_heading': 'Tune the instructions',
         'language.name.en': 'English',
         'language.name.zh-Hans': 'Simplified Chinese',
         'language.name.ja': 'Japanese',
@@ -198,9 +203,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
              'common.send': '发送',
              'common.busy_alert': '已经有任务在跑，请稍后再试',
              'app_js.stream_interrupted': '生成中断',
+             'app_js.unsupported_model': '该模型目前不可用，请选择其他模型。',
+             'app_js.model_catalog_outage': '无法确认模型列表，请稍后重试，或继续使用当前模型。',
+             'app_js.empty_instructions': '说明内容不能为空。',
              'app_js.context_too_large': '此次请求过大：约 {estimated} 个 token，但所选模型上限为 {limit}。',
              'app_js.context_too_large_actions': '请选择上下文窗口更大的模型，或减少归档条目或对话历史后重试。',
              'workshop.test_run_button': '试跑',
+             'workshop.choose_perspective_heading': '选择一个视角',
+             'workshop.tune_instructions_heading': '调整说明',
              'language.name.en': '英语',
              'language.name.zh-Hans': '简体中文',
              'language.name.ja': '日语',
@@ -290,9 +300,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': '送信',
         'common.busy_alert': 'すでにタスクが実行中です。しばらくしてから再試行してください',
         'app_js.stream_interrupted': '生成が中断されました',
+        'app_js.unsupported_model': 'このモデルは現在利用できません。別のモデルを選択してください。',
+        'app_js.model_catalog_outage': 'モデル一覧を確認できませんでした。しばらくして再試行するか、現在のモデルのまま続けてください。',
+        'app_js.empty_instructions': '指示を空にすることはできません。',
         'app_js.context_too_large': 'このリクエストは大きすぎます：約 {estimated} トークンですが、選択したモデルの上限は {limit} です。',
         'app_js.context_too_large_actions': 'コンテキストウィンドウがより大きいモデルを選ぶか、アーカイブや会話履歴を減らしてから再試行してください。',
         'workshop.test_run_button': '実行',
+        'workshop.choose_perspective_heading': '視点を選ぶ',
+        'workshop.tune_instructions_heading': '指示を調整する',
         'language.name.en': '英語',
         'language.name.zh-Hans': '簡体字中国語',
         'language.name.ja': '日本語',
@@ -382,9 +397,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': '보내기',
         'common.busy_alert': '이미 작업이 실행 중입니다. 잠시 후 다시 시도해 주세요',
         'app_js.stream_interrupted': '생성이 중단되었습니다',
+        'app_js.unsupported_model': '현재 이 모델을 사용할 수 없습니다. 다른 모델을 선택하세요.',
+        'app_js.model_catalog_outage': '모델 목록을 확인할 수 없습니다. 잠시 후 다시 시도하거나 현재 모델을 유지하세요.',
+        'app_js.empty_instructions': '지침을 비워둘 수 없습니다.',
         'app_js.context_too_large': '요청이 너무 큽니다: 약 {estimated} 토큰이지만 선택한 모델의 한도는 {limit}입니다.',
         'app_js.context_too_large_actions': '컨텍스트 창이 더 큰 모델을 선택하거나 아카이브 또는 대화 기록을 줄인 후 다시 시도하세요.',
         'workshop.test_run_button': '테스트 실행',
+        'workshop.choose_perspective_heading': '관점 선택',
+        'workshop.tune_instructions_heading': '지침 다듬기',
         'language.name.en': '영어',
         'language.name.zh-Hans': '중국어(간체)',
         'language.name.ja': '일본어',
@@ -476,6 +496,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Enviar',
         'common.busy_alert': 'Ya hay una tarea en curso, inténtalo de nuevo más tarde',
         'app_js.stream_interrupted': 'Generación interrumpida',
+        'app_js.unsupported_model': 'Ese modelo no está disponible ahora. Elige otro modelo.',
+        'app_js.model_catalog_outage': 'No se pudo verificar la lista de modelos. Inténtalo de nuevo en un momento o mantén el modelo actual.',
+        'app_js.empty_instructions': 'Las instrucciones no pueden estar vacías.',
         'app_js.context_too_large': (
             'Esta solicitud es demasiado grande: unos {estimated} tokens, pero el modelo '
             'seleccionado permite hasta {limit}.'
@@ -485,6 +508,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
             'el historial de la conversación, y vuelve a intentarlo.'
         ),
         'workshop.test_run_button': 'Probar',
+        'workshop.choose_perspective_heading': 'Elige una Perspectiva',
+        'workshop.tune_instructions_heading': 'Ajusta las instrucciones',
         'language.name.en': 'inglés',
         'language.name.zh-Hans': 'chino simplificado',
         'language.name.ja': 'japonés',
@@ -577,6 +602,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Envoyer',
         'common.busy_alert': 'Une tâche est déjà en cours, réessayez plus tard',
         'app_js.stream_interrupted': 'Génération interrompue',
+        'app_js.unsupported_model': "Ce modèle n'est pas disponible pour le moment. Choisissez un autre modèle.",
+        'app_js.model_catalog_outage': 'Impossible de vérifier la liste des modèles. Réessayez dans un instant ou conservez le modèle actuel.',
+        'app_js.empty_instructions': 'Les instructions ne peuvent pas être vides.',
         'app_js.context_too_large': (
             'Cette requête est trop volumineuse : environ {estimated} jetons, mais le modèle '
             'sélectionné autorise jusqu\'à {limit}.'
@@ -586,6 +614,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
             'archives ou l\'historique de la conversation, puis réessayez.'
         ),
         'workshop.test_run_button': 'Tester',
+        'workshop.choose_perspective_heading': 'Choisissez une Perspective',
+        'workshop.tune_instructions_heading': 'Ajustez les instructions',
         'language.name.en': 'anglais',
         'language.name.zh-Hans': 'chinois simplifié',
         'language.name.ja': 'japonais',
@@ -677,6 +707,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Senden',
         'common.busy_alert': 'Es läuft bereits ein Job, bitte später erneut versuchen',
         'app_js.stream_interrupted': 'Generierung unterbrochen',
+        'app_js.unsupported_model': 'Dieses Modell ist derzeit nicht verfügbar. Wähle ein anderes Modell.',
+        'app_js.model_catalog_outage': 'Die Modellliste konnte nicht geprüft werden. Versuche es gleich noch einmal oder behalte das aktuelle Modell.',
+        'app_js.empty_instructions': 'Anweisungen dürfen nicht leer sein.',
         'app_js.context_too_large': (
             'Diese Anfrage ist zu groß: etwa {estimated} Token, aber das gewählte Modell '
             'erlaubt bis zu {limit}.'
@@ -686,6 +719,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
             'Gesprächsverlauf und versuche es erneut.'
         ),
         'workshop.test_run_button': 'Testen',
+        'workshop.choose_perspective_heading': 'Wähle eine Perspektive',
+        'workshop.tune_instructions_heading': 'Anweisungen anpassen',
         'language.name.en': 'Englisch',
         'language.name.zh-Hans': 'vereinfachtes Chinesisch',
         'language.name.ja': 'Japanisch',
@@ -777,6 +812,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Отправить',
         'common.busy_alert': 'Задача уже выполняется, повторите попытку позже',
         'app_js.stream_interrupted': 'Генерация прервана',
+        'app_js.unsupported_model': 'Эта модель сейчас недоступна. Выберите другую модель.',
+        'app_js.model_catalog_outage': 'Не удалось проверить список моделей. Повторите попытку позже или оставьте текущую модель.',
+        'app_js.empty_instructions': 'Инструкции не могут быть пустыми.',
         'app_js.context_too_large': (
             'Этот запрос слишком большой: около {estimated} токенов, но выбранная модель '
             'допускает до {limit}.'
@@ -786,6 +824,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
             'разговора и повторите попытку.'
         ),
         'workshop.test_run_button': 'Проверить',
+        'workshop.choose_perspective_heading': 'Выберите Перспективу',
+        'workshop.tune_instructions_heading': 'Настройте инструкции',
         'language.name.en': 'английский',
         'language.name.zh-Hans': 'упрощённый китайский',
         'language.name.ja': 'японский',
@@ -877,6 +917,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Enviar',
         'common.busy_alert': 'Já existe uma tarefa em execução, tente novamente mais tarde',
         'app_js.stream_interrupted': 'Geração interrompida',
+        'app_js.unsupported_model': 'Esse modelo não está disponível agora. Escolha outro modelo.',
+        'app_js.model_catalog_outage': 'Não foi possível verificar a lista de modelos. Tente novamente em instantes ou mantenha o modelo atual.',
+        'app_js.empty_instructions': 'As instruções não podem ficar vazias.',
         'app_js.context_too_large': (
             'Esta solicitação é muito grande: cerca de {estimated} tokens, mas o modelo '
             'selecionado permite até {limit}.'
@@ -886,6 +929,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
             'histórico da conversa, e tente novamente.'
         ),
         'workshop.test_run_button': 'Testar',
+        'workshop.choose_perspective_heading': 'Escolha uma Perspectiva',
+        'workshop.tune_instructions_heading': 'Ajuste as instruções',
         'language.name.en': 'inglês',
         'language.name.zh-Hans': 'chinês simplificado',
         'language.name.ja': 'japonês',

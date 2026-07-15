@@ -757,6 +757,55 @@ async def test_get_model_max_prompt_tokens_raises_when_model_list_fetch_fails():
         await llm_module.get_model_max_prompt_tokens("claude-sonnet-4.6")
 
 
+async def test_validate_selected_model_accepts_active_model_without_catalog_call():
+    """The currently active model must never require a catalog round trip -- a temporary
+    model-list outage must not block continuing to use the model already in production."""
+    class _BrokenListModels(_FakeCopilotClientWithModels):
+        async def list_models(self):
+            raise RuntimeError("copilot CLI unreachable")
+
+    fake = _BrokenListModels()
+    llm_module.CopilotClient = lambda: fake
+
+    await llm_module.validate_selected_model("claude-sonnet-4.6", "claude-sonnet-4.6")
+
+    assert fake.list_models_calls == 0
+
+
+async def test_validate_selected_model_accepts_a_changed_model_present_in_catalog():
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = [_ModelInfo("gpt-5.5", "GPT-5.5")]
+    llm_module.CopilotClient = lambda: fake
+
+    await llm_module.validate_selected_model("gpt-5.5", "claude-sonnet-4.6")
+
+
+async def test_validate_selected_model_raises_unsupported_for_a_changed_model_not_in_catalog():
+    from unflincher.llm import UnsupportedModelError
+
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = [_ModelInfo("gpt-5.5", "GPT-5.5")]
+    llm_module.CopilotClient = lambda: fake
+
+    with pytest.raises(UnsupportedModelError) as excinfo:
+        await llm_module.validate_selected_model("nonexistent-model", "claude-sonnet-4.6")
+    assert excinfo.value.model == "nonexistent-model"
+
+
+async def test_validate_selected_model_raises_retryable_when_catalog_unavailable():
+    from unflincher.context_budget import ModelLimitsUnavailableError
+
+    class _BrokenListModels(_FakeCopilotClientWithModels):
+        async def list_models(self):
+            raise RuntimeError("copilot CLI unreachable")
+
+    fake = _BrokenListModels()
+    llm_module.CopilotClient = lambda: fake
+
+    with pytest.raises(ModelLimitsUnavailableError):
+        await llm_module.validate_selected_model("gpt-5.5", "claude-sonnet-4.6")
+
+
 async def test_refresh_available_models_restarts_client_and_refetches():
     fake = _FakeCopilotClientWithModels()
     fake.models_to_return = [_ModelInfo("gpt-5.5", "GPT-5.5")]

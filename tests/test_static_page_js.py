@@ -99,15 +99,16 @@ def test_apply_and_regenerate_uses_one_atomic_request():
             csrf: options.headers["X-CSRF-Token"],
             body: JSON.parse(options.body),
           });
-          return {ok: true, status: 200, json: async () => ({job_id: 42})};
+          return {ok: true, status: 200, json: async () => ({job_id: 42, preset_key: 'analyst'})};
         }
-        applyAndRegenerate(fakeFetch, {draft_prompt: 'p', model: 'm'}, 'csrf').then((jobId) => {
-          process.stdout.write(JSON.stringify({jobId, calls}));
+        applyAndRegenerate(fakeFetch, {draft_prompt: 'p', model: 'm'}, 'csrf').then((result) => {
+          process.stdout.write(JSON.stringify({...result, calls}));
         });
         """,
     )
     assert json.loads(output) == {
         "jobId": 42,
+        "presetKey": "analyst",
         "calls": [
             {
                 "url": "/workshop/apply-all",
