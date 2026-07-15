@@ -112,6 +112,19 @@
 .archive-row time { color: var(--prose); font-size: 0.6875rem; }
 .archive-title { overflow: hidden; font-size: 1.0625rem; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Timeline onboarding: compact three-step start panel shown only for the data-derived
+   READY_TO_REFLECT stage (see onboarding.py) -- entries exist but nothing has generated
+   successfully yet. Reuses the Prompt Workshop's flat numbered-stage language (a ruled list, no
+   cards) instead of inventing a new visual idiom for a single, temporary panel. */
+.onboarding-panel { margin-bottom: var(--space-7); padding-bottom: var(--space-6); border-bottom: 3px solid var(--text); }
+.onboarding-panel h2 { max-width: 32ch; font-size: clamp(1.125rem, 2vw, 1.375rem); font-weight: 500; }
+.onboarding-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); gap: var(--space-5); margin: var(--space-5) 0 0; padding: 0; list-style: none; }
+.onboarding-step { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; padding-top: var(--space-4); border-top: 1px solid var(--rule); }
+.onboarding-step header { display: flex; gap: var(--space-3); align-items: baseline; color: var(--prose); }
+.onboarding-step h3 { color: var(--text); font: 600 0.875rem/1.2 var(--font-ui); text-transform: uppercase; }
+.onboarding-step p { max-width: 60ch; margin-top: var(--space-2); color: var(--prose); }
+.onboarding-step .button { margin-top: var(--space-3); }
+
 /* Life Report: Balanced Graphite reading view (Task 6). The report body is the primary reading
    plane (--entry-plane); the history/contents rail is a quiet secondary surface (--commentary-plane)
    whose sections are parted by thin rules. Source and mobile order is report body, then history and

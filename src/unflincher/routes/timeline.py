@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 
 from unflincher.db import get_current_commentary, get_entries_with_active_commentary_job
+from unflincher.onboarding import IMPORT_DOCS_URL, get_onboarding_state
 from unflincher.templates_env import templates
 
 router = APIRouter()
@@ -35,11 +36,17 @@ async def timeline(request: Request):
         }
         for year, count in year_counts.items()
     ] if total_entries else []
+    # Lightweight, data-derived onboarding (see onboarding.py's module docstring and the plan's
+    # Lightweight onboarding section) -- no wizard, cookie, or persisted flag; get_onboarding_state
+    # is the ONE place that reads existing DB rows and decides what Timeline should show.
+    onboarding_state = get_onboarding_state(db)
     context = {
         "entries": entries,
         "years": years,
         "entry_count": total_entries,
         "date_from": entries[-1]["entry_date"][:10] if entries else None,
         "date_to": entries[0]["entry_date"][:10] if entries else None,
+        "show_onboarding_panel": onboarding_state.show_start_panel,
+        "import_docs_url": IMPORT_DOCS_URL,
     }
     return templates.TemplateResponse(request, "timeline.html", context)

@@ -8,6 +8,9 @@
     {% with heading=t("timeline.heading"), metadata=archive_metadata %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
+    {% if show_onboarding_panel %}
+      {% include "partials/onboarding_start_panel.html" %}
+    {% endif %}
     <div class="archive-index" id="timeline-entries" data-role="archive-index" data-entry-count="{{ entry_count }}">
       {% set ns = namespace(last_year=none) %}
       {% for entry in entries %}
@@ -35,7 +38,9 @@
   {% with heading=t("timeline.heading"), metadata="" %}
     {% include "partials/page_heading.html" %}
   {% endwith %}
-  {% with title=t("timeline.empty_state"), body=t("timeline.empty_help"), action_href="/new", action_label=t("nav.new_entry") %}
+  {% with title=t("timeline.empty_state"), body=t("timeline.empty_help"),
+    action_href=import_docs_url, action_label=t("timeline.import_archive_action"),
+    secondary_href="/new", secondary_label=t("timeline.write_first_entry_action") %}
     {% include "partials/empty_state.html" %}
   {% endwith %}
 </section>

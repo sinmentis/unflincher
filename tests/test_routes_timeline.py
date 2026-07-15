@@ -142,3 +142,158 @@ def test_timeline_empty_state_explains_both_entry_paths(client):
     body = client.get("/").text
     assert "Douban" in body
     assert 'href="/new"' in body
+
+
+# ---------------------------------------------------------------------------
+# Lightweight, data-derived onboarding (workstream 7). No wizard, tutorial table, cookie,
+# localStorage key, or persisted "seen onboarding" flag anywhere -- every state below is derived
+# straight from diary_entry/entry_commentary/aggregate_report rows on each render.
+# ---------------------------------------------------------------------------
+
+def test_no_entries_offers_exactly_import_and_write_actions(client):
+    response = client.get("/")
+    body = response.text
+    assert 'data-role="onboarding-panel"' not in body
+    assert 'href="https://github.com/sinmentis/unflincher/blob/main/docs/import.md"' in body
+    assert "Import an existing archive" in body
+    assert "Write the first entry" in body
+    assert 'href="/new"' in body
+    # No unsupported browser-upload or generic import-format claims (Locked decision 8 / plan
+    # Non-goal: "In-app Excel upload or a generic multi-format import system").
+    assert 'type="file"' not in body
+    assert "Day One" not in body
+    assert "Notion" not in body
+    assert "Google Docs" not in body
+
+
+def test_entries_with_no_generation_shows_three_step_onboarding_panel(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'manual')"
+    )
+
+    body = client.get("/").text
+
+    assert 'data-role="onboarding-panel"' in body
+    assert "Analyst is active by default" in body
+    panel = body[body.index('data-role="onboarding-panel"'):body.index("archive-index")]
+    assert panel.count('href="/workshop"') == 2
+    assert 'href="/report"' in panel
+
+
+def test_failed_only_entry_reflection_keeps_onboarding_panel_visible(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'manual')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, error) "
+        "VALUES (?, ?, 'm', '', 'failed', 'boom')",
+        (entry_id, prompt_id),
+    )
+
+    body = client.get("/").text
+
+    assert 'data-role="onboarding-panel"' in body
+
+
+def test_failed_only_life_report_keeps_onboarding_panel_visible(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'manual')"
+    )
+    prompt_id = db.execute(
+        "SELECT id FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["id"]
+    db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status, error) VALUES (?, 'm', '', 0, 'failed', 'boom')",
+        (prompt_id,),
+    )
+
+    body = client.get("/").text
+
+    assert 'data-role="onboarding-panel"' in body
+
+
+def test_successful_entry_reflection_removes_onboarding_panel(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'manual')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'm', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'take', 'ok')",
+        (entry_id, prompt_id),
+    )
+
+    body = client.get("/").text
+
+    assert 'data-role="onboarding-panel"' not in body
+    # Normal Timeline still renders (onboarding never blocks browsing).
+    assert 'data-role="archive-index"' in body
+
+
+def test_successful_life_report_removes_onboarding_panel(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'manual')"
+    )
+    prompt_id = db.execute(
+        "SELECT id FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["id"]
+    db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status) VALUES (?, 'm', 'body', 1, 'ok')",
+        (prompt_id,),
+    )
+
+    body = client.get("/").text
+
+    assert 'data-role="onboarding-panel"' not in body
+
+
+def test_onboarding_never_blocks_navigation_writing_or_workshop(client):
+    """Onboarding is purely informational -- confirm the surfaces it links to remain fully
+    reachable regardless of onboarding stage (empty archive here)."""
+    assert client.get("/new").status_code == 200
+    assert client.get("/workshop").status_code == 200
+    assert client.get("/report").status_code == 200
+    assert client.get("/chat").status_code == 200
+
+
+def test_onboarding_has_no_persisted_state(client):
+    db = client.app.state.db
+    tables = {
+        row["name"] for row in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    forbidden_tables = {
+        "onboarding", "onboarding_state", "onboarding_flag",
+        "tutorial", "tutorial_state", "wizard_state",
+    }
+    assert not (tables & forbidden_tables)
+
+    response = client.get("/")
+    assert not any(
+        "onboarding" in name.lower() or "tutorial" in name.lower()
+        for name in response.cookies
+    )
+
+    # Re-rendering the SAME state twice produces the SAME onboarding panel presence -- nothing
+    # about a previous request changes what the next one shows.
+    first = client.get("/").text
+    second = client.get("/").text
+    assert ('data-role="onboarding-panel"' in first) == ('data-role="onboarding-panel"' in second)

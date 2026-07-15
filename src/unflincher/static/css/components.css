@@ -72,7 +72,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { border-color
 .empty-state { display: grid; gap: var(--space-4); max-width: 40rem; padding-block: var(--space-8); }
 .empty-state h2 { max-width: 24ch; font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: 500; line-height: var(--leading-tight); }
 .empty-state p { max-width: 52ch; color: var(--prose); }
-.empty-state .button { justify-self: start; margin-top: var(--space-2); }
+.empty-state-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
 
 .loading-state { display: grid; gap: var(--space-4); }
 .loading-state [aria-hidden="true"] { display: grid; gap: var(--space-3); }

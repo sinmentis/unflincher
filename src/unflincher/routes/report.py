@@ -38,6 +38,7 @@ async def report_page(request: Request):
         "report_perspective_name": None,
         "versions": versions,
         "viewing_version_id": None,
+        "has_any_successful_report": report is not None,
     }
     if report:
         context = {
@@ -50,6 +51,7 @@ async def report_page(request: Request):
             "covered_to": report["covered_to_date"],
             "versions": versions,
             "viewing_version_id": report["id"],
+            "has_any_successful_report": True,
         }
     return templates.TemplateResponse(request, "report.html", context)
 
@@ -62,6 +64,10 @@ async def view_report_version(request: Request, report_id: int):
         raise HTTPException(status_code=404, detail="not found")
     current_lang = get_current_language(request)
     versions = list_report_versions(db)
+    # Independent of which historical version is being VIEWED here (which may itself be
+    # 'failed') -- the generate button's wording reflects whether the Life Report has EVER
+    # succeeded anywhere (see onboarding.py's same ok-status-only rule for get_current_report).
+    has_any_successful_report = get_current_report(db) is not None
     return templates.TemplateResponse(
         request,
         "report.html",
@@ -79,6 +85,7 @@ async def view_report_version(request: Request, report_id: int):
             "covered_to": report["covered_to_date"],
             "versions": versions,
             "viewing_version_id": report_id,
+            "has_any_successful_report": has_any_successful_report,
         },
     )
 

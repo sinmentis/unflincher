@@ -21,12 +21,14 @@
       {% include "partials/inline_notice.html" %}
     {% endwith %}
     {% else %}
-    {% with title=t("report.no_report_yet"), body="", action_href="", action_label="" %}
+    {% with title=t("report.no_report_yet"),
+      body=t("report.no_report_help") if not has_any_successful_report else "",
+      action_href="", action_label="" %}
       {% include "partials/empty_state.html" %}
     {% endwith %}
     {% endif %}
     <div id="report-stream" class="stream-surface" hidden aria-live="polite"></div>
-    <button id="run-report" class="button" type="button">{{ t("report.generate_button") }}</button>
+    <button id="run-report" class="button" type="button">{{ t("report.generate_button") if has_any_successful_report else t("report.generate_first_button") }}</button>
   </article>
   <aside class="report-rail" data-role="report-history">
     {% include "partials/report_version_index.html" %}

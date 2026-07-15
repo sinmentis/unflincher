@@ -337,3 +337,85 @@ def test_report_page_shows_custom_for_unknown_historical_preset_key(client):
     body = client.get("/report").text
 
     assert "Perspective: Custom" in body
+
+
+# ---------------------------------------------------------------------------
+# Life Report first-generation action (workstream 7). Same button id/class, same route -- only
+# its wording changes, based on whether a Life Report has EVER succeeded (status='ok'), matching
+# the "current" == latest ok row rule used everywhere else (see get_current_report).
+# ---------------------------------------------------------------------------
+
+def test_report_empty_state_shows_first_report_wording(client):
+    body = client.get("/report").text
+    assert 'id="run-report"' in body
+    assert "Generate the first report" in body
+    assert "Generate / regenerate report" not in body
+
+
+def test_report_shows_regenerate_wording_once_a_report_has_succeeded(client, monkeypatch):
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_report_tokens)
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'import')"
+    )
+    client.post("/report/generate")
+
+    body = client.get("/report").text
+
+    assert "Generate / regenerate report" in body
+    assert "Generate the first report" not in body
+
+
+def test_report_keeps_first_report_wording_when_only_a_failed_report_exists(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "SELECT id FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["id"]
+    db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, "
+        "covered_entry_count, status, error) VALUES (?, 'm', '', 0, 'failed', 'boom')",
+        (prompt_id,),
+    )
+
+    body = client.get("/report").text
+
+    assert "Generate the first report" in body
+    assert "Generate / regenerate report" not in body
+
+
+def test_viewing_an_old_failed_version_still_shows_regenerate_once_any_report_succeeded(client, monkeypatch):
+    """A specific historical version being viewed may itself be 'failed', but the button
+    wording reflects the OVERALL Life Report state (any successful report ever), not the
+    one version currently on screen."""
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_report_tokens)
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>a</p>', '<p>a</p>', 'a', '2026-01-01', 'import')"
+    )
+    client.post("/report/generate")
+    prompt_id = db.execute(
+        "SELECT id FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["id"]
+    failed_id = db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, "
+        "covered_entry_count, status, error) VALUES (?, 'm', '', 0, 'failed', 'boom')",
+        (prompt_id,),
+    ).lastrowid
+
+    body = client.get(f"/report/{failed_id}").text
+
+    assert "Generate / regenerate report" in body
+    assert "Generate the first report" not in body
+
+
+def test_first_report_action_still_posts_to_the_existing_generate_route(client):
+    """No second generation path is introduced -- the wording-only change must still submit to
+    the same /report/generate route the JS already targets."""
+    import re
+    from pathlib import Path
+
+    js = Path("src/unflincher/static/js/report.js").read_text()
+    assert '"/report/generate"' in js
+    assert re.search(r'id="run-report"', client.get("/report").text)

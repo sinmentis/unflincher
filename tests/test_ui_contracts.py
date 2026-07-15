@@ -305,6 +305,15 @@ def test_workshop_commit_actions_stack_cleanly_on_mobile():
     assert "width: 100%" in button
 
 
+def test_onboarding_steps_form_a_compact_responsive_grid():
+    css = PAGES_CSS.read_text()
+    steps = _rule_body(css, ".onboarding-steps")
+    assert "repeat(auto-fit" in steps
+    assert "minmax(min(" in steps
+    step = _rule_body(css, ".onboarding-step")
+    assert "grid-template-rows: auto 1fr auto" in step
+
+
 def test_accessibility_fallbacks_remain_present():
     css = "\n".join(
         path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))

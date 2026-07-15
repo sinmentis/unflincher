@@ -28,4 +28,4 @@ For a local development database, call the CLI directly against the file it shou
 ## No existing archive
 
 If you are not migrating from Douban, skip this entirely. New entries can always be typed directly
-into the New Entry page in the app.
+into the Write page in the app.
