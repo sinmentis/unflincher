@@ -5,7 +5,7 @@
 // src/unflincher/static/js/*.js.
 
 var DEMO_VIEWS = ["timeline", "entry", "report", "conversation", "workshop"];
-var SELF_HOSTED_NOTICE = "Available in the self-hosted app.";
+var SELF_HOSTED_NOTICE = "Self-hosted app only.";
 var GITHUB_URL = "https://github.com/sinmentis/unflincher";
 
 function escapeHtml(value) {
@@ -69,11 +69,27 @@ function renderTimeline(data) {
   return "<h3>Timeline</h3><ol class=\"demo-list\">" + items + "</ol>";
 }
 
+function renderLockedAction(idSuffix, label) {
+  var noticeId = "demo-locked-" + idSuffix;
+  return (
+    '<p class="demo-locked" id="' +
+    noticeId +
+    '">' +
+    escapeHtml(SELF_HOSTED_NOTICE) +
+    "</p>" +
+    '<button type="button" class="demo-action" disabled aria-disabled="true" aria-describedby="' +
+    noticeId +
+    '">' +
+    escapeHtml(label) +
+    "</button>"
+  );
+}
+
 function renderEntry(data, entryId) {
   var entry = findEntry(data, entryId);
-  if (!entry) return "<h3>Entry and commentary</h3><p>No entry available.</p>";
+  if (!entry) return "<h3>Entry Reflection</h3><p>No entry available.</p>";
   return (
-    "<h3>Entry and commentary</h3>" +
+    "<h3>Entry Reflection</h3>" +
     '<article class="demo-entry">' +
     '<p class="demo-entry-meta">' +
     escapeHtml(entry.date) +
@@ -81,12 +97,11 @@ function renderEntry(data, entryId) {
     escapeHtml(entry.title) +
     '</h4><p class="demo-entry-body">' +
     escapeHtml(entry.body) +
-    '</p><div class="demo-commentary"><h5>Commentary</h5><p>' +
-    escapeHtml(entry.commentary) +
-    '</p></div><button type="button" class="demo-action" disabled>Regenerate commentary</button>' +
-    '<p class="demo-locked">' +
-    escapeHtml(SELF_HOSTED_NOTICE) +
-    "</p></article>"
+    '</p><div class="demo-reflection"><h5>Reflection</h5><p>' +
+    escapeHtml(entry.reflection) +
+    "</p></div>" +
+    renderLockedAction("entry", "Regenerate Entry Reflection") +
+    "</article>"
   );
 }
 
@@ -145,35 +160,39 @@ function renderConversation(data) {
     escapeHtml(conversation.title || "Conversation") +
     '</h3><ul class="demo-conversation">' +
     messages +
-    '</ul><button type="button" class="demo-action" disabled>Continue conversation</button>' +
-    '<p class="demo-locked">' +
-    escapeHtml(SELF_HOSTED_NOTICE) +
-    "</p>"
+    "</ul>" +
+    renderLockedAction("conversation", "Continue conversation")
   );
 }
 
 function renderWorkshop(data) {
-  var workshop = (data && data.workshop) || {personas: []};
-  var personas = (workshop.personas || [])
-    .map(function (persona) {
+  var workshop = (data && data.workshop) || {perspectives: []};
+  var sharedEntry = findEntry(data, workshop.entry_id);
+  var intro = sharedEntry
+    ? '<p class="demo-workshop-intro">Every Perspective below reads the same entry: <span class="demo-entry-date">' +
+      escapeHtml(sharedEntry.date) +
+      "</span> " +
+      escapeHtml(sharedEntry.title) +
+      "</p>"
+    : "";
+  var perspectives = (workshop.perspectives || [])
+    .map(function (perspective) {
       return (
-        '<section class="demo-persona"><h4>' +
-        escapeHtml(persona.name) +
-        '</h4><p class="demo-persona-prompt"><span>Prompt</span> ' +
-        escapeHtml(persona.prompt) +
-        '</p><p class="demo-persona-sample"><span>Sample</span> ' +
-        escapeHtml(persona.sample) +
+        '<section class="demo-perspective"><h4>' +
+        escapeHtml(perspective.name) +
+        '</h4><p class="demo-perspective-instructions"><span>Instructions</span> ' +
+        escapeHtml(perspective.instructions) +
+        '</p><p class="demo-perspective-reading"><span>Reading</span> ' +
+        escapeHtml(perspective.reading) +
         "</p></section>"
       );
     })
     .join("");
   return (
     "<h3>Prompt Workshop</h3>" +
-    personas +
-    '<button type="button" class="demo-action" disabled>Apply and regenerate</button>' +
-    '<p class="demo-locked">' +
-    escapeHtml(SELF_HOSTED_NOTICE) +
-    "</p>"
+    intro +
+    perspectives +
+    renderLockedAction("workshop", "Apply and regenerate all")
   );
 }
 

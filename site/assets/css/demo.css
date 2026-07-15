@@ -55,7 +55,7 @@
 .demo-entry-date { font-family: var(--font-mono); color: var(--muted); min-width: 6.5rem; }
 
 .demo-entry-meta { font-family: var(--font-mono); color: var(--muted); }
-.demo-commentary { border-left: 2px solid var(--accent); padding-left: var(--space-4); margin: var(--space-4) 0; background: var(--graphite-raised); }
+.demo-reflection { border-left: 2px solid var(--accent); padding-left: var(--space-4); margin: var(--space-4) 0; background: var(--graphite-raised); }
 .demo-evidence { list-style: none; margin: var(--space-3) 0 0; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); }
 .demo-evidence li { padding: 0.2rem 0; }
 
@@ -64,12 +64,13 @@
 .demo-message--assistant { background: var(--graphite-raised); border-left: 2px solid var(--accent); }
 .demo-role { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
 
-.demo-persona { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4); margin-bottom: var(--space-4); }
-.demo-persona-prompt span, .demo-persona-sample span { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); display: inline-block; margin-right: var(--space-2); }
+.demo-workshop-intro { color: var(--muted); margin-bottom: var(--space-4); }
+.demo-perspective { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4); margin-bottom: var(--space-4); }
+.demo-perspective-instructions span, .demo-perspective-reading span { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); display: inline-block; margin-right: var(--space-2); }
 
-.demo-action { margin-top: var(--space-4); padding: var(--space-2) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--muted); font: inherit; }
+.demo-locked { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); margin-top: var(--space-4); }
+.demo-action { margin-top: var(--space-2); padding: var(--space-2) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--muted); font: inherit; }
 .demo-action[disabled] { cursor: not-allowed; opacity: 0.6; }
-.demo-locked { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); margin-top: var(--space-2); }
 .demo-error { border: 1px solid var(--accent); border-radius: var(--radius); padding: var(--space-4); }
 .demo-static-fallback { display: grid; gap: var(--space-3); }
 .demo-static-fallback > p { color: var(--muted); }

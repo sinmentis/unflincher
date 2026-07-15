@@ -75,12 +75,30 @@ def test_parse_fixture_requires_synthetic_flag():
 def test_render_view_escapes_fixture_strings_and_labels_timeline():
     output = _run_node(
         "const {renderView} = require(process.argv[1]);"
-        "const data = {entries:[{id:'e1',date:'2021-01-01',title:'<script>x</script>',body:'b',commentary:'c'}]};"
+        "const data = {entries:[{id:'e1',date:'2021-01-01',title:'<script>x</script>',body:'b',reflection:'c'}]};"
         "process.stdout.write(renderView('timeline', data, null));"
     )
     assert "Timeline" in output
     assert "&lt;script&gt;x&lt;/script&gt;" in output
     assert "<script>x</script>" not in output
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_entry_view_is_named_entry_reflection_and_announces_lock_before_the_button():
+    output = _run_node(
+        "const {renderView} = require(process.argv[1]);"
+        "const data = {entries:[{id:'e1',date:'2022-06-27',title:'One more spreadsheet',body:'b',reflection:'This is the generated reading.'}]};"
+        "process.stdout.write(renderView('entry', data, 'e1'));"
+    )
+    assert output.count("Entry Reflection") >= 1
+    assert "This is the generated reading." in output
+    assert "Entry and commentary" not in output
+    assert "Self-hosted app only." in output
+    notice_index = output.index('id="demo-locked-entry"')
+    button_index = output.index("<button")
+    assert notice_index < button_index, "the lock notice must appear before the disabled button"
+    assert 'aria-describedby="demo-locked-entry"' in output
+    assert 'disabled aria-disabled="true"' in output
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
@@ -91,7 +109,7 @@ def test_conversation_view_explains_that_live_chat_is_disabled():
         "process.stdout.write(renderView('conversation', data, null));"
     )
     assert "Continue conversation" in output
-    assert "Available in the self-hosted app." in output
+    assert "Self-hosted app only." in output
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
@@ -110,7 +128,7 @@ const root = {
   querySelector: (sel) => (sel === "[data-demo-stage]" ? stage : null),
   querySelectorAll: () => [],
 };
-const fixture = JSON.stringify({meta:{synthetic:true},entries:[{id:'e1',date:'2021-01-01',title:'First',body:'b',commentary:'c'}]});
+const fixture = JSON.stringify({meta:{synthetic:true},entries:[{id:'e1',date:'2021-01-01',title:'First',body:'b',reflection:'c'}]});
 const fakeFetch = async () => ({ok: true, status: 200, text: async () => fixture});
 initDemo(root, fakeFetch, "data.json").then(() => {
   process.stdout.write(JSON.stringify({
@@ -183,7 +201,7 @@ def test_demo_page_states_sample_data_and_five_views():
     assert "platform logging and privacy practices" in html
     assert "data-static-fallback" in html
     assert "<noscript>" not in html
-    for label in ("Timeline", "Entry and commentary", "Life Report", "Conversation", "Prompt Workshop"):
+    for label in ("Timeline", "Entry Reflection", "Life Report", "Conversation", "Prompt Workshop"):
         assert label in html
     assert html.count('data-view="') == 5
     for image in (
@@ -197,3 +215,31 @@ def test_demo_page_states_sample_data_and_five_views():
     assert "local SQLite database" in html
     assert "GitHub Copilot" in html
     assert 'href="/' not in html
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_workshop_view_shows_shared_entry_and_all_five_perspectives():
+    output = _run_node(
+        "const {renderView} = require(process.argv[1]);"
+        "const data = {"
+        "  entries: [{id: 'e1', date: '2022-06-27', title: 'One more spreadsheet', body: 'b', reflection: 'r'}],"
+        "  workshop: {"
+        "    entry_id: 'e1',"
+        "    perspectives: ["
+        "      {key: 'companion', name: 'Companion', instructions: 'i1', reading: 'reads warmly'},"
+        "      {key: 'coach', name: 'Coach', instructions: 'i2', reading: 'reads toward action'},"
+        "      {key: 'challenger', name: 'Challenger', instructions: 'i3', reading: 'reads directly'},"
+        "      {key: 'analyst', name: 'Analyst', instructions: 'i4', reading: 'reads precisely'},"
+        "      {key: 'custom', name: 'Custom', instructions: 'i5', reading: 'reads on my own terms'}"
+        "    ]"
+        "  }"
+        "};"
+        "process.stdout.write(renderView('workshop', data, null));"
+    )
+    assert "Prompt Workshop" in output
+    assert "2022-06-27" in output
+    assert "One more spreadsheet" in output
+    for name in ("Companion", "Coach", "Challenger", "Analyst", "Custom"):
+        assert name in output
+    assert "Apply and regenerate all" in output
+    assert "Self-hosted app only." in output
