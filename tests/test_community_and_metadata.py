@@ -1,3 +1,4 @@
+import hashlib
 import re
 import tomllib
 from pathlib import Path
@@ -48,11 +49,32 @@ def test_code_of_conduct_exists_without_personal_email():
     assert _problems(text) == []
 
 
-def test_changelog_and_release_notes_document_v0_1_0():
+def test_changelog_and_release_notes_prepare_v0_2_0():
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    notes = (ROOT / "docs" / "release-notes-v0.1.0.md").read_text(encoding="utf-8")
-    assert "0.1.0" in changelog
-    assert "0.1.0" in notes
+    notes = (ROOT / "docs" / "release-notes-v0.2.0.md").read_text(encoding="utf-8")
+    assert changelog.index("Unreleased (target 0.2.0)") < changelog.index("0.1.0")
+    assert "0.2.0" in notes
+    assert "Prepared: 2026-07-16. Not published." in notes
+    assert "Do not run this release candidate against an existing v0.1 database yet." in notes
+    for phrase in (
+        "evidence-grounded AI reflection partner",
+        "Companion",
+        "Coach",
+        "Challenger",
+        "Analyst",
+        "Custom",
+        "Entry Reflection",
+        "Life Report",
+        "Conversation",
+        "Prompt Workshop",
+        "selected model's context window",
+        "never silently drops",
+        "maintenance",
+        "request fingerprint",
+        "Douban diary Excel export",
+        "not therapy",
+    ):
+        assert phrase in notes
     assert "noncommercial" in notes.lower()
     assert "local SQLite" in notes
     assert "GitHub Pages" in notes
@@ -60,9 +82,22 @@ def test_changelog_and_release_notes_document_v0_1_0():
     assert _problems(notes) == []
 
 
+def test_v0_1_0_release_notes_remain_historical_and_unchanged():
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    notes_path = ROOT / "docs" / "release-notes-v0.1.0.md"
+    notes = notes_path.read_text(encoding="utf-8")
+    assert "0.1.0" in changelog
+    assert "0.1.0" in notes
+    assert _problems(notes) == []
+    assert hashlib.sha256(notes_path.read_bytes()).hexdigest() == (
+        "2ea4948c30171709d4c8871113badb1222e0c5ad33d64413d524b2a00fc8cd91"
+    )
+
+
 def test_readme_links_changelog_release_notes_and_support():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "CHANGELOG.md" in text
+    assert "docs/release-notes-v0.2.0.md" in text
     assert "docs/release-notes-v0.1.0.md" in text
     assert "https://github.com/sinmentis/unflincher/discussions" in text
 
@@ -102,6 +137,7 @@ def test_issue_templates_warn_against_real_private_data():
 def test_pyproject_metadata_is_enriched_without_osi_classifier():
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
+    assert project["version"] == "0.1.0"
     assert project["description"] == (
         "Evidence-grounded AI reflection partner for finding patterns across years of journal entries."
     )

@@ -218,6 +218,33 @@ def test_workshop_readings_must_be_recognizably_distinct():
     assert any("must be recognizably distinct across Perspectives" in e for e in errors)
 
 
+def test_workshop_readings_keep_reviewed_evidence_qualifiers():
+    data = _fixture()
+    readings = {
+        perspective["key"]: perspective["reading"]
+        for perspective in data["workshop"]["perspectives"]
+    }
+    assert "similar mix of relief and disappointment" in readings["companion"]
+    assert "That may be enough evidence" in readings["coach"]
+    assert "That pattern may be more than preparation" in readings["challenger"]
+    assert "The entries do not prove why you are delaying" in readings["challenger"]
+    assert "Another model may repeat the same pattern" in readings["challenger"]
+    assert "another budget model with three survivable scenarios" in readings["analyst"]
+    assert "Interpretation, held with uncertainty" in readings["analyst"]
+
+    overclaims = (
+        "third budget model",
+        "same postponement in a new costume",
+        "spreadsheet is not preparation",
+        "another model will not move you",
+        "same caution shaped your choice",
+        "schedule this month",
+    )
+    combined = " ".join(readings.values()).lower()
+    for phrase in overclaims:
+        assert phrase not in combined
+
+
 def test_workshop_readings_reject_near_duplicate_stances():
     data = _fixture()
     first = data["workshop"]["perspectives"][0]["reading"]
