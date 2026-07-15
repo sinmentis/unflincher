@@ -2,9 +2,10 @@
 
 The audit scans the publishable current tree and Git history, validates public copy,
 checks current and historical paths, detects common credential forms, verifies
-synthetic fixture and image provenance, compares historical public-media blob hashes
-with the approved manifest, and compares all text with a private denylist.
-Known private identifiers are never embedded in this committed source file."""
+synthetic fixture and image provenance, compares every reachable historical public-media
+blob for a path against that SAME path's current digest plus its explicit approved-history
+allowlist, and compares all text with a private denylist. Known private identifiers are
+never embedded in this committed source file."""
 from __future__ import annotations
 
 import hashlib
@@ -148,12 +149,17 @@ def find_unapproved_public_media_paths(
 
 def find_unapproved_historical_public_media(
     historical_media: list[tuple[str, str]],
-    approved_sha256: dict[str, str],
+    approved_sha256: dict[str, set[str]],
 ) -> list[str]:
+    """`approved_sha256` maps a normalized public image path to the set of every SHA256
+    value approved for that SAME path: the current manifest digest plus its explicit
+    `approved_historical_sha256` allowlist. A path absent from the mapping, or a
+    reachable historical blob whose digest is not in that path's approved set, is
+    flagged; unknown or removed media stays blocked either way."""
     issues: set[str] = set()
     approved = {
-        path.replace("\\", "/").lower(): digest
-        for path, digest in approved_sha256.items()
+        path.replace("\\", "/").lower(): set(digests)
+        for path, digests in approved_sha256.items()
     }
     for path, digest in historical_media:
         normalized = path.replace("\\", "/").lower()
@@ -162,7 +168,7 @@ def find_unapproved_historical_public_media(
             issues.add(
                 f"{path}: historical public media is absent from the approved manifest"
             )
-        elif digest != expected:
+        elif digest not in expected:
             issues.add(
                 f"{path}: historical blob differs from approved asset"
             )
@@ -457,8 +463,15 @@ def main(argv=None) -> int:
     manifest = json.loads(
         (images / "provenance.json").read_text(encoding="utf-8")
     )
-    approved_public_media = {
+    approved_current_media = {
         f"{PUBLIC_IMAGE_PREFIX}{entry['file']}": entry["sha256"]
+        for entry in manifest
+        if isinstance(entry.get("file"), str)
+        and isinstance(entry.get("sha256"), str)
+    }
+    approved_media_history = {
+        f"{PUBLIC_IMAGE_PREFIX}{entry['file']}": {entry["sha256"]}
+        | set(entry.get("approved_historical_sha256") or [])
         for entry in manifest
         if isinstance(entry.get("file"), str)
         and isinstance(entry.get("sha256"), str)
@@ -467,14 +480,14 @@ def main(argv=None) -> int:
         f"unapproved current public media: {path}"
         for path in find_unapproved_public_media_paths(
             current_paths,
-            set(approved_public_media),
+            set(approved_current_media),
         )
     ]
     findings += [
         f"unapproved historical public media: {issue}"
         for issue in find_unapproved_historical_public_media(
             _historical_public_media(root),
-            approved_public_media,
+            approved_media_history,
         )
     ]
     findings += [

@@ -83,10 +83,13 @@ def test_find_unapproved_current_public_media_flags_undeclared_files():
 
 
 def test_find_unapproved_historical_public_media_flags_changed_and_removed_blobs():
-    approved = {"site/assets/images/demo-timeline.png": "current-sha256"}
+    approved = {
+        "site/assets/images/demo-timeline.png": {"current-sha256", "approved-old-sha256"}
+    }
     historical = [
         ("site/assets/images/demo-timeline.png", "current-sha256"),
-        ("site/assets/images/demo-timeline.png", "older-sha256"),
+        ("site/assets/images/demo-timeline.png", "approved-old-sha256"),
+        ("site/assets/images/demo-timeline.png", "unapproved-older-sha256"),
         ("site/assets/images/removed.png", "removed-sha256"),
     ]
     assert audit.find_unapproved_historical_public_media(
@@ -95,6 +98,17 @@ def test_find_unapproved_historical_public_media_flags_changed_and_removed_blobs
         "site/assets/images/demo-timeline.png: historical blob differs from approved asset",
         "site/assets/images/removed.png: historical public media is absent from the approved manifest",
     ]
+
+
+def test_find_unapproved_historical_public_media_accepts_approved_history():
+    approved = {
+        "site/assets/images/demo-timeline.png": {"current-sha256", "prior-approved-sha256"}
+    }
+    historical = [
+        ("site/assets/images/demo-timeline.png", "current-sha256"),
+        ("site/assets/images/demo-timeline.png", "prior-approved-sha256"),
+    ]
+    assert audit.find_unapproved_historical_public_media(historical, approved) == []
 
 
 def test_historical_public_media_reads_every_reachable_blob(tmp_path):
