@@ -37,11 +37,14 @@ class _FakeCopilotClient:
 
 @pytest.fixture(autouse=True)
 def _reset_shared_client_state(monkeypatch):
-    """Every test in this file gets a clean shared-client singleton and a fresh fake-instance
-    list, regardless of test order or a previous test's failure leaving state dirty."""
+    """Every test in this file gets a clean shared-client lifecycle state and a fresh
+    fake-instance list, regardless of test order or a previous test's failure leaving state
+    dirty."""
     monkeypatch.setattr(llm_module, "_client", None)
     monkeypatch.setattr(llm_module, "_client_generation", 0)
-    monkeypatch.setattr(llm_module, "_client_lock", asyncio.Lock())
+    monkeypatch.setattr(llm_module, "_active_count", 0)
+    monkeypatch.setattr(llm_module, "_refresh_active", False)
+    monkeypatch.setattr(llm_module, "_lifecycle_cond", asyncio.Condition())
     monkeypatch.setattr(llm_module, "_llm_semaphore", asyncio.Semaphore(4))
     _FakeCopilotClient.instances = []
     monkeypatch.setattr(llm_module, "CopilotClient", _FakeCopilotClient)
@@ -125,12 +128,13 @@ async def test_shutdown_client_stops_the_current_client():
 class _FakeStream:
     """Replaces unflincher.llm.stream_completion in tests — yields fixed tokens and records
     the (system, user_content, model) it was called with, so tests can assert on prompt
-    assembly without a real network call."""
+    assembly without a real network call. Accepts (and ignores) the target_kind/target_id
+    keyword-only params every real generate_*/chat_* wrapper now passes through."""
     def __init__(self, tokens):
         self.tokens = tokens
         self.calls = []
 
-    async def __call__(self, system, user_content, model):
+    async def __call__(self, system, user_content, model, *, target_kind=None, target_id=None):
         self.calls.append((system, user_content, model))
         for t in self.tokens:
             yield t
@@ -189,7 +193,7 @@ async def test_chat_reply_includes_history_and_latest_commentary(fake_stream):
     assert "新问题" in user_content
 
 
-async def _fake_title_tokens(system, user_content, model):
+async def _fake_title_tokens(system, user_content, model, *, target_kind=None, target_id=None):
     for t in ["该", "不", "该", "辞职"]:
         yield t
 
@@ -203,7 +207,7 @@ async def test_generate_session_title_joins_stream_and_strips(monkeypatch):
 async def test_generate_session_title_passes_the_requested_model(monkeypatch):
     seen = {}
 
-    async def _capture(system, user_content, model):
+    async def _capture(system, user_content, model, *, target_kind=None, target_id=None):
         seen["model"] = model
         yield "x"
 
@@ -351,6 +355,251 @@ async def test_stream_completion_never_retries_a_model_level_session_error():
     assert fake.stop_calls == 0  # never torn down for a model-level error
 
 
+async def test_stream_completion_does_not_retry_or_swallow_a_domain_safety_error():
+    # Regression guard for the "broad RuntimeError transport handling can swallow stable
+    # domain/safety errors" class of bug: every stable domain error in this app (maintenance,
+    # lease, archive, context-budget) is itself a RuntimeError subclass. If stream_completion's
+    # transport-retry except clause ever catches a bare RuntimeError again, an error like this one
+    # raised mid-stream would be silently retried/misclassified as a transport hiccup instead of
+    # propagating immediately.
+    from unflincher.db import MaintenanceLockedError
+
+    class _RaisingSession(_FakeSession):
+        async def send(self, content):
+            raise MaintenanceLockedError("maintenance locked mid-stream")
+
+    fake = _FakeCopilotClientWithSessions()
+    fake.sessions_to_create = [_RaisingSession([], session_id="session-x")]
+    llm_module.CopilotClient = lambda: fake
+
+    with pytest.raises(MaintenanceLockedError):
+        await _collect(llm_module.stream_completion("sys", "msg", "test-model"))
+
+    # Not treated as a retryable transport failure: no reset-and-retry occurred.
+    assert fake.stop_calls == 0
+    assert len(fake.sessions_to_create) == 0  # the one scripted session was consumed, not retried
+
+
+# ---------------------------------------------------------------------------
+# Prepared-request interface: preflight and generation share the EXACT envelope object
+# ---------------------------------------------------------------------------
+
+async def test_generate_from_prepared_streams_the_exact_preflighted_envelope_object(monkeypatch):
+    seen_envelopes = []
+
+    async def _fake_stream_completion_envelope(envelope):
+        seen_envelopes.append(envelope)
+        yield "token"
+
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_stream_completion_envelope)
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _AsyncReturn(200_000))
+
+    entry = ENTRIES[0]
+    prepared = await llm_module.prepare_commentary_request(entry, ENTRIES, "人设", "test-model")
+    tokens = [t async for t in llm_module.generate_from_prepared(prepared)]
+
+    assert tokens == ["token"]
+    assert len(seen_envelopes) == 1
+    # Identity, not just equality: generate_from_prepared must pass the SAME object that was
+    # preflighted, never rebuild a new one from strings.
+    assert seen_envelopes[0] is prepared.envelope
+
+
+class _AsyncReturn:
+    """Callable returning a coroutine that resolves to a fixed value -- used to stub
+    get_model_max_prompt_tokens() without needing a fake Copilot client for pure envelope tests."""
+    def __init__(self, value):
+        self.value = value
+
+    async def __call__(self, model):
+        return self.value
+
+
+async def test_prepare_commentary_request_raises_context_too_large_before_any_model_call(monkeypatch):
+    from unflincher.context_budget import ContextTooLargeError
+
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _AsyncReturn(1))
+    with pytest.raises(ContextTooLargeError) as excinfo:
+        await llm_module.prepare_commentary_request(ENTRIES[0], ENTRIES, "人设", "test-model")
+    assert excinfo.value.target_kind == "entry_commentary"
+    assert str(ENTRIES[0]["id"]) == excinfo.value.target_id
+
+
+async def test_prepare_report_request_raises_model_limits_unavailable(monkeypatch):
+    from unflincher.context_budget import ModelLimitsUnavailableError
+
+    async def _raise(model):
+        raise ModelLimitsUnavailableError(model, "boom")
+
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _raise)
+    with pytest.raises(ModelLimitsUnavailableError):
+        await llm_module.prepare_report_request(ENTRIES, "人设", "test-model")
+
+
+async def test_build_commentary_envelope_and_prepare_commentary_request_agree_on_content():
+    # The envelope built by the pure builder (used for batch preflight, e.g. apply-all) and the
+    # one produced by the one-shot prepare_*_request path must be byte-for-byte identical for the
+    # same inputs -- content assembly must never fork between the two call styles.
+    from unflincher.request_envelope import canonical_json
+
+    pure = llm_module.build_commentary_envelope(ENTRIES[0], ENTRIES, "人设", "test-model")
+
+    async def _fake_limit(model):
+        return 200_000
+
+    import unflincher.llm as module
+    orig = module.get_model_max_prompt_tokens
+    module.get_model_max_prompt_tokens = _fake_limit
+    try:
+        prepared = await llm_module.prepare_commentary_request(ENTRIES[0], ENTRIES, "人设", "test-model")
+    finally:
+        module.get_model_max_prompt_tokens = orig
+
+    assert canonical_json(pure) == canonical_json(prepared.envelope)
+
+
+# ---------------------------------------------------------------------------
+# Shared Copilot client lifecycle: race-free admission/replacement/refresh
+# ---------------------------------------------------------------------------
+
+async def test_stop_shared_client_waits_for_other_active_generation_before_tearing_down():
+    # Simulates the exact race the plan fixes: stream A observed generation g1, failed, and
+    # (per stream_completion's contract) already released its OWN admission before asking to
+    # replace g1. Stream B is a DIFFERENT, still-active generation on the SAME client/generation.
+    # Replacement must wait for B to finish, never yank the client out from under it.
+    fake = _FakeCopilotClient()
+    llm_module.CopilotClient = lambda: fake
+
+    client_a, gen_a = await llm_module._admit_generation()
+    client_b, gen_b = await llm_module._admit_generation()
+    assert client_a is client_b
+    assert gen_a == gen_b
+    await llm_module._release_generation()  # A releases its own admission first
+
+    order: list[str] = []
+
+    async def _replace():
+        order.append("replace-start")
+        await llm_module._stop_shared_client(gen_a)
+        order.append("replace-end")
+
+    replace_task = asyncio.create_task(_replace())
+    await asyncio.sleep(0.02)
+    # B is still holding its admission — replacement must still be blocked.
+    assert "replace-end" not in order
+    assert fake.stop_calls == 0
+
+    await llm_module._release_generation()  # B releases
+    await replace_task
+
+    assert order == ["replace-start", "replace-end"]
+    assert fake.stop_calls == 1  # torn down only after every active generation released
+
+
+async def test_new_admission_waits_for_in_progress_replacement_to_finish():
+    order: list[str] = []
+    fake = _FakeCopilotClient()
+
+    async def _slow_stop():
+        order.append("stop-start")
+        await asyncio.sleep(0.03)
+        order.append("stop-end")
+
+    fake.stop = _slow_stop
+    llm_module.CopilotClient = lambda: fake
+
+    client_a, gen_a = await llm_module._admit_generation()
+    await llm_module._release_generation()
+
+    replace_task = asyncio.create_task(llm_module._stop_shared_client(gen_a))
+    await asyncio.sleep(0.005)  # let replacement claim the transition and start tearing down
+
+    async def _new_admission():
+        order.append("admission-call")
+        client, gen = await llm_module._admit_generation()
+        order.append("admission-done")
+        return client, gen
+
+    admission_task = asyncio.create_task(_new_admission())
+    await replace_task
+    new_client, new_gen = await admission_task
+    await llm_module._release_generation()
+
+    assert order.index("stop-end") < order.index("admission-done")
+    assert new_gen != gen_a  # a genuinely new generation, proving replacement actually happened
+    assert fake.start_calls == 2  # started once initially, once again for the replacement
+
+
+async def test_stop_shared_client_is_aba_safe_for_two_concurrent_failures():
+    # Two different streams both observed the same (now-stale) generation and both concluded it
+    # failed. Only the first actually tears the client down; the second is a no-op — this is the
+    # ABA-race guard the module-level docstring describes.
+    fake = _FakeCopilotClient()
+    llm_module.CopilotClient = lambda: fake
+    client_a, gen_a = await llm_module._admit_generation()
+    await llm_module._release_generation()
+
+    await asyncio.gather(
+        llm_module._stop_shared_client(gen_a),
+        llm_module._stop_shared_client(gen_a),
+    )
+    assert fake.stop_calls == 1
+
+
+async def test_transport_failure_does_not_kill_a_concurrent_peer_stream_end_to_end():
+    # Full stream_completion() integration: stream A fails with a transport error before yielding
+    # any token and retries; stream B is a genuinely concurrent, already-admitted generation on
+    # the ORIGINAL client. B must complete successfully and must never observe its session/client
+    # torn out from under it.
+    from copilot.client import ProcessExitedError
+
+    fake = _FakeCopilotClientWithSessions()
+    b_started = asyncio.Event()
+    b_may_finish = asyncio.Event()
+
+    class _BSession(_FakeSession):
+        async def send(self, content):
+            b_started.set()
+            await b_may_finish.wait()
+            await super().send(content)
+
+    fake.sessions_to_create = [
+        _BSession(
+            [_FakeEvent(AssistantMessageDeltaData(delta_content="b-token", message_id="mb")), _FakeEvent(AssistantIdleData())],
+            session_id="session-b",
+        ),
+        ProcessExitedError("A's first attempt crashed"),
+        _FakeSession(
+            [_FakeEvent(AssistantMessageDeltaData(delta_content="a-recovered", message_id="ma")), _FakeEvent(AssistantIdleData())],
+            session_id="session-a-retry",
+        ),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    async def _stream_b():
+        return await _collect(llm_module.stream_completion("sys", "b-msg", "test-model"))
+
+    b_task = asyncio.create_task(_stream_b())
+    await b_started.wait()  # B is now admitted and mid-stream on the original client/generation
+
+    async def _stream_a():
+        return await _collect(llm_module.stream_completion("sys", "a-msg", "test-model"))
+
+    # A starts AFTER B is already active: A's create_session() raises immediately (no admission
+    # race to win), so A's failure-and-replace path begins concurrently with B's in-flight
+    # stream. Because B is still holding its admission, A's replacement request must BLOCK until
+    # B finishes -- proving it cannot terminate B's still-active client out from under it.
+    a_task = asyncio.create_task(_stream_a())
+    await asyncio.sleep(0.01)
+    b_may_finish.set()
+    b_result = await b_task
+    a_result = await a_task
+
+    assert a_result == ["a-recovered"]
+    assert b_result == ["b-token"]  # B's stream was never interrupted by A's replacement
+    assert fake.deleted_session_ids == ["session-b", "session-a-retry"]
+
+
 # ---------------------------------------------------------------------------
 # Task 3: Concurrency limit tests
 # ---------------------------------------------------------------------------
@@ -440,6 +689,74 @@ async def test_list_available_models_filters_out_auto():
     assert result == [("gpt-5.5", "GPT-5.5"), ("claude-opus-4.8", "Claude Opus 4.8")]
 
 
+# ---------------------------------------------------------------------------
+# Context budget: model max_prompt_tokens lookup
+# ---------------------------------------------------------------------------
+
+class _FakeLimits:
+    def __init__(self, max_prompt_tokens):
+        self.max_prompt_tokens = max_prompt_tokens
+
+
+class _FakeCapabilities:
+    def __init__(self, max_prompt_tokens):
+        self.limits = _FakeLimits(max_prompt_tokens)
+
+
+class _ModelInfoWithCapabilities(_ModelInfo):
+    def __init__(self, id, name, max_prompt_tokens):
+        super().__init__(id, name)
+        self.capabilities = _FakeCapabilities(max_prompt_tokens)
+
+
+async def test_get_model_max_prompt_tokens_returns_the_published_limit():
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = [
+        _ModelInfoWithCapabilities("claude-sonnet-4.6", "Claude Sonnet 4.6", 200_000),
+    ]
+    llm_module.CopilotClient = lambda: fake
+
+    limit = await llm_module.get_model_max_prompt_tokens("claude-sonnet-4.6")
+
+    assert limit == 200_000
+
+
+async def test_get_model_max_prompt_tokens_raises_when_model_not_in_catalog():
+    from unflincher.context_budget import ModelLimitsUnavailableError
+
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = [_ModelInfoWithCapabilities("gpt-5.5", "GPT-5.5", 100_000)]
+    llm_module.CopilotClient = lambda: fake
+
+    with pytest.raises(ModelLimitsUnavailableError):
+        await llm_module.get_model_max_prompt_tokens("nonexistent-model")
+
+
+async def test_get_model_max_prompt_tokens_raises_when_limit_missing():
+    from unflincher.context_budget import ModelLimitsUnavailableError
+
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = [_ModelInfoWithCapabilities("claude-sonnet-4.6", "Claude Sonnet 4.6", None)]
+    llm_module.CopilotClient = lambda: fake
+
+    with pytest.raises(ModelLimitsUnavailableError):
+        await llm_module.get_model_max_prompt_tokens("claude-sonnet-4.6")
+
+
+async def test_get_model_max_prompt_tokens_raises_when_model_list_fetch_fails():
+    from unflincher.context_budget import ModelLimitsUnavailableError
+
+    class _BrokenListModels(_FakeCopilotClientWithModels):
+        async def list_models(self):
+            raise RuntimeError("copilot CLI unreachable")
+
+    fake = _BrokenListModels()
+    llm_module.CopilotClient = lambda: fake
+
+    with pytest.raises(ModelLimitsUnavailableError):
+        await llm_module.get_model_max_prompt_tokens("claude-sonnet-4.6")
+
+
 async def test_refresh_available_models_restarts_client_and_refetches():
     fake = _FakeCopilotClientWithModels()
     fake.models_to_return = [_ModelInfo("gpt-5.5", "GPT-5.5")]
@@ -453,20 +770,87 @@ async def test_refresh_available_models_restarts_client_and_refetches():
     assert fake.start_calls == 2  # a fresh client was started for the refetch
 
 
-async def test_refresh_available_models_refuses_while_a_session_is_active():
+async def test_refresh_available_models_waits_for_active_generation_to_finish():
+    # Plan-mandated behaviour change: refresh must WAIT for an active generation to finish
+    # rather than instantly refusing (the old "正在生成中" instant-reject). It must also not tear
+    # the client down (or start a new one) until the generation has actually released its
+    # admission — proven by an ordering list both the stream and the refresh append to.
+    order: list[str] = []
+
+    class _SlowSession(_FakeSession):
+        async def send(self, content):
+            order.append("stream-start")
+            await asyncio.sleep(0.03)
+            order.append("stream-end")
+            await super().send(content)
+
     fake = _FakeCopilotClientWithModels()
     fake.sessions_to_create = [
-        _FakeSession([_FakeEvent(AssistantMessageDeltaData(delta_content="x", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+        _SlowSession([_FakeEvent(AssistantMessageDeltaData(delta_content="x", message_id="m1")), _FakeEvent(AssistantIdleData())]),
+    ]
+    fake.models_to_return = [_ModelInfo("gpt-5.5", "GPT-5.5")]
+    llm_module.CopilotClient = lambda: fake
+
+    async def _stream():
+        async for _ in llm_module.stream_completion("sys", "msg", "test-model"):
+            pass
+
+    async def _refresh():
+        # Give the stream a moment to actually start (enter _admit_generation) before refresh
+        # begins its transition, so refresh genuinely observes an active generation to wait for.
+        await asyncio.sleep(0.01)
+        order.append("refresh-start")
+        result = await llm_module.refresh_available_models()
+        order.append("refresh-end")
+        return result
+
+    stream_task = asyncio.create_task(_stream())
+    refresh_task = asyncio.create_task(_refresh())
+    result = await refresh_task
+    await stream_task
+
+    assert result == [("gpt-5.5", "GPT-5.5")]
+    # refresh started while the stream was active but did not finish (tear down/restart the
+    # client) until AFTER the stream released its admission.
+    assert order.index("refresh-start") < order.index("stream-end")
+    assert order.index("stream-end") < order.index("refresh-end")
+    assert fake.stop_calls == 1
+    assert fake.start_calls == 2
+
+
+async def test_refresh_available_models_blocks_new_admission_until_it_completes():
+    # A generation attempted WHILE refresh is transitioning must wait for the transition to
+    # finish before it can even start streaming (new admissions are blocked, not merely delayed
+    # arbitrarily) — proven by asserting the new stream's session is only created after refresh
+    # has installed its new client.
+    order: list[str] = []
+    fake = _FakeCopilotClientWithModels()
+    fake.models_to_return = []
+
+    async def _slow_start(self):
+        order.append("refresh-client-start-begin")
+        await asyncio.sleep(0.03)
+        order.append("refresh-client-start-end")
+
+    fake.start = _slow_start.__get__(fake)
+    fake.sessions_to_create = [
+        _FakeSession([_FakeEvent(AssistantMessageDeltaData(delta_content="y", message_id="m1")), _FakeEvent(AssistantIdleData())]),
     ]
     llm_module.CopilotClient = lambda: fake
 
-    # Manually mark a session as "active" the same way stream_completion() would while running,
-    # without needing a real concurrent task — this test's job is to verify refresh_available_
-    # models() checks the counter, not to reproduce a full concurrent race.
-    llm_module._active_session_count = 1
-
-    with pytest.raises(RuntimeError, match="正在生成中"):
+    async def _refresh():
+        order.append("refresh-call")
         await llm_module.refresh_available_models()
 
-    assert fake.stop_calls == 0  # must not have torn down the client
-    llm_module._active_session_count = 0  # reset for any subsequent test in the same process
+    async def _new_admission():
+        await asyncio.sleep(0.005)  # let refresh claim the transition first
+        order.append("admission-call")
+        async for _ in llm_module.stream_completion("sys", "msg", "test-model"):
+            pass
+        order.append("admission-done")
+
+    await asyncio.gather(_refresh(), _new_admission())
+
+    # The new admission's stream must not have proceeded until AFTER refresh finished starting
+    # its replacement client.
+    assert order.index("refresh-client-start-end") < order.index("admission-done")

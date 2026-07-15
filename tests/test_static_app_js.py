@@ -389,6 +389,204 @@ def test_stream_into_surfaces_failed_state_and_clears_busy_flag():
     }
 
 
+# Regression tests for item 12: a 413 context_too_large preflight failure used to be indistinguishable
+# from any other stream failure -- streamInto() discarded the response body entirely and rendered
+# only the generic "Generation interrupted" notice. The owner must see the estimated request size,
+# the model's limit, and actionable next steps (plan lines 174-175), while every OTHER failure
+# (network errors, 500s, mid-stream `error` events, non-JSON bodies) must keep the exact prior
+# generic behavior.
+_CONTEXT_TOO_LARGE_HARNESS = """
+globalThis.document = {
+  body: {addEventListener() {}},
+  cookie: '',
+  getElementById() {
+    return {textContent: JSON.stringify({
+      streamInterrupted: 'Generation interrupted',
+      contextTooLarge: 'Too large: about {estimated} tokens, limit is {limit}.',
+      contextTooLargeActions: 'Pick a bigger model or trim history.',
+    })};
+  },
+  createElement() {
+    return {className: '', textContent: ''};
+  },
+};
+globalThis.fetch = async () => ({
+  ok: false,
+  status: 413,
+  body: null,
+  async json() {
+    return {
+      detail: {
+        reason: 'context_too_large',
+        estimated_tokens: 5000,
+        limit: 4000,
+        model: 'test-model',
+        target_kind: 'entry_commentary',
+        target_id: null,
+      },
+    };
+  },
+});
+const {streamInto} = require(process.argv[1]);
+const appended = [];
+const target = {
+  hidden: true,
+  textContent: '',
+  dataset: {},
+  style: {},
+  append(...nodes) {
+    for (const node of nodes) appended.push({className: node.className, text: node.textContent});
+  },
+};
+let capturedError = null;
+streamInto('/x', null, target, null, (error) => { capturedError = {status: error.status, detail: error.detail}; }).then(() => {
+  process.stdout.write(JSON.stringify({
+    state: target.dataset.streamState,
+    streaming: target.dataset.streaming,
+    appended,
+    capturedError,
+  }));
+});
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_stream_into_renders_estimated_size_and_limit_and_actions_on_context_too_large():
+    out = subprocess.run(
+        ["node", "-e", _CONTEXT_TOO_LARGE_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+
+    assert result["state"] == "failed"
+    assert "streaming" not in result  # re-entrancy flag cleared on every failure path too
+    assert result["appended"] == [
+        {"className": "notice notice--failed", "text": "Too large: about 5000 tokens, limit is 4000."},
+        {"className": "notice notice--failed-actions", "text": "Pick a bigger model or trim history."},
+    ]
+    # onError receives the stable detail so callers (chat.js/entry.js/etc) could inspect it too.
+    assert result["capturedError"] == {
+        "status": 413,
+        "detail": {
+            "reason": "context_too_large",
+            "estimated_tokens": 5000,
+            "limit": 4000,
+            "model": "test-model",
+            "target_kind": "entry_commentary",
+            "target_id": None,
+        },
+    }
+
+
+# A DIFFERENT stable reason (e.g. maintenance_locked) or an unparseable body must NOT trigger the
+# context_too_large rendering -- they fall through to the exact same generic notice as before this
+# change, proving the new branch is additive and doesn't widen its scope by accident.
+_NON_CONTEXT_TOO_LARGE_HARNESS = """
+globalThis.document = {
+  body: {addEventListener() {}},
+  cookie: '',
+  getElementById() {
+    return {textContent: JSON.stringify({
+      streamInterrupted: 'Generation interrupted',
+      contextTooLarge: 'Too large: about {estimated} tokens, limit is {limit}.',
+      contextTooLargeActions: 'Pick a bigger model or trim history.',
+    })};
+  },
+  createElement() {
+    return {className: '', textContent: ''};
+  },
+};
+globalThis.fetch = async () => ({
+  ok: false,
+  status: 503,
+  body: null,
+  async json() {
+    return {detail: {reason: 'maintenance_locked'}};
+  },
+});
+const {streamInto} = require(process.argv[1]);
+const appended = [];
+const target = {
+  hidden: true,
+  textContent: '',
+  dataset: {},
+  style: {},
+  append(...nodes) {
+    for (const node of nodes) appended.push({className: node.className, text: node.textContent});
+  },
+};
+streamInto('/x', null, target).then(() => {
+  process.stdout.write(JSON.stringify({state: target.dataset.streamState, appended}));
+});
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_stream_into_keeps_generic_notice_for_other_stable_reasons():
+    out = subprocess.run(
+        ["node", "-e", _NON_CONTEXT_TOO_LARGE_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+
+    assert result["state"] == "failed"
+    assert result["appended"] == [{"className": "notice notice--failed", "text": "Generation interrupted"}]
+
+
+# A 500 with a non-JSON (or empty) body must also fall through to the generic notice, never throw
+# out of parseStableErrorDetail's own try/catch.
+_NON_JSON_BODY_HARNESS = """
+globalThis.document = {
+  body: {addEventListener() {}},
+  cookie: '',
+  getElementById() {
+    return {textContent: JSON.stringify({streamInterrupted: 'Generation interrupted'})};
+  },
+  createElement() {
+    return {className: '', textContent: ''};
+  },
+};
+globalThis.fetch = async () => ({
+  ok: false,
+  status: 500,
+  body: null,
+  async json() { throw new Error('not json'); },
+});
+const {streamInto} = require(process.argv[1]);
+const appended = [];
+const target = {
+  hidden: true,
+  textContent: '',
+  dataset: {},
+  style: {},
+  append(...nodes) {
+    for (const node of nodes) appended.push({className: node.className, text: node.textContent});
+  },
+};
+streamInto('/x', null, target).then(() => {
+  process.stdout.write(JSON.stringify({state: target.dataset.streamState, appended}));
+});
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_stream_into_handles_non_json_error_body_generically():
+    out = subprocess.run(
+        ["node", "-e", _NON_JSON_BODY_HARNESS, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    result = json.loads(out)
+
+    assert result["state"] == "failed"
+    assert result["appended"] == [{"className": "notice notice--failed", "text": "Generation interrupted"}]
+
+
 _COMPOSER_HARNESS = """
 globalThis.document = {body: {addEventListener() {}}, cookie: ''};
 const {bindComposer} = require(process.argv[1]);

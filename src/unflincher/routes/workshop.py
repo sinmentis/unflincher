@@ -4,18 +4,29 @@ import sqlite3
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sse_starlette.sse import EventSourceResponse
 
-from unflincher import llm
+from unflincher import llm, regen_enqueue
 from unflincher.config import load_settings
+from unflincher.context_budget import ContextTooLargeError, ModelLimitsUnavailableError
 from unflincher.db import (
+    ArchiveChangedError,
     DEFAULT_MODEL,
+    ItemJobMismatchError,
+    MaintenanceLockedError,
+    RequestFormatChangedError,
+    StaleOrSupersededRetryError,
+    TargetBusyError,
+    acquire_lease,
     get_active_prompt,
+    get_entries_in_order,
+    get_ordered_entry_ids,
+    new_request_lease_key,
+    release_lease,
     set_active_prompt,
-    set_active_prompt_and_start_regen_job,
-    start_regen_job,
 )
 from unflincher.i18n import SUPPORTED_LANGUAGE_CODES, t
+from unflincher.routes.errors import generation_safety_http_exception
+from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
 from unflincher.templates_env import LANG_COOKIE_NAME, get_current_language, templates
 from unflincher.worker import BatchWorker
@@ -37,7 +48,7 @@ async def workshop_page(request: Request):
     db = request.app.state.db
     current_lang = get_current_language(request)
     active_prompt = get_active_prompt(db)
-    entries = db.execute("SELECT id, title FROM diary_entry ORDER BY entry_date").fetchall()
+    entries = db.execute("SELECT id, title FROM diary_entry ORDER BY entry_date ASC, id ASC").fetchall()
     models: list[tuple[str, str]] = []
     models_error: str | None = None
     try:
@@ -83,11 +94,18 @@ async def set_language(request: Request, body: SetLanguageRequest):
 async def workshop_test_run(request: Request):
     """Preview only — NEVER writes to the database, not even a log line with the draft text.
 
-    Runs the exact same llm.generate_commentary function, with the exact same full-corpus
-    context, as the real per-entry trigger (Task 9). Only then does the preview faithfully
-    predict the real output. The single picked entry is the focus, but the model still sees
-    every entry for cross-entry pattern matching — passing just the one entry here would make
-    the preview lie about what the real generation produces.
+    Acquires a temporary request-scoped lease (see db.new_request_lease_key) BEFORE preparing or
+    preflighting anything, so a preview counts as maintenance-aware admitted work the deploy drain
+    can observe -- even though it persists nothing. Prepares and preflights the EXACT same
+    request llm.build_commentary_envelope/prepare_commentary_request would build for a real
+    per-entry trigger, with the exact same full-corpus context (in canonical (entry_date ASC, id
+    ASC) order -- see db.get_ordered_entry_ids). Only then does the preview faithfully predict
+    the real output AND correctly enforce the same capacity contract before ever opening the SSE
+    stream. The single picked entry is the focus, but the model still sees every entry for
+    cross-entry pattern matching — passing just the one entry here would make the preview lie
+    about what the real generation produces. The lease is released on every path: preflight
+    failure, SSE success, SSE failure/disconnect, and even a disconnect that races the SSE
+    response before its body ever starts iterating (see routes/sse.py's sse_response).
 
     An explicit `model` in the body lets the owner trial a model different from the saved active
     one without committing to it (this route still writes nothing); absent that, it falls back to
@@ -95,35 +113,51 @@ async def workshop_test_run(request: Request):
     """
     db = request.app.state.db
     body = await request.json()
-    entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (body["entry_id"],)).fetchone()
-    all_entries = db.execute("SELECT * FROM diary_entry ORDER BY entry_date").fetchall()
-    active_prompt = get_active_prompt(db)
-    model = body.get("model") or (active_prompt["model"] if active_prompt else DEFAULT_MODEL)
+
+    try:
+        lease_id = acquire_lease(db, new_request_lease_key(), "request", request.app.state.owner_token)
+    except MaintenanceLockedError as exc:
+        raise generation_safety_http_exception(exc) from exc
+
+    try:
+        entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (body["entry_id"],)).fetchone()
+        if entry is None:
+            raise HTTPException(status_code=404, detail="entry not found")
+        preflight_entry_ids = get_ordered_entry_ids(db)
+        all_entries = [dict(row) for row in get_entries_in_order(db, preflight_entry_ids)]
+        active_prompt = get_active_prompt(db)
+        model = body.get("model") or (active_prompt["model"] if active_prompt else DEFAULT_MODEL)
+
+        try:
+            prepared = await llm.prepare_commentary_request(
+                dict(entry), all_entries, body["draft_prompt"], model,
+            )
+        except (ContextTooLargeError, ModelLimitsUnavailableError) as exc:
+            raise generation_safety_http_exception(exc) from exc
+    except Exception:
+        release_lease(db, lease_id)
+        raise
 
     async def event_stream():
         chunks = []
-        async for token in llm.generate_commentary(
-            dict(entry),
-            [dict(e) for e in all_entries],
-            body["draft_prompt"],
-            model,
-        ):
+        async for token in llm.generate_from_prepared(prepared):
             chunks.append(token)
             yield {"event": "token", "data": token}
-        # Preview never persists, but the owner still needs to SEE what a real generation would
-        # look like — that means real markdown rendering (bold/paragraphs), not raw tokens frozen
-        # in place forever (this route never reloads the page like the persisted commentary/chat/
-        # report routes do, so there is no second render pass to fall back on). render_ai_markdown
-        # is the exact same sanitizer every persisted surface already uses; sending its output back
-        # over the SAME `done` event the client already listens for keeps this a one-mechanism fix
-        # rather than a second markdown pipeline.
+        # Preview never persists, but the owner still needs to SEE what a real generation
+        # would look like — that means real markdown rendering (bold/paragraphs), not raw
+        # tokens frozen in place forever (this route never reloads the page like the
+        # persisted commentary/chat/report routes do, so there is no second render pass to
+        # fall back on). render_ai_markdown is the exact same sanitizer every persisted
+        # surface already uses; sending its output back over the SAME `done` event the client
+        # already listens for keeps this a one-mechanism fix rather than a second markdown
+        # pipeline.
         full_text = "".join(chunks)
         yield {
             "event": "done",
             "data": json.dumps({"html": render_ai_markdown(full_text)}, ensure_ascii=False),
         }
 
-    return EventSourceResponse(event_stream(), sep="\n")
+    return sse_response(event_stream(), cleanup=lambda: release_lease(db, lease_id))
 
 
 @router.post("/workshop/apply")
@@ -145,10 +179,12 @@ async def workshop_apply_all(
 ):
     """Start one full regeneration job, optionally activating its prompt in the same transaction.
 
-    Regenerate commentary for EVERY diary entry that exists right now, plus the aggregate report.
-    Scope is queried fresh (never a hardcoded count) so a new entry added a second ago is included.
-    The single-flight lock lives in the DB: a second job while one is 'running' trips the partial
-    unique index -> sqlite3.IntegrityError -> HTTP 409.
+    Prepares and preflights EVERY concrete Entry Reflection request plus the Life Report request
+    for the archive as it exists right now (queried fresh, never a hardcoded count), then
+    atomically compares that snapshot against the archive at enqueue time, acquires every
+    target's exclusive lease, and writes the job — see regen_enqueue.enqueue_apply_all_job. The
+    single-flight lock also still lives in the DB: a second job while one is 'running' trips the
+    partial unique index -> sqlite3.IntegrityError -> HTTP 409.
 
     The request body is optional. Legacy/no-body callers regenerate under the already-active prompt
     (unchanged behavior). When the visible workbench posts {draft_prompt, model}, that exact draft
@@ -159,33 +195,30 @@ async def workshop_apply_all(
     completion after the response is sent, and TestClient blocks on them, so the worker's DB writes
     are observable right after the POST returns without real concurrency in tests."""
     db = request.app.state.db
-    entry_ids = [row["id"] for row in db.execute("SELECT id FROM diary_entry").fetchall()]
     try:
         if body is None:
             active_prompt = get_active_prompt(db)
-            job_id = start_regen_job(db, active_prompt["id"], entry_ids)
-            prompt_text = active_prompt["body_text"]
-            prompt_model = active_prompt["model"]
-        else:
-            _, job_id = set_active_prompt_and_start_regen_job(
-                db,
-                body.draft_prompt,
-                body.model,
-                entry_ids,
+            job_id, _ = await regen_enqueue.enqueue_apply_all_job(
+                db, persona_text=active_prompt["body_text"], model=active_prompt["model"],
+                owner_token=request.app.state.owner_token, activate=False,
+                prompt_version_id=active_prompt["id"],
             )
-            prompt_text = body.draft_prompt
-            prompt_model = body.model
+        else:
+            job_id, _ = await regen_enqueue.enqueue_apply_all_job(
+                db, persona_text=body.draft_prompt, model=body.model,
+                owner_token=request.app.state.owner_token, activate=True,
+            )
+    except (
+        ContextTooLargeError, ModelLimitsUnavailableError, MaintenanceLockedError,
+        TargetBusyError, ArchiveChangedError,
+    ) as exc:
+        raise generation_safety_http_exception(exc) from exc
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="a regeneration job is already running")
 
     settings = load_settings()
     worker = BatchWorker(db, settings.batch_concurrency)
-    background_tasks.add_task(
-        worker.run_job,
-        job_id,
-        prompt_text,
-        prompt_model,
-    )
+    background_tasks.add_task(worker.run_job, job_id)
     return JSONResponse({"job_id": job_id})
 
 
@@ -231,32 +264,38 @@ def _render_job_progress(request: Request, job_id: int):
 async def retry_job_item(
     request: Request, job_id: int, item_id: int, background_tasks: BackgroundTasks
 ):
-    """Re-queue one failed item and reopen the (already 'done') job so the worker drives it
-    again. Same BackgroundTasks discipline as apply-all."""
+    """Deep retry-admission: regen_enqueue.retry_job_item_with_admission reconstructs the exact
+    envelope from the item's immutable prompt + stored snapshot, verifies its assembly
+    version/fingerprint still matches what was stored at enqueue time, fetches the model's
+    CURRENT published limit and preflights against it, and validates the item actually belongs to
+    this URL's job_id -- ALL before ever touching the atomic DB-side retry state. Only once every
+    one of those checks succeeds does it call db.retry_failed_job_item (checks maintenance, job
+    'done' status, context snapshot, baseline/supersession, no newer same-target work, and
+    acquires the target's exclusive lease, all under one BEGIN IMMEDIATE) and return the
+    AUTHORITATIVE owning job_id -- this route schedules the worker with THAT id, never blindly
+    trusting the URL's job_id. A mismatched job_id/item_id pair is a stable no-write 404; every
+    other conflict is a stable no-write 409/413/503. Only after that commit does this route
+    schedule the worker; if scheduling or the process itself dies before the worker runs, startup
+    recovery (db.recover_or_cancel_running_jobs) owns the already-committed running job and
+    lease, exactly like any other recovered job."""
     db = request.app.state.db
-    db.execute(
-        "UPDATE regen_job_item SET status = 'pending', updated_at = datetime('now') "
-        "WHERE id = ? AND job_id = ? AND status = 'failed'",
-        (item_id, job_id),
-    )
-    db.execute(
-        "UPDATE regen_job SET status = 'running', finished_at = NULL "
-        "WHERE id = ? AND status = 'done'",
-        (job_id,),
-    )
-    job = db.execute("SELECT * FROM regen_job WHERE id = ?", (job_id,)).fetchone()
-    prompt = db.execute(
-        "SELECT body_text, model FROM persona_prompt WHERE id = ?", (job["prompt_version_id"],)
-    ).fetchone()
+    try:
+        authoritative_job_id = await regen_enqueue.retry_job_item_with_admission(
+            db, item_id=item_id, owner_token=request.app.state.owner_token, expected_job_id=job_id,
+        )
+    except (
+        ContextTooLargeError, ModelLimitsUnavailableError, MaintenanceLockedError,
+        TargetBusyError, StaleOrSupersededRetryError, RequestFormatChangedError,
+        ItemJobMismatchError,
+    ) as exc:
+        raise generation_safety_http_exception(exc) from exc
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="a regeneration job is already running")
+
     settings = load_settings()
     worker = BatchWorker(db, settings.batch_concurrency)
-    # Retry with the model this job's own persona version carried, NOT the currently-active
-    # persona's model (which may have changed since the job started). A retried item must stay
-    # consistent with the rest of its job.
-    background_tasks.add_task(
-        worker.run_job, job_id, prompt["body_text"], prompt["model"]
-    )
+    background_tasks.add_task(worker.run_job, authoritative_job_id)
     # Return the re-rendered progress fragment (not JSON) so htmx's outerHTML swap keeps the panel
     # in place; the job is now 'running', so the fragment re-carries `hx-trigger="every 2s"` and
     # polling resumes automatically.
-    return _render_job_progress(request, job_id)
+    return _render_job_progress(request, authoritative_job_id)

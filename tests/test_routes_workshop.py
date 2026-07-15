@@ -1,5 +1,17 @@
+import pytest
+
 import unflincher.llm as llm_module
 from unflincher.db import start_regen_job
+
+
+@pytest.fixture(autouse=True)
+def _fake_model_limit(monkeypatch):
+    """Every workshop route that generates (preview, apply-all, retry) now preflights against
+    get_model_max_prompt_tokens() before opening SSE or enqueueing -- fake it so tests never need
+    a real Copilot client just to pass preflight."""
+    async def _fake_limit(model):
+        return 200_000
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _fake_limit)
 
 
 async def _fake_preview_tokens(*args, **kwargs):
@@ -78,7 +90,7 @@ def test_job_progress_uses_progress_rail(client):
 
 
 def test_test_run_streams_but_writes_nothing_to_db(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_commentary", _fake_preview_tokens)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_preview_tokens)
     db = client.app.state.db
     entry_ids = _seed_entries(db)
 
@@ -117,7 +129,7 @@ def test_test_run_done_event_carries_rendered_markdown_html(client, monkeypatch)
     # preview is stuck showing raw markdown source (literal `**`) forever, and per the client-side
     # bug this fix also closes, it visually collapses once streaming ends because nothing ever
     # gives it real paragraph markup to replace the plain-text/pre-wrap rendering.
-    monkeypatch.setattr(llm_module, "generate_commentary", _fake_markdown_tokens)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_markdown_tokens)
     db = client.app.state.db
     entry_ids = _seed_entries(db)
 
@@ -140,25 +152,27 @@ def test_test_run_done_event_carries_rendered_markdown_html(client, monkeypatch)
 def test_test_run_uses_full_corpus_same_as_real_generation(client, monkeypatch):
     captured = {}
 
-    async def fake_generate(entry, all_entries, persona_text, model):
-        captured["all_entries_count"] = len(all_entries)
-        captured["persona_text"] = persona_text
+    async def fake_stream(envelope):
+        captured["user_content"] = envelope.user_content
+        captured["system_content"] = envelope.system_content
         yield "x"
 
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_generate)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
     db = client.app.state.db
     entry_ids = _seed_entries(db)
 
     client.post("/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": entry_ids[0]})
 
-    assert captured["all_entries_count"] == 2  # not just the 1 selected entry
-    assert captured["persona_text"] == "草稿"
+    # Both seeded entries are in context, not just the 1 selected entry.
+    assert "日记0" in captured["user_content"]
+    assert "日记1" in captured["user_content"]
+    assert captured["system_content"].startswith("草稿")
 
 
 def test_apply_creates_new_active_prompt_version_without_generating(client, monkeypatch):
     def _boom(*args, **kwargs):
         raise AssertionError("apply must not call the LLM")
-    monkeypatch.setattr(llm_module, "generate_commentary", _boom)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _boom)
     db = client.app.state.db
 
     response = client.post("/workshop/apply", json={"draft_prompt": "新的正式人设", "model": "claude-sonnet-4.6"})
@@ -168,17 +182,29 @@ def test_apply_creates_new_active_prompt_version_without_generating(client, monk
     assert active["body_text"] == "新的正式人设"
 
 
-async def _fake_gen_ok(entry, all_entries, persona_text, model):
-    yield f"锐评-{entry['title']}"
+def _dispatch_by_target(entry_commentary_gen, report_gen):
+    """Build one fake stream_completion_envelope that routes to entry_commentary_gen(envelope) or
+    report_gen(envelope) based on envelope.target_kind -- needed since apply-all/job-progress
+    tests fake both target types through the SAME monkeypatched low-level function."""
+    async def _fake(envelope):
+        gen = entry_commentary_gen if envelope.target_kind == "entry_commentary" else report_gen
+        async for tok in gen(envelope):
+            yield tok
+    return _fake
 
 
-async def _fake_report_ok(all_entries, persona_text, model):
+async def _fake_gen_ok(envelope):
+    yield f"锐评-{envelope.target_id}"
+
+
+async def _fake_report_ok(envelope):
     yield "报告"
 
 
 def test_apply_all_processes_every_current_entry_not_a_fixed_count(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_commentary", _fake_gen_ok)
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(_fake_gen_ok, _fake_report_ok)
+    )
     db = client.app.state.db
     entry_ids = _seed_entries(db)  # 2 entries from the earlier fixture helper
     # add a THIRD entry after the fixture helper's 2, proving apply-to-all isn't hardcoded
@@ -217,16 +243,11 @@ def test_apply_all_rejects_concurrent_job(client):
 def test_apply_and_regenerate_atomically_activates_prompt_used_by_job(client, monkeypatch):
     generation_inputs = []
 
-    async def fake_commentary(entry, all_entries, persona_text, model):
-        generation_inputs.append((persona_text, model))
-        yield f"commentary-{entry['title']}"
+    async def fake_stream(envelope):
+        generation_inputs.append((envelope.system_content, envelope.model))
+        yield f"take-{envelope.target_kind}"
 
-    async def fake_report(all_entries, persona_text, model):
-        generation_inputs.append((persona_text, model))
-        yield "report"
-
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_commentary)
-    monkeypatch.setattr(llm_module, "generate_report", fake_report)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
     db = client.app.state.db
     _seed_entries(db)
 
@@ -246,7 +267,8 @@ def test_apply_and_regenerate_atomically_activates_prompt_used_by_job(client, mo
     assert active["body_text"] == "atomic prompt"
     assert active["model"] == "test-model"
     assert job["prompt_version_id"] == active["id"]
-    assert set(generation_inputs) == {("atomic prompt", "test-model")}
+    assert all(system_content.startswith("atomic prompt") for system_content, _ in generation_inputs)
+    assert all(model == "test-model" for _, model in generation_inputs)
 
 
 def test_apply_and_regenerate_busy_rejection_does_not_save_prompt(client):
@@ -273,15 +295,18 @@ def test_apply_and_regenerate_busy_rejection_does_not_save_prompt(client):
 
 
 def test_job_progress_reports_counts_and_failed_items(client, monkeypatch):
-    async def fake_gen(entry, all_entries, persona_text, model):
-        if entry["title"] == "日记1":
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    failing_entry_id = entry_ids[1]  # "日记1"
+
+    async def fake_gen(envelope):
+        if envelope.target_id == str(failing_entry_id):
             raise RuntimeError("boom")
         yield "ok"
 
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
-    db = client.app.state.db
-    _seed_entries(db)
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
 
     job_id = client.post("/workshop/apply-all").json()["job_id"]
     body = client.get(f"/workshop/jobs/{job_id}/progress").text
@@ -291,23 +316,24 @@ def test_job_progress_reports_counts_and_failed_items(client, monkeypatch):
 
 
 def test_retry_failed_item_reopens_job_and_succeeds(client, monkeypatch):
-    # Track attempts per entry title so "日记1 fails the FIRST time it is generated, succeeds on
+    # Track attempts per entry id so "日记1 fails the FIRST time it is generated, succeeds on
     # retry" holds regardless of the order the worker happens to process items in. (A shared
     # global call counter would be order-dependent: the worker deterministically processes 日记0
     # before 日记1, so 日记1's first attempt is call #2, and a `<= 1` guard would never fire.)
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    failing_entry_id = entry_ids[1]  # "日记1"
     attempts = {}
 
-    async def fake_gen(entry, all_entries, persona_text, model):
-        title = entry["title"]
-        attempts[title] = attempts.get(title, 0) + 1
-        if title == "日记1" and attempts[title] == 1:
+    async def fake_gen(envelope):
+        attempts[envelope.target_id] = attempts.get(envelope.target_id, 0) + 1
+        if envelope.target_id == str(failing_entry_id) and attempts[envelope.target_id] == 1:
             raise RuntimeError("boom")
         yield "recovered"
 
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
-    db = client.app.state.db
-    _seed_entries(db)
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
 
     job_id = client.post("/workshop/apply-all").json()["job_id"]
     failed_item = db.execute(
@@ -326,19 +352,20 @@ def test_retry_failed_item_reopens_job_and_succeeds(client, monkeypatch):
 
 def test_retry_returns_progress_fragment_not_json(client, monkeypatch):
     # A failed item must exist to retry, so 日记1 fails on its first generation.
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    failing_entry_id = entry_ids[1]  # "日记1"
     attempts = {}
 
-    async def fake_gen(entry, all_entries, persona_text, model):
-        title = entry["title"]
-        attempts[title] = attempts.get(title, 0) + 1
-        if title == "日记1" and attempts[title] == 1:
+    async def fake_gen(envelope):
+        attempts[envelope.target_id] = attempts.get(envelope.target_id, 0) + 1
+        if envelope.target_id == str(failing_entry_id) and attempts[envelope.target_id] == 1:
             raise RuntimeError("boom")
         yield "recovered"
 
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
-    db = client.app.state.db
-    _seed_entries(db)
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
 
     job_id = client.post("/workshop/apply-all").json()["job_id"]
     failed_item = db.execute(
@@ -420,7 +447,7 @@ def test_refresh_models_route_returns_409_when_busy(client, monkeypatch):
 def test_apply_saves_chosen_model(client, monkeypatch):
     def _boom(*args, **kwargs):
         raise AssertionError("apply must not call the LLM")
-    monkeypatch.setattr(llm_module, "generate_commentary", _boom)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _boom)
     db = client.app.state.db
 
     response = client.post(
@@ -438,11 +465,11 @@ def test_apply_saves_chosen_model(client, monkeypatch):
 def test_test_run_uses_explicit_model_override(client, monkeypatch):
     captured = {}
 
-    async def fake_gen(entry, all_entries, persona_text, model):
-        captured["model"] = model
+    async def fake_gen(envelope):
+        captured["model"] = envelope.model
         yield "x"
 
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_gen)
     db = client.app.state.db
     entry_ids = _seed_entries(db)
 
@@ -463,11 +490,11 @@ def test_test_run_uses_explicit_model_override(client, monkeypatch):
 def test_test_run_falls_back_to_active_model_when_not_specified(client, monkeypatch):
     captured = {}
 
-    async def fake_gen(entry, all_entries, persona_text, model):
-        captured["model"] = model
+    async def fake_gen(envelope):
+        captured["model"] = envelope.model
         yield "x"
 
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_gen)
     db = client.app.state.db
     entry_ids = _seed_entries(db)
     from unflincher.db import set_active_prompt
@@ -480,8 +507,9 @@ def test_test_run_falls_back_to_active_model_when_not_specified(client, monkeypa
 
 
 def test_apply_all_uses_active_persona_model(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_commentary", _fake_gen_ok)
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(_fake_gen_ok, _fake_report_ok)
+    )
     db = client.app.state.db
     entry_ids = _seed_entries(db)
     from unflincher.db import set_active_prompt
@@ -499,19 +527,20 @@ def test_apply_all_uses_active_persona_model(client, monkeypatch):
 
 def test_retry_uses_original_job_model_not_current_active(client, monkeypatch):
     # 日记1 fails on its first generation so there is a failed item to retry.
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    failing_entry_id = entry_ids[1]  # "日记1"
     attempts = {}
 
-    async def fake_gen(entry, all_entries, persona_text, model):
-        title = entry["title"]
-        attempts[title] = attempts.get(title, 0) + 1
-        if title == "日记1" and attempts[title] == 1:
+    async def fake_gen(envelope):
+        attempts[envelope.target_id] = attempts.get(envelope.target_id, 0) + 1
+        if envelope.target_id == str(failing_entry_id) and attempts[envelope.target_id] == 1:
             raise RuntimeError("boom")
         yield "recovered"
 
-    monkeypatch.setattr(llm_module, "generate_commentary", fake_gen)
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_ok)
-    db = client.app.state.db
-    _seed_entries(db)
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
 
     from unflincher.db import set_active_prompt
     # The job runs under this persona/model...
@@ -532,3 +561,286 @@ def test_retry_uses_original_job_model_not_current_active(client, monkeypatch):
         (failed_item["entry_id"],),
     ).fetchone()
     assert row["model"] == "gpt-5.4"
+
+
+def test_test_run_404_for_missing_entry_before_opening_sse(client):
+    response = client.post(
+        "/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": 999999},
+    )
+    assert response.status_code == 404
+
+
+def test_test_run_413_when_context_too_large(client, monkeypatch):
+    async def _tiny_limit(model):
+        return 1
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _tiny_limit)
+
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+
+    response = client.post(
+        "/workshop/test-run", json={"draft_prompt": "草稿" * 500, "entry_id": entry_ids[0]},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["reason"] == "context_too_large"
+
+
+def test_apply_all_413_writes_nothing_and_activates_no_prompt(client, monkeypatch):
+    async def _tiny_limit(model):
+        return 1
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _tiny_limit)
+
+    db = client.app.state.db
+    _seed_entries(db)
+    before_count = db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"]
+
+    response = client.post(
+        "/workshop/apply-all", json={"draft_prompt": "草稿" * 500, "model": "test-model"},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["reason"] == "context_too_large"
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+    assert db.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == before_count
+
+
+def test_apply_all_releases_every_target_lease_after_success(client, monkeypatch):
+    from unflincher.db import entry_target_key, get_lease_by_target, report_target_key
+
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(_fake_gen_ok, _fake_report_ok)
+    )
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+
+    client.post("/workshop/apply-all")
+
+    for entry_id in entry_ids:
+        assert get_lease_by_target(db, entry_target_key(entry_id)) is None
+    assert get_lease_by_target(db, report_target_key()) is None
+
+
+def test_apply_all_409_when_an_entry_target_already_leased(client):
+    from unflincher.db import acquire_lease, entry_target_key
+
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    acquire_lease(db, entry_target_key(entry_ids[0]), "direct", "someone-else")
+
+    response = client.post("/workshop/apply-all")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["reason"] == "target_busy"
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+
+
+def test_retry_job_item_409_when_maintenance_locked(client, monkeypatch):
+    from unflincher.db import set_maintenance_locked
+
+    db = client.app.state.db
+    _seed_entries(db)
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(_fake_gen_ok, _fake_report_ok)
+    )
+    job_id = client.post("/workshop/apply-all").json()["job_id"]
+
+    # Manufacture a failed item directly (this job actually succeeded) to exercise retry's
+    # maintenance check in isolation.
+    item = db.execute(
+        "SELECT id FROM regen_job_item WHERE job_id = ? LIMIT 1", (job_id,)
+    ).fetchone()
+    db.execute("UPDATE regen_job_item SET status = 'failed' WHERE id = ?", (item["id"],))
+    set_maintenance_locked(db, True)
+
+    response = client.post(f"/workshop/jobs/{job_id}/item/{item['id']}/retry")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["reason"] == "maintenance_locked"
+
+
+def test_test_run_acquires_and_releases_request_lease_on_success(client, monkeypatch):
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_preview_tokens)
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+
+    response = client.post(
+        "/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": entry_ids[0]},
+    )
+
+    assert response.status_code == 200
+    # No lease remains once the preview stream has finished.
+    assert db.execute("SELECT COUNT(*) AS n FROM generation_lease").fetchone()["n"] == 0
+
+
+def test_test_run_503_when_maintenance_locked_writes_no_lease(client):
+    from unflincher.db import set_maintenance_locked
+
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    set_maintenance_locked(db, True)
+
+    response = client.post(
+        "/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": entry_ids[0]},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["reason"] == "maintenance_locked"
+    assert db.execute("SELECT COUNT(*) AS n FROM generation_lease").fetchone()["n"] == 0
+
+
+def test_test_run_404_releases_request_lease(client):
+    db = client.app.state.db
+    _seed_entries(db)
+
+    response = client.post(
+        "/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": 999999},
+    )
+
+    assert response.status_code == 404
+    assert db.execute("SELECT COUNT(*) AS n FROM generation_lease").fetchone()["n"] == 0
+
+
+def test_test_run_uses_canonical_archive_order_for_same_date_entries(client, monkeypatch):
+    captured = {}
+
+    async def fake_stream(envelope):
+        captured["user_content"] = envelope.user_content
+        yield "x"
+
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
+    db = client.app.state.db
+    # Two entries sharing the SAME entry_date, inserted in REVERSE of their intended (entry_date,
+    # id) order -- id must be the deciding tiebreaker.
+    later_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('B在后', '<p>b</p>', '<p>b</p>', 'b', '2026-03-01', 'import')"
+    ).lastrowid
+    earlier_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('A在前', '<p>a</p>', '<p>a</p>', 'a', '2026-03-01', 'import')"
+    ).lastrowid
+    assert earlier_id > later_id  # sanity: id order is the OPPOSITE of the desired output order
+
+    client.post("/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": earlier_id})
+
+    assert captured["user_content"].index("B在后") < captured["user_content"].index("A在前")
+
+
+def test_retry_job_item_rejects_when_job_not_done(client, monkeypatch):
+    """A failed item cannot be retried while its owning job is still 'running' -- another worker
+    may still be actively driving the rest of it; a second worker for the same job_id must never
+    be scheduled."""
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    e2 = entry_ids[1]
+
+    async def fake_gen(envelope):
+        if envelope.target_id == str(e2):
+            raise RuntimeError("boom")
+        yield "ok"
+
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
+    job_id = client.post("/workshop/apply-all").json()["job_id"]
+    failed_item = db.execute(
+        "SELECT id FROM regen_job_item WHERE job_id = ? AND status = 'failed'", (job_id,)
+    ).fetchone()
+    # Force the job back to 'running' as if another worker were still actively driving it.
+    db.execute("UPDATE regen_job SET status = 'running' WHERE id = ?", (job_id,))
+
+    response = client.post(f"/workshop/jobs/{job_id}/item/{failed_item['id']}/retry")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["reason"] == "stale_or_superseded"
+    item = db.execute("SELECT status FROM regen_job_item WHERE id = ?", (failed_item["id"],)).fetchone()
+    assert item["status"] == "failed"  # never requeued
+
+
+def test_retry_job_item_404_when_item_does_not_belong_to_url_job_id(client, monkeypatch):
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    e1 = entry_ids[0]
+
+    async def fake_gen(envelope):
+        if envelope.target_id == str(e1):
+            raise RuntimeError("boom")
+        yield "ok"
+
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
+    job_id = client.post("/workshop/apply-all").json()["job_id"]
+    failed_item = db.execute(
+        "SELECT id FROM regen_job_item WHERE job_id = ? AND status = 'failed'", (job_id,)
+    ).fetchone()
+
+    response = client.post(f"/workshop/jobs/{job_id + 999}/item/{failed_item['id']}/retry")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["reason"] == "item_job_mismatch"
+    item = db.execute("SELECT status FROM regen_job_item WHERE id = ?", (failed_item["id"],)).fetchone()
+    assert item["status"] == "failed"  # no-write; never requeued
+
+
+def test_retry_job_item_409_request_format_changed_never_requeues(client, monkeypatch):
+    """Acceptance 811-813: retry must REFUSE TO RUN (no requeue-then-fail-later) when the
+    reconstructed request's fingerprint no longer matches what was stored at enqueue time."""
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    e1 = entry_ids[0]
+
+    async def fake_gen(envelope):
+        if envelope.target_id == str(e1):
+            raise RuntimeError("boom")
+        yield "ok"
+
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
+    job_id = client.post("/workshop/apply-all").json()["job_id"]
+    failed_item = db.execute(
+        "SELECT id FROM regen_job_item WHERE job_id = ? AND status = 'failed'", (job_id,)
+    ).fetchone()
+    db.execute(
+        "UPDATE regen_job_item SET request_fingerprint = 'stale-fingerprint' WHERE id = ?",
+        (failed_item["id"],),
+    )
+
+    response = client.post(f"/workshop/jobs/{job_id}/item/{failed_item['id']}/retry")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["reason"] == "request_format_changed"
+    item = db.execute("SELECT status FROM regen_job_item WHERE id = ?", (failed_item["id"],)).fetchone()
+    assert item["status"] == "failed"  # never requeued -- proves no requeue-then-fail-later
+
+
+def test_retry_job_item_413_when_current_context_too_large_never_requeues(client, monkeypatch):
+    db = client.app.state.db
+    entry_ids = _seed_entries(db)
+    e1 = entry_ids[0]
+
+    async def fake_gen(envelope):
+        if envelope.target_id == str(e1):
+            raise RuntimeError("boom")
+        yield "ok"
+
+    monkeypatch.setattr(
+        llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
+    )
+    job_id = client.post("/workshop/apply-all").json()["job_id"]
+    failed_item = db.execute(
+        "SELECT id FROM regen_job_item WHERE job_id = ? AND status = 'failed'", (job_id,)
+    ).fetchone()
+
+    async def _tiny_limit(model):
+        return 1
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _tiny_limit)
+
+    response = client.post(f"/workshop/jobs/{job_id}/item/{failed_item['id']}/retry")
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["reason"] == "context_too_large"
+    item = db.execute("SELECT status FROM regen_job_item WHERE id = ?", (failed_item["id"],)).fetchone()
+    assert item["status"] == "failed"  # never requeued

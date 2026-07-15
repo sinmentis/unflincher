@@ -16,7 +16,18 @@ function initEntryPage(doc = document) {
           setNotice(notice, window.UI_MESSAGES.busy, "busy");
           return;
         }
-        if (!response.ok) throw new Error(`commentary failed: ${response.status}`);
+        if (!response.ok) {
+          // Surface the estimated size + model limit + actions for a stable 413
+          // context_too_large exactly like streamInto does elsewhere; any other stable reason
+          // (or an unparseable body) keeps the prior generic failure notice unchanged.
+          const detail = await parseStableErrorDetail(response);
+          setNotice(
+            notice,
+            stableErrorNoticeMessage(detail, window.UI_MESSAGES.requestFailed),
+            "failed",
+          );
+          return;
+        }
         window.location.reload();
       } catch {
         setNotice(notice, window.UI_MESSAGES.requestFailed, "failed");

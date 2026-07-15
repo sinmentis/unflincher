@@ -23,11 +23,13 @@ from unflincher.llm import stream_completion
 
 @pytest.fixture(autouse=True)
 def _reset_shared_client_state(monkeypatch):
-    """Reset the shared-client singleton before each test so tests in this file don't
+    """Reset the shared-client lifecycle state before each test so tests in this file don't
     share state with each other or with tests in test_llm.py."""
     monkeypatch.setattr(llm_module, "_client", None)
     monkeypatch.setattr(llm_module, "_client_generation", 0)
-    monkeypatch.setattr(llm_module, "_client_lock", asyncio.Lock())
+    monkeypatch.setattr(llm_module, "_active_count", 0)
+    monkeypatch.setattr(llm_module, "_refresh_active", False)
+    monkeypatch.setattr(llm_module, "_lifecycle_cond", asyncio.Condition())
     yield
 
 

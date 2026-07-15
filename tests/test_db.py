@@ -306,11 +306,117 @@ def test_delete_chat_session_removes_its_messages_too(conn):
         (other_session_id,),
     )
 
-    delete_chat_session(conn, session_id)
+    delete_chat_session(conn, session_id, "owner-a")
 
     assert get_chat_session(conn, session_id) is None
     remaining = conn.execute("SELECT session_id FROM chat_message").fetchall()
     assert [r["session_id"] for r in remaining] == [other_session_id]
+
+
+def test_delete_chat_session_rejects_when_thread_lease_is_busy(conn):
+    from unflincher.db import TargetBusyError, acquire_lease, conversation_thread_key
+
+    migrate_chat_session(conn)
+    session_id = create_chat_session(conn, "t")
+    conn.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', 'a')",
+        (session_id,),
+    )
+    acquire_lease(conn, conversation_thread_key(session_id), "thread", "active-stream")
+
+    with pytest.raises(TargetBusyError):
+        delete_chat_session(conn, session_id, "owner-a")
+
+    # No-write 409 semantics: the session and its message are preserved.
+    assert get_chat_session(conn, session_id) is not None
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM chat_message WHERE session_id = ?", (session_id,)
+    ).fetchone()["n"] == 1
+
+
+def test_delete_chat_session_leaves_no_dangling_lease_after_success(conn):
+    from unflincher.db import conversation_thread_key, get_lease_by_target
+
+    migrate_chat_session(conn)
+    session_id = create_chat_session(conn, "t")
+
+    delete_chat_session(conn, session_id, "owner-a")
+
+    assert get_lease_by_target(conn, conversation_thread_key(session_id)) is None
+
+
+def test_delete_chat_session_works_even_when_maintenance_is_locked(conn):
+    from unflincher.db import set_maintenance_locked
+
+    migrate_chat_session(conn)
+    session_id = create_chat_session(conn, "t")
+    set_maintenance_locked(conn, True)
+
+    # Deletion is cleanup, not new generation work -- it must not be blocked by the maintenance
+    # gate the way acquire_lease() blocks new admissions.
+    delete_chat_session(conn, session_id, "owner-a")
+
+    assert get_chat_session(conn, session_id) is None
+
+
+def test_create_general_chat_session_and_convert_lease_happy_path(conn):
+    from unflincher.db import (
+        acquire_lease,
+        conversation_thread_key,
+        create_general_chat_session_and_convert_lease,
+        get_lease_by_target,
+    )
+
+    migrate_chat_session(conn)
+    request_lease_id = acquire_lease(conn, "request:abc123", "request", "owner-a")
+
+    session_id = create_general_chat_session_and_convert_lease(
+        conn, request_lease_id=request_lease_id, title="2026-07-15", first_message="第一条消息",
+    )
+
+    session = get_chat_session(conn, session_id)
+    assert session["title"] == "2026-07-15"
+    message = conn.execute(
+        "SELECT role, content FROM chat_message WHERE session_id = ?", (session_id,)
+    ).fetchone()
+    assert message["role"] == "user"
+    assert message["content"] == "第一条消息"
+    # The SAME lease now protects the new conversation thread, not the old request key.
+    assert get_lease_by_target(conn, "request:abc123") is None
+    lease = get_lease_by_target(conn, conversation_thread_key(session_id))
+    assert lease is not None
+    assert lease["id"] == request_lease_id
+
+
+def test_create_general_chat_session_and_convert_lease_raises_when_request_lease_missing(conn):
+    from unflincher.db import RequestLeaseExpiredError, create_general_chat_session_and_convert_lease
+
+    migrate_chat_session(conn)
+    with pytest.raises(RequestLeaseExpiredError):
+        create_general_chat_session_and_convert_lease(
+            conn, request_lease_id=999999, title="t", first_message="m",
+        )
+    assert conn.execute("SELECT COUNT(*) AS n FROM chat_session").fetchone()["n"] == 0
+
+
+def test_create_general_chat_session_and_convert_lease_does_not_check_maintenance(conn):
+    # Deliberate: the request lease itself is proof of prior admission -- this handoff must
+    # succeed even if maintenance became locked AFTER the request lease was acquired.
+    from unflincher.db import (
+        acquire_lease,
+        create_general_chat_session_and_convert_lease,
+        set_maintenance_locked,
+    )
+
+    migrate_chat_session(conn)
+    request_lease_id = acquire_lease(conn, "request:abc123", "request", "owner-a")
+    set_maintenance_locked(conn, True)
+
+    session_id = create_general_chat_session_and_convert_lease(
+        conn, request_lease_id=request_lease_id, title="t", first_message="m",
+    )
+
+    assert get_chat_session(conn, session_id) is not None
 
 
 def test_migrate_chat_session_is_idempotent(tmp_path):

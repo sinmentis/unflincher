@@ -23,6 +23,97 @@ function parseSseFrame(frame) {
   return {ev, data};
 }
 
+// Carries the stable generation-safety JSON body (see routes/errors.py's
+// generation_safety_http_exception) alongside the HTTP status, so the catch block in streamInto
+// can render a specific, actionable notice for reasons it recognizes (currently
+// "context_too_large") while falling through to the existing generic notice for everything else
+// (network errors, unrecognized/non-JSON error bodies, and mid-stream `error` SSE events).
+class StreamRequestError extends Error {
+  constructor(status, detail) {
+    super(`stream request failed: ${status}`);
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+// Reads FastAPI's `detail` object out of an already-parsed JSON response body if it has the
+// stable `{reason: "..."}` shape this app's routes always use for generation-safety errors (see
+// routes/errors.py). Returns null for anything else -- callers must treat null as "unrecognized
+// failure", never guess a reason. Synchronous and reusable from both a `fetch` Response body
+// (already parsed) and an htmx XHR's responseText (parsed separately, see
+// parseStableErrorDetailFromText) -- ONE shape-check, not two copies that could drift.
+function extractStableErrorDetail(parsedBody) {
+  if (
+    parsedBody
+    && typeof parsedBody.detail === "object"
+    && parsedBody.detail
+    && typeof parsedBody.detail.reason === "string"
+  ) {
+    return parsedBody.detail;
+  }
+  return null;
+}
+
+// Reads the failed response's JSON body once and returns the stable detail, or null. Used by
+// every plain `fetch()`-based caller (streamInto, entry.js's single-entry trigger, workshop.js's
+// apply-all) so the exact same parsing logic backs all of them.
+async function parseStableErrorDetail(res) {
+  try {
+    return extractStableErrorDetail(await res.json());
+  } catch {
+    // Not JSON (or no body) -- fall through to null.
+  }
+  return null;
+}
+
+// Same parse, but for htmx's XHR-based `htmx:responseError` event, whose body is already
+// available synchronously as `event.detail.xhr.responseText` rather than a fetch Response to
+// await .json() on.
+function parseStableErrorDetailFromText(text) {
+  try {
+    return extractStableErrorDetail(JSON.parse(text));
+  } catch {
+    return null;
+  }
+}
+
+// Fills the two dynamic numbers into the localized "{estimated} > {limit}" template. Plain
+// string substitution, not a templating library, matching this app's dependency-free JS.
+function contextTooLargeMessage(detail) {
+  const template = UI_MESSAGES.contextTooLarge || "";
+  return template
+    .replace("{estimated}", detail.estimated_tokens)
+    .replace("{limit}", detail.limit);
+}
+
+// One shared renderer for the small single-line `.notice` divs used outside streamInto's own
+// (larger, two-paragraph) rendering: entry.js's single-entry commentary trigger, workshop.js's
+// apply-all, and the htmx retry handler below. Combines the capacity message with its actions
+// into ONE string (these notices are plain text nodes, see setNotice) for context_too_large;
+// anything else (a different stable reason, or no parseable detail at all) falls through to
+// `fallbackMessage`, preserving each caller's exact previous generic-failure text.
+function stableErrorNoticeMessage(detail, fallbackMessage) {
+  if (detail && detail.reason === "context_too_large") {
+    return `${contextTooLargeMessage(detail)} ${UI_MESSAGES.contextTooLargeActions || ""}`.trim();
+  }
+  return fallbackMessage;
+}
+
+// Targeted htmx error handler for the ONE htmx-driven generation-adjacent action in this app:
+// the failed-job-item retry button in partials/job_progress.html (hx-post .../retry). Scoped to
+// elements explicitly marked `data-generation-retry` so this never fires for this app's other,
+// unrelated htmx requests (job-progress polling, commentary-status polling). Renders into
+// #workshop-notice, the page-level notice element already present alongside the htmx-swapped
+// #regen-progress region on workshop.html.
+document.body.addEventListener("htmx:responseError", (event) => {
+  const elt = event.detail && event.detail.elt;
+  if (!elt || typeof elt.matches !== "function" || !elt.matches("[data-generation-retry]")) return;
+  const notice = document.getElementById("workshop-notice");
+  if (!notice) return;
+  const detail = parseStableErrorDetailFromText(event.detail.xhr ? event.detail.xhr.responseText : "");
+  setNotice(notice, stableErrorNoticeMessage(detail, UI_MESSAGES.requestFailed), "failed");
+});
+
 async function streamInto(url, body, targetEl, onDone, onError) {
   // Re-entrancy guard: the CSS-only "disable while streaming" treatment
   // (main:has([data-streaming="1"]) #trigger-btn { pointer-events: none }) only blocks MOUSE
@@ -44,7 +135,12 @@ async function streamInto(url, body, targetEl, onDone, onError) {
       headers: {"Content-Type": "application/json", "X-CSRF-Token": getCsrfToken()},
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (res.ok === false || !res.body) throw new Error(`stream request failed: ${res.status}`);
+    if (res.ok === false || !res.body) {
+      // Read the JSON body BEFORE any SSE handling -- a failed preflight (413/503/409) never
+      // opens an SSE stream at all, so this is the only chance to see the stable detail.
+      const detail = res.ok === false ? await parseStableErrorDetail(res) : null;
+      throw new StreamRequestError(res.status, detail);
+    }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -92,8 +188,18 @@ async function streamInto(url, body, targetEl, onDone, onError) {
     targetEl.dataset.streamState = "failed";
     const errorNode = document.createElement("p");
     errorNode.className = "notice notice--failed";
-    errorNode.textContent = UI_MESSAGES.streamInterrupted || UI_MESSAGES.requestFailed || "";
-    targetEl.append(errorNode);
+    if (error instanceof StreamRequestError && error.detail?.reason === "context_too_large") {
+      // Plan lines 174-175: the owner must see both the estimated size and the model's limit,
+      // plus actionable next steps -- a generic "interrupted" notice loses that detail.
+      errorNode.textContent = contextTooLargeMessage(error.detail);
+      const actionsNode = document.createElement("p");
+      actionsNode.className = "notice notice--failed-actions";
+      actionsNode.textContent = UI_MESSAGES.contextTooLargeActions || "";
+      targetEl.append(errorNode, actionsNode);
+    } else {
+      errorNode.textContent = UI_MESSAGES.streamInterrupted || UI_MESSAGES.requestFailed || "";
+      targetEl.append(errorNode);
+    }
     onError?.(error);
   } finally {
     // Always clear the re-entrancy flag, success or failure, so the surface can be retried.
@@ -207,6 +313,12 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseSseFrame,
     streamInto,
+    StreamRequestError,
+    extractStableErrorDetail,
+    parseStableErrorDetail,
+    parseStableErrorDetailFromText,
+    contextTooLargeMessage,
+    stableErrorNoticeMessage,
     saveDraft,
     loadDraft,
     clearDraft,

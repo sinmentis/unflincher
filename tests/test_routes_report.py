@@ -1,7 +1,18 @@
+import pytest
+
 import unflincher.llm as llm_module
 
 
-async def _fake_report_tokens(*args, **kwargs):
+@pytest.fixture(autouse=True)
+def _fake_model_limit(monkeypatch):
+    """Report generation now preflights against get_model_max_prompt_tokens() before opening
+    the SSE stream -- fake it so tests never need a real Copilot client just to pass preflight."""
+    async def _fake_limit(model):
+        return 200_000
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _fake_limit)
+
+
+async def _fake_report_tokens(envelope):
     for t in ["反复出现的主题：", "你总在", "岔路口犹豫"]:
         yield t
 
@@ -65,7 +76,7 @@ def test_report_markdown_headings_stay_below_the_page_heading(client):
 
 
 def test_generate_report_streams_and_persists_with_coverage(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_tokens)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_report_tokens)
     db = client.app.state.db
     db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -88,7 +99,7 @@ def test_generate_report_streams_and_persists_with_coverage(client, monkeypatch)
 
 
 def test_report_page_shows_current_report_after_generation(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "generate_report", _fake_report_tokens)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_report_tokens)
     db = client.app.state.db
     db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -99,6 +110,44 @@ def test_report_page_shows_current_report_after_generation(client, monkeypatch):
     response = client.get("/report")
 
     assert "反复出现的主题" in response.text
+
+
+def test_generate_report_releases_lease_after_stream_completes(client, monkeypatch):
+    from unflincher.db import get_lease_by_target, report_target_key
+
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_report_tokens)
+    client.post("/report/generate")
+
+    assert get_lease_by_target(client.app.state.db, report_target_key()) is None
+
+
+def test_generate_report_409_when_target_already_leased(client):
+    from unflincher.db import acquire_lease, report_target_key
+
+    db = client.app.state.db
+    acquire_lease(db, report_target_key(), "background", "someone-else")
+
+    response = client.post("/report/generate")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["reason"] == "target_busy"
+    assert db.execute("SELECT COUNT(*) AS n FROM aggregate_report").fetchone()["n"] == 0
+
+
+def test_generate_report_413_releases_lease_and_writes_nothing(client, monkeypatch):
+    from unflincher.db import get_lease_by_target, report_target_key
+
+    async def _tiny_limit(model):
+        return 1
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _tiny_limit)
+
+    db = client.app.state.db
+    response = client.post("/report/generate")
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["reason"] == "context_too_large"
+    assert db.execute("SELECT COUNT(*) AS n FROM aggregate_report").fetchone()["n"] == 0
+    assert get_lease_by_target(db, report_target_key()) is None
 
 
 def test_report_coverage_dates_render_as_calendar_dates_not_timestamps(client):
@@ -168,3 +217,29 @@ def test_report_page_shows_sidebar_timeline_with_active_and_failed_states(client
     assert 'aria-current="true"' in response.text
     assert f'href="/report/{old_failed_id}"' in response.text
     assert 'data-status="failed"' in response.text
+
+
+def test_generate_report_uses_canonical_archive_order_for_same_date_entries(client, monkeypatch):
+    captured = {}
+
+    async def fake_stream(envelope):
+        captured["user_content"] = envelope.user_content
+        yield "ok"
+
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
+    db = client.app.state.db
+    # Two entries sharing the SAME entry_date, inserted in REVERSE of their intended (entry_date,
+    # id) order -- id must be the deciding tiebreaker.
+    later_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('B在后', '<p>b</p>', '<p>b</p>', 'b', '2026-03-01', 'import')"
+    ).lastrowid
+    earlier_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('A在前', '<p>a</p>', '<p>a</p>', 'a', '2026-03-01', 'import')"
+    ).lastrowid
+    assert earlier_id > later_id  # sanity: id order is the OPPOSITE of the desired output order
+
+    client.post("/report/generate")
+
+    assert captured["user_content"].index("B在后") < captured["user_content"].index("A在前")

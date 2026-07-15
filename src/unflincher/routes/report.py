@@ -1,8 +1,22 @@
 from fastapi import APIRouter, HTTPException, Request
-from sse_starlette.sse import EventSourceResponse
 
 from unflincher import llm
-from unflincher.db import get_active_prompt, get_current_report, get_report_by_id, list_report_versions
+from unflincher.context_budget import ContextTooLargeError, ModelLimitsUnavailableError
+from unflincher.db import (
+    MaintenanceLockedError,
+    TargetBusyError,
+    acquire_lease,
+    get_active_prompt,
+    get_current_report,
+    get_entries_in_order,
+    get_ordered_entry_ids,
+    get_report_by_id,
+    list_report_versions,
+    release_lease,
+    report_target_key,
+)
+from unflincher.routes.errors import generation_safety_http_exception
+from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
 from unflincher.templates_env import templates
 
@@ -64,16 +78,35 @@ async def view_report_version(request: Request, report_id: int):
 
 @router.post("/report/generate")
 async def trigger_report(request: Request):
+    """Direct (non-job) Life Report generation. Acquires the report's exclusive lease BEFORE
+    preparing the request -- this is what makes a direct report generation and an apply-all job
+    mutually exclusive on the SAME report target, not merely "no two direct generations at once".
+    Prepares and preflights the exact request BEFORE opening the SSE stream; the lease is always
+    released once the stream ends, success or failure."""
     db = request.app.state.db
-    all_entries = db.execute("SELECT * FROM diary_entry ORDER BY entry_date").fetchall()
-    active_prompt = get_active_prompt(db)
-    model = active_prompt["model"]
+    try:
+        lease_id = acquire_lease(db, report_target_key(), "direct", request.app.state.owner_token)
+    except (MaintenanceLockedError, TargetBusyError) as exc:
+        raise generation_safety_http_exception(exc) from exc
+
+    try:
+        preflight_entry_ids = get_ordered_entry_ids(db)
+        all_entries = [dict(row) for row in get_entries_in_order(db, preflight_entry_ids)]
+        active_prompt = get_active_prompt(db)
+        model = active_prompt["model"]
+        try:
+            prepared = await llm.prepare_report_request(
+                all_entries, active_prompt["body_text"], model
+            )
+        except (ContextTooLargeError, ModelLimitsUnavailableError) as exc:
+            raise generation_safety_http_exception(exc) from exc
+    except Exception:
+        release_lease(db, lease_id)
+        raise
 
     async def event_stream():
         chunks = []
-        async for token in llm.generate_report(
-            [dict(e) for e in all_entries], active_prompt["body_text"], model
-        ):
+        async for token in llm.generate_from_prepared(prepared):
             chunks.append(token)
             yield {"event": "token", "data": token}
         full_text = "".join(chunks)
@@ -89,4 +122,4 @@ async def trigger_report(request: Request):
         )
         yield {"event": "done", "data": "{}"}
 
-    return EventSourceResponse(event_stream(), sep="\n")
+    return sse_response(event_stream(), cleanup=lambda: release_lease(db, lease_id))

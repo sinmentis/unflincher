@@ -45,6 +45,26 @@ def test_base_document_has_balanced_graphite_metadata_and_landmarks(client):
     assert "brand-seal" not in body
 
 
+def test_ui_messages_json_carries_context_too_large_keys_for_streamInto(client):
+    """Regression test for item 12: streamInto() (app.js) reads window UI_MESSAGES.contextTooLarge
+    and .contextTooLargeActions to render the 413 context_too_large notice. If either key ever
+    goes missing from the server-rendered #ui-messages JSON, that notice silently falls back to
+    the generic "Generation interrupted" text with no estimate/limit/actions -- catch that here
+    at the template layer, independent of the JS-side tests in test_static_app_js.py."""
+    import json
+
+    body = client.get("/").text
+    start = body.index('id="ui-messages"')
+    json_start = body.index(">", start) + 1
+    json_end = body.index("</script>", json_start)
+    messages = json.loads(body[json_start:json_end])
+
+    assert "{estimated}" in messages["contextTooLarge"]
+    assert "{limit}" in messages["contextTooLarge"]
+    assert messages["contextTooLargeActions"]
+    assert messages["streamInterrupted"]
+
+
 def test_quiet_menu_exposes_each_destination_once(client):
     body = client.get("/chat").text
     for key in ("timeline", "report", "chat", "new_entry", "workshop"):

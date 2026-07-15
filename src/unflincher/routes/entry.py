@@ -2,18 +2,25 @@ import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import Response
-from sse_starlette.sse import EventSourceResponse
 
-from unflincher import llm
+from unflincher import llm, regen_enqueue
 from unflincher.config import load_settings
+from unflincher.context_budget import ContextTooLargeError, ModelLimitsUnavailableError
 from unflincher.db import (
+    ArchiveChangedError,
+    MaintenanceLockedError,
+    TargetBusyError,
+    acquire_lease,
+    entry_thread_key,
     get_active_prompt,
     get_commentary_by_id,
     get_current_commentary,
     get_latest_commentary_job_item,
     list_commentary_versions,
-    start_single_entry_commentary_job,
+    release_lease,
 )
+from unflincher.routes.errors import generation_safety_http_exception
+from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
 from unflincher.templates_env import templates
 from unflincher.worker import BatchWorker
@@ -108,11 +115,11 @@ async def view_commentary_version(request: Request, entry_id: int, commentary_id
 
 @router.post("/entry/{entry_id}/commentary")
 async def trigger_entry_commentary(request: Request, entry_id: int, background_tasks: BackgroundTasks):
-    """Fire-and-forget: creates a single-item background job and returns immediately, so the
-    caller (the browser) can navigate away without losing the result. Reuses the exact same
-    single-flight regen_job infrastructure workshop.py's apply-all route uses -- see
-    db.start_single_entry_commentary_job's docstring for the confirmed "only one job
-    system-wide" trade-off."""
+    """Fire-and-forget: prepares and preflights the exact Entry Reflection request this entry
+    would generate (full-archive context, exactly like a real generation), then atomically
+    compares the archive snapshot, acquires this entry's exclusive lease, and writes a
+    single-item snapshot-backed job -- see regen_enqueue.enqueue_single_entry_job. Returns
+    immediately so the caller (the browser) can navigate away without losing the result."""
     db = request.app.state.db
     entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (entry_id,)).fetchone()
     if entry is None:
@@ -120,15 +127,22 @@ async def trigger_entry_commentary(request: Request, entry_id: int, background_t
 
     active_prompt = get_active_prompt(db)
     try:
-        job_id = start_single_entry_commentary_job(db, active_prompt["id"], entry_id)
+        job_id = await regen_enqueue.enqueue_single_entry_job(
+            db, entry_id=entry_id, prompt_version_id=active_prompt["id"],
+            persona_text=active_prompt["body_text"], model=active_prompt["model"],
+            owner_token=request.app.state.owner_token,
+        )
+    except (
+        ContextTooLargeError, ModelLimitsUnavailableError, MaintenanceLockedError,
+        TargetBusyError, ArchiveChangedError,
+    ) as exc:
+        raise generation_safety_http_exception(exc) from exc
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="a regeneration job is already running")
 
     settings = load_settings()
     worker = BatchWorker(db, settings.batch_concurrency)
-    background_tasks.add_task(
-        worker.run_job, job_id, active_prompt["body_text"], active_prompt["model"]
-    )
+    background_tasks.add_task(worker.run_job, job_id)
     return {"job_id": job_id}
 
 
@@ -151,6 +165,13 @@ async def entry_commentary_status(request: Request, entry_id: int):
 
 @router.post("/entry/{entry_id}/chat")
 async def entry_chat(request: Request, entry_id: int):
+    """Acquires the stable per-entry thread lease BEFORE reading history or writing any message
+    (a concurrent turn on the same entry thread gets a no-write 409 -- see
+    db.entry_thread_key/db.acquire_lease), then prepares and preflights the exact reply request
+    BEFORE inserting the user message, so an oversized/blocked request never leaves an
+    unanswered user turn in the thread. The lease is always released once the stream ends,
+    success or failure -- and also if the client disconnects before the stream ever begins (see
+    routes/sse.py's sse_response, which covers that race the generator's own cleanup cannot)."""
     db = request.app.state.db
     entry = db.execute("SELECT * FROM diary_entry WHERE id = ?", (entry_id,)).fetchone()
     if entry is None:
@@ -158,37 +179,49 @@ async def entry_chat(request: Request, entry_id: int):
     body = await request.json()
     user_message = body["message"]
 
-    # The thread is keyed by entry_id alone, so history spans every past exchange regardless
-    # of which entry_commentary version was current at the time. Read it before inserting the
-    # new user turn so the model sees prior turns, not the message it is about to answer.
-    history_rows = db.execute(
-        "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
-        (entry_id,),
-    ).fetchall()
-    history = [{"role": r["role"], "content": r["content"]} for r in history_rows]
+    try:
+        lease_id = acquire_lease(
+            db, entry_thread_key(entry_id), "thread", request.app.state.owner_token
+        )
+    except (MaintenanceLockedError, TargetBusyError) as exc:
+        raise generation_safety_http_exception(exc) from exc
 
-    db.execute(
-        "INSERT INTO chat_message (thread_kind, entry_id, role, content) VALUES ('entry', ?, 'user', ?)",
-        (entry_id, user_message),
-    )
+    try:
+        # The thread is keyed by entry_id alone, so history spans every past exchange regardless
+        # of which entry_commentary version was current at the time. Read it before the new user
+        # turn so the model sees prior turns, not the message it is about to answer.
+        history_rows = db.execute(
+            "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
+            (entry_id,),
+        ).fetchall()
+        history = [{"role": r["role"], "content": r["content"]} for r in history_rows]
 
-    # Always ground the reply in the LATEST status='ok' commentary, never a specific/viewed
-    # version — get_current_commentary already returns the newest ok row.
-    commentary = get_current_commentary(db, entry_id)
-    commentary_text = commentary["body_text"] if commentary else None
-    active_prompt = get_active_prompt(db)
-    model = active_prompt["model"]
+        # Always ground the reply in the LATEST status='ok' commentary, never a specific/viewed
+        # version — get_current_commentary already returns the newest ok row.
+        commentary = get_current_commentary(db, entry_id)
+        commentary_text = commentary["body_text"] if commentary else None
+        active_prompt = get_active_prompt(db)
+        model = active_prompt["model"]
+
+        try:
+            prepared = await llm.prepare_entry_chat_request(
+                dict(entry), commentary_text, history, user_message, active_prompt["body_text"], model,
+            )
+        except (ContextTooLargeError, ModelLimitsUnavailableError) as exc:
+            raise generation_safety_http_exception(exc) from exc
+
+        # Durable write happens only AFTER preflight succeeds.
+        db.execute(
+            "INSERT INTO chat_message (thread_kind, entry_id, role, content) VALUES ('entry', ?, 'user', ?)",
+            (entry_id, user_message),
+        )
+    except Exception:
+        release_lease(db, lease_id)
+        raise
 
     async def event_stream():
         chunks = []
-        async for token in llm.chat_reply(
-            dict(entry),
-            commentary_text,
-            history,
-            user_message,
-            active_prompt["body_text"],
-            model,
-        ):
+        async for token in llm.generate_from_prepared(prepared):
             chunks.append(token)
             yield {"event": "token", "data": token}
         full_text = "".join(chunks)
@@ -199,4 +232,4 @@ async def entry_chat(request: Request, entry_id: int):
         )
         yield {"event": "done", "data": "{}"}
 
-    return EventSourceResponse(event_stream(), sep="\n")
+    return sse_response(event_stream(), cleanup=lambda: release_lease(db, lease_id))

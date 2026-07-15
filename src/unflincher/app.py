@@ -1,6 +1,8 @@
 """FastAPI application entrypoint."""
 import asyncio
+import contextlib
 import logging
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -12,7 +14,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from unflincher.auth import AccessJWTMiddleware
 from unflincher.config import load_settings
 from unflincher.csrf import CSRFMiddleware
-from unflincher.db import get_connection, init_schema, migrate_chat_session, migrate_persona_prompt_model, resume_sweep
+from unflincher.db import (
+    get_connection,
+    init_schema,
+    migrate_chat_session,
+    migrate_generation_safety,
+    migrate_persona_prompt_model,
+    recover_or_cancel_running_jobs,
+)
 from unflincher import llm as _llm
 from unflincher.llm import ensure_default_persona_prompt
 from unflincher.routes import chat, entry, new_entry, report, timeline, workshop
@@ -65,34 +74,55 @@ def create_app() -> FastAPI:
         # the recovery lookup below both do). Idempotent, so safe on every production restart.
         migrate_persona_prompt_model(conn)
         migrate_chat_session(conn)
+        migrate_generation_safety(conn)
         ensure_default_persona_prompt(conn)
-        resume_sweep(conn)
         app.state.db = conn
+        # One random token per process instance. clear_stale_leases() (inside
+        # recover_or_cancel_running_jobs below) removes every lease row from the PREVIOUS process
+        # unconditionally; any lease this process itself acquires afterward is tagged with this
+        # token so a future restart can tell "this process's leases" apart if ever needed.
+        app.state.owner_token = uuid.uuid4().hex
         await _llm.warm_up_client()
 
-        # Crash recovery: if a batch job was left 'running' when the process died, relaunch its
-        # worker. resume_sweep() above already reset any half-done items back to 'pending', so the
-        # worker just re-claims them. complete_job_item() is atomic, so no result is duplicated.
-        running_job = conn.execute(
-            "SELECT * FROM regen_job WHERE status = 'running'"
-        ).fetchone()
-        if running_job is not None:
-            prompt = conn.execute(
-                "SELECT body_text, model FROM persona_prompt WHERE id = ?",
-                (running_job["prompt_version_id"],),
-            ).fetchone()
+        # Crash recovery: a regen_job left 'running' when the process died is resumed ONLY if it
+        # has a stored context snapshot (see db.recover_or_cancel_running_jobs) -- a snapshot-less
+        # legacy job is cancelled and its unfinished items deleted rather than ever resumed
+        # against the live archive. Stale leases from the dead previous process are cleared first.
+        recovery_result = recover_or_cancel_running_jobs(conn, app.state.owner_token)
+        if recovery_result.cancelled_job_ids:
+            logger.warning(
+                "startup recovery: cancelled %d snapshot-less legacy regeneration job(s) "
+                "(%s), deleting %d unfinished item(s) rather than resuming against the live "
+                "archive",
+                len(recovery_result.cancelled_job_ids), recovery_result.cancelled_job_ids,
+                recovery_result.cancelled_item_count,
+            )
+        for job_id in recovery_result.recovered_job_ids:
             worker = BatchWorker(conn, settings.batch_concurrency)
             # Hold a strong reference on app.state so the task can't be GC'd mid-run (RUF006);
             # it also gives tests a handle to await the relaunched worker deterministically.
-            # Resume with the job's OWN persona model, not settings.llm_model — a recovered job
-            # must stay consistent with the model its already-generated items used.
-            app.state.recovery_task = asyncio.create_task(
-                worker.run_job(
-                    running_job["id"], prompt["body_text"], prompt["model"]
-                )
-            )
+            # run_job() reads the job's OWN prompt version and stored snapshot itself — see
+            # worker.py's module docstring — so no persona_text/model/entries need to be passed
+            # in here.
+            app.state.recovery_task = asyncio.create_task(worker.run_job(job_id, recovering=True))
 
         yield
+
+        # Settle any still-running recovery worker BEFORE tearing down the shared Copilot client
+        # or closing the database connection -- otherwise a recovered job could still be mid-
+        # admission (touching the client) or mid-write (touching the connection) when either is
+        # torn down. Cancelling is safe: BatchWorker.run_job's own cancellation handling (see
+        # worker.py) cancels/awaits its child per-item tasks and releases their leases before the
+        # cancellation propagates here, and never force-marks the job 'cancelled' on a plain
+        # cancellation -- the job/items are left exactly as a crash would leave them, so the NEXT
+        # startup's recover_or_cancel_running_jobs can resume it again.
+        recovery_task = getattr(app.state, "recovery_task", None)
+        if recovery_task is not None:
+            if not recovery_task.done():
+                recovery_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await recovery_task
+
         await _llm.shutdown_client()
         conn.close()
 

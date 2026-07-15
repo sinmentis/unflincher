@@ -37,8 +37,8 @@ def test_timeline_shows_commentary_badge(client):
 
     body = client.get("/").text
 
-    assert "Reviewed" in body
-    assert "Not reviewed" in body
+    assert "Reflected" in body
+    assert "Not reflected" in body
 
 
 def test_timeline_provides_year_sidebar_data(client):

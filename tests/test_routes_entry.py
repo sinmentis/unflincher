@@ -1,8 +1,20 @@
+import pytest
+
 import unflincher.llm as llm_module
 
 
+@pytest.fixture(autouse=True)
+def _fake_model_limit(monkeypatch):
+    """Every route in this file now preflights against get_model_max_prompt_tokens() before
+    generating or enqueueing -- fake it so tests never need a real Copilot client just to pass
+    preflight."""
+    async def _fake_limit(model):
+        return 200_000
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _fake_limit)
+
+
 def test_trigger_commentary_creates_background_job(client, monkeypatch):
-    async def _fake_run_job(self, job_id, persona_text, model):
+    async def _fake_run_job(self, job_id):
         pass  # don't actually run the worker in this test -- only the job creation is under test
 
     monkeypatch.setattr("unflincher.worker.BatchWorker.run_job", _fake_run_job)
@@ -45,6 +57,60 @@ def test_trigger_commentary_409_when_a_job_is_already_running(client):
 
     response = client.post(f"/entry/{entry_id}/commentary")
     assert response.status_code == 409
+
+
+def test_trigger_commentary_413_when_context_too_large(client, monkeypatch):
+    async def _tiny_limit(model):
+        return 1
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _tiny_limit)
+
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+
+    response = client.post(f"/entry/{entry_id}/commentary")
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["reason"] == "context_too_large"
+    # No write on this path.
+    assert db.execute("SELECT COUNT(*) AS n FROM regen_job").fetchone()["n"] == 0
+
+
+def test_trigger_commentary_503_when_model_limits_unavailable(client, monkeypatch):
+    from unflincher.context_budget import ModelLimitsUnavailableError
+
+    async def _raise(model):
+        raise ModelLimitsUnavailableError(model, "boom")
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _raise)
+
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+
+    response = client.post(f"/entry/{entry_id}/commentary")
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["reason"] == "model_limits_unavailable"
+
+
+def test_trigger_commentary_409_when_entry_target_already_leased(client):
+    from unflincher.db import entry_target_key, acquire_lease
+
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    acquire_lease(db, entry_target_key(entry_id), "direct", "someone-else")
+
+    response = client.post(f"/entry/{entry_id}/commentary")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["reason"] == "target_busy"
 
 
 def test_entry_detail_shows_content(client):
@@ -99,13 +165,13 @@ def test_entry_detail_404_for_missing_entry(client):
     assert response.status_code == 404
 
 
-async def _fake_chat_tokens(*args, **kwargs):
+async def _fake_chat_tokens(envelope):
     for t in ["那", "就", "先", "走", "一步"]:
         yield t
 
 
 def test_entry_chat_persists_user_and_assistant_messages(client, monkeypatch):
-    monkeypatch.setattr(llm_module, "chat_reply", _fake_chat_tokens)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_chat_tokens)
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -157,11 +223,11 @@ def test_entry_detail_renders_assistant_chat_markdown_but_not_user_text(client):
 
 def test_entry_chat_uses_latest_ok_commentary_not_a_specific_version(client, monkeypatch):
     captured = {}
-    async def fake_chat_reply(entry_context, commentary_text, history, user_message, persona_text, model):
-        captured["commentary_text"] = commentary_text
+    async def fake_stream(envelope):
+        captured["system_content"] = envelope.system_content
         yield "ok"
 
-    monkeypatch.setattr(llm_module, "chat_reply", fake_chat_reply)
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -184,7 +250,65 @@ def test_entry_chat_uses_latest_ok_commentary_not_a_specific_version(client, mon
 
     client.post(f"/entry/{entry_id}/chat", json={"message": "hi"})
 
-    assert captured["commentary_text"] == "最新版本"
+    assert "最新版本" in captured["system_content"]
+    assert "旧版本" not in captured["system_content"]
+
+
+def test_entry_chat_releases_thread_lease_after_stream_completes(client, monkeypatch):
+    from unflincher.db import entry_thread_key, get_lease_by_target
+
+    async def fake_stream(envelope):
+        yield "ok"
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
+
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+
+    client.post(f"/entry/{entry_id}/chat", json={"message": "hi"})
+
+    assert get_lease_by_target(db, entry_thread_key(entry_id)) is None
+
+
+def test_entry_chat_409_when_thread_already_busy(client):
+    from unflincher.db import acquire_lease, entry_thread_key
+
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    acquire_lease(db, entry_thread_key(entry_id), "thread", "someone-else")
+
+    response = client.post(f"/entry/{entry_id}/chat", json={"message": "hi"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["reason"] == "target_busy"
+    # No write on this no-write-409 path.
+    assert db.execute("SELECT COUNT(*) AS n FROM chat_message").fetchone()["n"] == 0
+
+
+def test_entry_chat_413_releases_lease_and_writes_no_message(client, monkeypatch):
+    from unflincher.db import entry_thread_key, get_lease_by_target
+
+    async def _tiny_limit(model):
+        return 1
+    monkeypatch.setattr(llm_module, "get_model_max_prompt_tokens", _tiny_limit)
+
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+
+    response = client.post(f"/entry/{entry_id}/chat", json={"message": "hi"})
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["reason"] == "context_too_large"
+    assert db.execute("SELECT COUNT(*) AS n FROM chat_message").fetchone()["n"] == 0
+    assert get_lease_by_target(db, entry_thread_key(entry_id)) is None
 
 
 def test_view_specific_historical_commentary_version(client):

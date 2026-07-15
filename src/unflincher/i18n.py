@@ -100,6 +100,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Send',
         'common.busy_alert': 'A job is already running, please try again later.',
         'app_js.stream_interrupted': 'Generation interrupted',
+        'app_js.context_too_large': (
+            'This request is too large: about {estimated} tokens, but the selected model '
+            'allows up to {limit}.'
+        ),
+        'app_js.context_too_large_actions': (
+            'Choose a model with a larger context window, or reduce the archive or '
+            'conversation history, then try again.'
+        ),
         'workshop.test_run_button': 'Test run',
         'language.name.en': 'English',
         'language.name.zh-Hans': 'Simplified Chinese',
@@ -190,6 +198,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
              'common.send': '发送',
              'common.busy_alert': '已经有任务在跑，请稍后再试',
              'app_js.stream_interrupted': '生成中断',
+             'app_js.context_too_large': '此次请求过大：约 {estimated} 个 token，但所选模型上限为 {limit}。',
+             'app_js.context_too_large_actions': '请选择上下文窗口更大的模型，或减少归档条目或对话历史后重试。',
              'workshop.test_run_button': '试跑',
              'language.name.en': '英语',
              'language.name.zh-Hans': '简体中文',
@@ -280,6 +290,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': '送信',
         'common.busy_alert': 'すでにタスクが実行中です。しばらくしてから再試行してください',
         'app_js.stream_interrupted': '生成が中断されました',
+        'app_js.context_too_large': 'このリクエストは大きすぎます：約 {estimated} トークンですが、選択したモデルの上限は {limit} です。',
+        'app_js.context_too_large_actions': 'コンテキストウィンドウがより大きいモデルを選ぶか、アーカイブや会話履歴を減らしてから再試行してください。',
         'workshop.test_run_button': '実行',
         'language.name.en': '英語',
         'language.name.zh-Hans': '簡体字中国語',
@@ -370,6 +382,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': '보내기',
         'common.busy_alert': '이미 작업이 실행 중입니다. 잠시 후 다시 시도해 주세요',
         'app_js.stream_interrupted': '생성이 중단되었습니다',
+        'app_js.context_too_large': '요청이 너무 큽니다: 약 {estimated} 토큰이지만 선택한 모델의 한도는 {limit}입니다.',
+        'app_js.context_too_large_actions': '컨텍스트 창이 더 큰 모델을 선택하거나 아카이브 또는 대화 기록을 줄인 후 다시 시도하세요.',
         'workshop.test_run_button': '테스트 실행',
         'language.name.en': '영어',
         'language.name.zh-Hans': '중국어(간체)',
@@ -462,6 +476,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Enviar',
         'common.busy_alert': 'Ya hay una tarea en curso, inténtalo de nuevo más tarde',
         'app_js.stream_interrupted': 'Generación interrumpida',
+        'app_js.context_too_large': (
+            'Esta solicitud es demasiado grande: unos {estimated} tokens, pero el modelo '
+            'seleccionado permite hasta {limit}.'
+        ),
+        'app_js.context_too_large_actions': (
+            'Elige un modelo con una ventana de contexto más grande, o reduce el archivo o '
+            'el historial de la conversación, y vuelve a intentarlo.'
+        ),
         'workshop.test_run_button': 'Probar',
         'language.name.en': 'inglés',
         'language.name.zh-Hans': 'chino simplificado',
@@ -555,6 +577,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Envoyer',
         'common.busy_alert': 'Une tâche est déjà en cours, réessayez plus tard',
         'app_js.stream_interrupted': 'Génération interrompue',
+        'app_js.context_too_large': (
+            'Cette requête est trop volumineuse : environ {estimated} jetons, mais le modèle '
+            'sélectionné autorise jusqu\'à {limit}.'
+        ),
+        'app_js.context_too_large_actions': (
+            'Choisissez un modèle avec une fenêtre de contexte plus grande, ou réduisez les '
+            'archives ou l\'historique de la conversation, puis réessayez.'
+        ),
         'workshop.test_run_button': 'Tester',
         'language.name.en': 'anglais',
         'language.name.zh-Hans': 'chinois simplifié',
@@ -647,6 +677,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Senden',
         'common.busy_alert': 'Es läuft bereits ein Job, bitte später erneut versuchen',
         'app_js.stream_interrupted': 'Generierung unterbrochen',
+        'app_js.context_too_large': (
+            'Diese Anfrage ist zu groß: etwa {estimated} Token, aber das gewählte Modell '
+            'erlaubt bis zu {limit}.'
+        ),
+        'app_js.context_too_large_actions': (
+            'Wähle ein Modell mit größerem Kontextfenster oder reduziere das Archiv oder den '
+            'Gesprächsverlauf und versuche es erneut.'
+        ),
         'workshop.test_run_button': 'Testen',
         'language.name.en': 'Englisch',
         'language.name.zh-Hans': 'vereinfachtes Chinesisch',
@@ -739,6 +777,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Отправить',
         'common.busy_alert': 'Задача уже выполняется, повторите попытку позже',
         'app_js.stream_interrupted': 'Генерация прервана',
+        'app_js.context_too_large': (
+            'Этот запрос слишком большой: около {estimated} токенов, но выбранная модель '
+            'допускает до {limit}.'
+        ),
+        'app_js.context_too_large_actions': (
+            'Выберите модель с большим контекстным окном или сократите архив либо историю '
+            'разговора и повторите попытку.'
+        ),
         'workshop.test_run_button': 'Проверить',
         'language.name.en': 'английский',
         'language.name.zh-Hans': 'упрощённый китайский',
@@ -831,6 +877,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {'en': {'nav.title': 'Unflincher: Refl
         'common.send': 'Enviar',
         'common.busy_alert': 'Já existe uma tarefa em execução, tente novamente mais tarde',
         'app_js.stream_interrupted': 'Geração interrompida',
+        'app_js.context_too_large': (
+            'Esta solicitação é muito grande: cerca de {estimated} tokens, mas o modelo '
+            'selecionado permite até {limit}.'
+        ),
+        'app_js.context_too_large_actions': (
+            'Escolha um modelo com uma janela de contexto maior, ou reduza o arquivo ou o '
+            'histórico da conversa, e tente novamente.'
+        ),
         'workshop.test_run_button': 'Testar',
         'language.name.en': 'inglês',
         'language.name.zh-Hans': 'chinês simplificado',

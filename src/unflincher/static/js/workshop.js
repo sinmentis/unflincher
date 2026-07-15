@@ -8,6 +8,10 @@ async function applyAndRegenerate(fetchImpl, payload, csrfToken) {
   if (!regenResponse.ok) {
     const error = new Error(`apply-all failed: ${regenResponse.status}`);
     error.status = regenResponse.status;
+    // Carry the stable generation-safety detail (estimated size/limit/reason) along with the
+    // error so the caller can render the same localized capacity notice streamInto() shows
+    // elsewhere, instead of only ever a generic failure message.
+    error.detail = await parseStableErrorDetail(regenResponse);
     throw error;
   }
   const {job_id: jobId} = await regenResponse.json();
@@ -105,7 +109,9 @@ function initWorkshopPage(doc = document) {
       confirmation.hidden = true;
     } catch (error) {
       holder.replaceChildren();
-      const message = error.status === 409 ? window.UI_MESSAGES.busy : window.UI_MESSAGES.requestFailed;
+      const message = error.status === 409
+        ? window.UI_MESSAGES.busy
+        : stableErrorNoticeMessage(error.detail, window.UI_MESSAGES.requestFailed);
       setNotice(notice, message, error.status === 409 ? "busy" : "failed");
     } finally {
       confirmButton.disabled = false;
