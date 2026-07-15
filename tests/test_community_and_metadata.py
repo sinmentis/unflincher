@@ -134,6 +134,20 @@ def test_issue_templates_warn_against_real_private_data():
     assert "private databases" in feature.lower()
 
 
+def test_gitleaks_ignore_allows_only_verified_false_positive():
+    text = (ROOT / ".gitleaksignore").read_text(encoding="utf-8")
+    fingerprints = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert "false positive" in text.lower()
+    assert fingerprints == [
+        "731d340b7935199a4652f302c6fb7a3693c91161:"
+        "src/unflincher/context_budget.py:generic-api-key:113"
+    ]
+
+
 def test_pyproject_metadata_is_enriched_without_osi_classifier():
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
