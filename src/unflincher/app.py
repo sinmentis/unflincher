@@ -16,6 +16,7 @@ from unflincher.config import load_settings
 from unflincher.csrf import CSRFMiddleware
 from unflincher.db import (
     get_connection,
+    get_maintenance_locked,
     initialize_database,
     recover_or_cancel_running_jobs,
 )
@@ -170,7 +171,14 @@ def create_app() -> FastAPI:
 
     @app.get("/healthz")
     async def healthz():
-        return JSONResponse({"status": "ok"})
+        return JSONResponse(
+            {
+                "status": "ok",
+                "revision": settings.revision,
+                "version": settings.version,
+                "generation_locked": get_maintenance_locked(app.state.db),
+            }
+        )
 
     return app
 

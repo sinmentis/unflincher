@@ -1,7 +1,24 @@
+from unflincher.db import set_maintenance_locked
+
+
 def test_healthz_returns_ok(client):
     response = client.get("/healthz")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {
+        "status": "ok",
+        "revision": "development",
+        "version": "0.1.0",
+        "generation_locked": False,
+    }
+
+
+def test_healthz_reports_generation_lock_state(client):
+    set_maintenance_locked(client.app.state.db, True)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.json()["generation_locked"] is True
 
 
 def test_static_assets_get_no_cache_header(client):

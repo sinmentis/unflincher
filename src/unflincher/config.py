@@ -2,6 +2,15 @@
 are injected via the Quadlet unit's Environment=/Secret= directives (see deploy/quadlet/)."""
 import os
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as distribution_version
+
+
+def _installed_version() -> str:
+    try:
+        return distribution_version("unflincher")
+    except PackageNotFoundError:
+        return "development"
 
 
 @dataclass(frozen=True)
@@ -14,6 +23,8 @@ class Settings:
     cf_access_aud: str
     operator_email: str
     require_access_auth: bool
+    revision: str = "development"
+    version: str = "development"
 
 
 def load_settings() -> Settings:
@@ -26,4 +37,6 @@ def load_settings() -> Settings:
         cf_access_aud=os.environ.get("UNFLINCHER_CF_ACCESS_AUD", ""),
         operator_email=os.environ.get("UNFLINCHER_OPERATOR_EMAIL", ""),
         require_access_auth=os.environ.get("UNFLINCHER_REQUIRE_ACCESS_AUTH", "true").lower() == "true",
+        revision=os.environ.get("UNFLINCHER_REVISION", "development"),
+        version=os.environ.get("UNFLINCHER_VERSION", _installed_version()),
     )

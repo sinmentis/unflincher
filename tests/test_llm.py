@@ -618,6 +618,18 @@ def test_settings_llm_concurrency_from_env(monkeypatch):
     assert settings.llm_concurrency == 7
 
 
+def test_settings_image_identity_from_env(monkeypatch):
+    from unflincher.config import load_settings
+
+    monkeypatch.setenv("UNFLINCHER_REVISION", "a" * 40)
+    monkeypatch.setenv("UNFLINCHER_VERSION", "0.2.0")
+
+    settings = load_settings()
+
+    assert settings.revision == "a" * 40
+    assert settings.version == "0.2.0"
+
+
 async def test_stream_completion_limits_concurrent_sessions(monkeypatch):
     # Reconfigure the module's semaphore to a limit of 1 for this test, then launch two
     # stream_completion() calls concurrently and verify the second one's session isn't created

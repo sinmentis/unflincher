@@ -13,6 +13,7 @@ VERIFY_SCRIPT = ROOT / "deploy/scripts/verify-unflincher-backup.py"
 BACKUP_SCRIPT = ROOT / "deploy/scripts/unflincher-backup.sh"
 RESTORE_SCRIPT = ROOT / "deploy/scripts/unflincher-restore-drill.sh"
 DEPLOY_SCRIPT = ROOT / "deploy/scripts/deploy-unflincher.sh"
+CONTAINERFILE = ROOT / "Containerfile"
 
 
 def _write_backup_archive(tmp_path: Path, entry_count: int = 2) -> Path:
@@ -505,6 +506,22 @@ def test_backup_verifier_rejects_a_different_sqlite_schema(tmp_path):
     assert result.returncode == 1
     assert result.stdout == ""
     assert "no such table: persona_prompt" in result.stderr
+
+
+def test_containerfile_binds_oci_labels_and_runtime_identity_to_build_arguments():
+    text = CONTAINERFILE.read_text(encoding="utf-8")
+
+    for build_argument in (
+        "UNFLINCHER_REVISION",
+        "UNFLINCHER_VERSION",
+        "UNFLINCHER_BUILD_CREATED",
+    ):
+        assert f"ARG {build_argument}=" in text
+    assert 'org.opencontainers.image.revision="${UNFLINCHER_REVISION}"' in text
+    assert 'org.opencontainers.image.version="${UNFLINCHER_VERSION}"' in text
+    assert 'org.opencontainers.image.created="${UNFLINCHER_BUILD_CREATED}"' in text
+    assert "UNFLINCHER_REVISION=${UNFLINCHER_REVISION}" in text
+    assert "UNFLINCHER_VERSION=${UNFLINCHER_VERSION}" in text
 
 
 def _write_executable(path: Path, body: str) -> None:
