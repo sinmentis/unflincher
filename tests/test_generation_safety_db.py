@@ -7,6 +7,7 @@ import pytest
 
 from unflincher.db import (
     ArchiveChangedError,
+    GenerationActivityError,
     MaintenanceLockedError,
     PreparedRegenTarget,
     RecoveryResult,
@@ -23,6 +24,7 @@ from unflincher.db import (
     get_active_prompt,
     get_connection,
     get_entries_in_order,
+    get_generation_activity,
     get_job_entry_snapshot,
     get_lease_by_target,
     get_maintenance_locked,
@@ -34,8 +36,10 @@ from unflincher.db import (
     release_lease,
     report_target_key,
     retry_failed_job_item,
+    require_generation_idle,
     set_active_prompt,
     set_maintenance_locked,
+    unlock_maintenance_if_idle,
 )
 
 
@@ -131,6 +135,53 @@ def test_set_maintenance_locked_round_trips(conn):
     set_maintenance_locked(conn, True)
     assert get_maintenance_locked(conn) is True
     set_maintenance_locked(conn, False)
+    assert get_maintenance_locked(conn) is False
+
+
+def test_generation_activity_reports_running_jobs_and_active_leases(conn):
+    prompt_id = set_active_prompt(conn, "p", "test-model")
+    job_id = conn.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'running')",
+        (prompt_id,),
+    ).lastrowid
+    acquire_lease(conn, "entry:1", "direct", "owner")
+
+    assert get_generation_activity(conn) == {
+        "active_lease_count": 1,
+        "running_regen_job_ids": [job_id],
+    }
+
+
+def test_require_generation_idle_rejects_running_jobs_and_active_leases(conn):
+    prompt_id = set_active_prompt(conn, "p", "test-model")
+    job_id = conn.execute(
+        "INSERT INTO regen_job (prompt_version_id, status) VALUES (?, 'running')",
+        (prompt_id,),
+    ).lastrowid
+    acquire_lease(conn, "entry:1", "direct", "owner")
+
+    with pytest.raises(GenerationActivityError) as exc_info:
+        require_generation_idle(conn)
+
+    assert exc_info.value.running_regen_job_ids == [job_id]
+    assert exc_info.value.active_lease_count == 1
+
+
+def test_unlock_maintenance_if_idle_preserves_lock_when_activity_remains(conn):
+    acquire_lease(conn, "entry:1", "direct", "owner")
+    set_maintenance_locked(conn, True)
+
+    with pytest.raises(GenerationActivityError):
+        unlock_maintenance_if_idle(conn)
+
+    assert get_maintenance_locked(conn) is True
+
+
+def test_unlock_maintenance_if_idle_clears_lock_when_drained(conn):
+    set_maintenance_locked(conn, True)
+
+    unlock_maintenance_if_idle(conn)
+
     assert get_maintenance_locked(conn) is False
 
 

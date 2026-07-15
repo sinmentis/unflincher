@@ -22,15 +22,160 @@ Generation-safety invariants added alongside the maintenance gate / lease / snap
   crash, and only when that job has a stored context snapshot; a snapshot-less legacy job is
   always cancelled, never resumed against the live archive.
 """
+import hashlib
+import re
 import sqlite3
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
+from pathlib import Path
 
 # Fallback model for a brand-new install and for rows that predate the persona_prompt.model
 # column (see migrate_persona_prompt_model). Kept in sync with config.py's UNFLINCHER_LLM_MODEL
 # default so upgrading an existing deployment leaves generation behaviour unchanged.
 DEFAULT_MODEL = "claude-sonnet-4.6"
+
+V01_EFFECTIVE_SCHEMA = """
+CREATE TABLE diary_entry (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    content_html_raw TEXT NOT NULL,
+    content_html TEXT NOT NULL,
+    content_text TEXT NOT NULL,
+    entry_date TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('import', 'manual')),
+    douban_url TEXT,
+    source_modified_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE persona_prompt (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_no INTEGER NOT NULL,
+    body_text TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    model TEXT NOT NULL DEFAULT 'claude-sonnet-4.6'
+);
+CREATE UNIQUE INDEX ux_persona_prompt_one_active
+    ON persona_prompt (is_active) WHERE is_active = 1;
+CREATE TABLE entry_commentary (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id INTEGER NOT NULL REFERENCES diary_entry(id),
+    prompt_version_id INTEGER NOT NULL REFERENCES persona_prompt(id),
+    model TEXT NOT NULL,
+    body_text TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('ok', 'failed')),
+    error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX ix_entry_commentary_entry_id
+    ON entry_commentary (entry_id, created_at DESC);
+CREATE TABLE aggregate_report (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prompt_version_id INTEGER NOT NULL REFERENCES persona_prompt(id),
+    model TEXT NOT NULL,
+    body_text TEXT NOT NULL,
+    covered_entry_count INTEGER NOT NULL,
+    covered_from_date TEXT,
+    covered_to_date TEXT,
+    status TEXT NOT NULL CHECK (status IN ('ok', 'failed')),
+    error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE chat_session (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE chat_message (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thread_kind TEXT NOT NULL CHECK (thread_kind IN ('entry', 'general')),
+    entry_id INTEGER REFERENCES diary_entry(id),
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    model TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    session_id INTEGER REFERENCES chat_session(id)
+);
+CREATE INDEX ix_chat_message_thread
+    ON chat_message (thread_kind, entry_id, created_at);
+CREATE INDEX ix_chat_message_session
+    ON chat_message (session_id, created_at);
+CREATE TABLE regen_job (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prompt_version_id INTEGER NOT NULL REFERENCES persona_prompt(id),
+    status TEXT NOT NULL CHECK (status IN ('running', 'done', 'cancelled')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    started_at TEXT,
+    finished_at TEXT
+);
+CREATE UNIQUE INDEX ux_regen_job_one_running
+    ON regen_job (status) WHERE status = 'running';
+CREATE TABLE regen_job_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER NOT NULL REFERENCES regen_job(id),
+    target_type TEXT NOT NULL CHECK (target_type IN ('entry_commentary', 'aggregate_report')),
+    entry_id INTEGER REFERENCES diary_entry(id),
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'ok', 'failed'))
+        DEFAULT 'pending',
+    error TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    result_id INTEGER,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX ix_regen_job_item_job_id
+    ON regen_job_item (job_id, status);
+"""
+
+V01_RELEASE_SCHEMA = (
+    V01_EFFECTIVE_SCHEMA.replace(
+        """    is_active INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    model TEXT NOT NULL DEFAULT 'claude-sonnet-4.6'
+);""",
+        """    is_active INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);""",
+    )
+    .replace(
+        """    model TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    session_id INTEGER REFERENCES chat_session(id)
+);""",
+        """    model TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);""",
+    )
+    .replace(
+        """CREATE INDEX ix_chat_message_session
+    ON chat_message (session_id, created_at);
+""",
+        "",
+    )
+)
+
+_REQUIRED_CHECK_FRAGMENTS = {
+    "diary_entry": ("CHECK (source IN ('import', 'manual'))",),
+    "entry_commentary": ("CHECK (status IN ('ok', 'failed'))",),
+    "aggregate_report": ("CHECK (status IN ('ok', 'failed'))",),
+    "chat_message": (
+        "CHECK (thread_kind IN ('entry', 'general'))",
+        "CHECK (role IN ('user', 'assistant'))",
+    ),
+    "regen_job": ("CHECK (status IN ('running', 'done', 'cancelled'))",),
+    "regen_job_item": (
+        "CHECK (target_type IN ('entry_commentary', 'aggregate_report'))",
+        "CHECK (status IN ('pending', 'running', 'ok', 'failed'))",
+    ),
+    "maintenance_control": ("CHECK (id = 1)",),
+    "generation_lease": (
+        "CHECK (lease_kind IN ('direct', 'background', 'thread', 'request'))",
+    ),
+    "db_bootstrap_state": ("CHECK (id = 1)",),
+}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS diary_entry (
@@ -143,6 +288,7 @@ CREATE TABLE IF NOT EXISTS maintenance_control (
     locked INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+INSERT OR IGNORE INTO maintenance_control (id, locked) VALUES (1, 0);
 
 -- One row per active direct generation, background target, or conversation thread/request. The
 -- UNIQUE target_key is what makes two generations for the SAME Entry Reflection, Life Report, or
@@ -169,18 +315,310 @@ CREATE INDEX IF NOT EXISTS ix_regen_job_entry_snapshot_job ON regen_job_entry_sn
 """
 
 
-def get_connection(db_path: str) -> sqlite3.Connection:
+def _configure_connection(conn: sqlite3.Connection) -> sqlite3.Connection:
     # check_same_thread=False: the app uses one connection stored on app.state, shared across
     # async route handlers and the background worker task, all of which run on the single
     # uvicorn --workers 1 event-loop thread (see Global Constraints) — never a real multi-thread
     # writer scenario, this just avoids sqlite3's default same-thread assertion tripping in tests.
-    conn = sqlite3.connect(db_path, isolation_level=None, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout=5000")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
+
+
+def enable_wal_mode(conn: sqlite3.Connection) -> None:
+    """Persist WAL mode only after the caller has passed safety checks."""
+    conn.execute("PRAGMA journal_mode=WAL")
+
+
+def get_connection(db_path: str) -> sqlite3.Connection:
+    return _configure_connection(
+        sqlite3.connect(db_path, isolation_level=None, check_same_thread=False)
+    )
+
+
+def get_existing_connection(db_path: str) -> sqlite3.Connection:
+    """Open an existing database atomically; SQLite must never create a typo/raced-away path."""
+    database_uri = f"{Path(db_path).resolve().as_uri()}?mode=rw"
+    try:
+        return _configure_connection(
+            sqlite3.connect(
+                database_uri,
+                uri=True,
+                isolation_level=None,
+                check_same_thread=False,
+            )
+        )
+    except sqlite3.OperationalError as exc:
+        raise RuntimeError(f"cannot open existing database: {db_path}") from exc
+
+
+def _normalize_schema_sql(value: str | None) -> str:
+    if value is None:
+        return ""
+    parts = re.split(r"('(?:''|[^'])*')", value.strip())
+    for index in range(0, len(parts), 2):
+        parts[index] = re.sub(r"\s+", " ", parts[index])
+        parts[index] = re.sub(r"\s*([(),])\s*", r"\1", parts[index])
+    return "".join(parts)
+
+
+def _table_contract(conn: sqlite3.Connection, table_name: str) -> dict[str, object]:
+    columns = {
+        row["name"]: (
+            row["type"].upper(),
+            row["notnull"],
+            row["dflt_value"],
+            row["pk"],
+        )
+        for row in conn.execute(f"PRAGMA table_info({table_name})")
+    }
+    foreign_keys = sorted(
+        (
+            row["from"],
+            row["table"],
+            row["to"],
+            row["on_update"],
+            row["on_delete"],
+            row["match"],
+        )
+        for row in conn.execute(f"PRAGMA foreign_key_list({table_name})")
+    )
+    indexes = []
+    for row in conn.execute(f"PRAGMA index_list({table_name})"):
+        index_name = row["name"]
+        index_columns = tuple(
+            item["name"] for item in conn.execute(f"PRAGMA index_info({index_name})")
+        )
+        sql_row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?",
+            (index_name,),
+        ).fetchone()
+        index_sql = _normalize_schema_sql(sql_row["sql"] if sql_row else None)
+        indexes.append(
+            (
+                index_name if index_sql else "",
+                row["unique"],
+                row["origin"],
+                row["partial"],
+                index_columns,
+                index_sql,
+            )
+        )
+    table_row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return {
+        "columns": columns,
+        "foreign_keys": foreign_keys,
+        "indexes": sorted(indexes),
+        "sql": _normalize_schema_sql(table_row["sql"] if table_row else None),
+    }
+
+
+def _database_schema_contract(conn: sqlite3.Connection) -> dict[str, dict[str, object]]:
+    table_names = sorted(
+        row["name"]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        )
+    )
+    return {table_name: _table_contract(conn, table_name) for table_name in table_names}
+
+
+@lru_cache(maxsize=1)
+def _expected_v01_schema_contract() -> dict[str, dict[str, object]]:
+    conn = sqlite3.connect(":memory:", isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.executescript(V01_EFFECTIVE_SCHEMA)
+        return _database_schema_contract(conn)
+    finally:
+        conn.close()
+
+
+@lru_cache(maxsize=1)
+def _expected_v02_schema_contract() -> dict[str, dict[str, object]]:
+    conn = sqlite3.connect(":memory:", isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        migrate_bootstrap_state(conn)
+        init_schema(conn)
+        migrate_persona_prompt_model(conn)
+        migrate_persona_prompt_preset_key(conn)
+        migrate_chat_session(conn)
+        migrate_generation_safety(conn)
+        return _database_schema_contract(conn)
+    finally:
+        conn.close()
+
+
+def _capture_table_sql_variants(
+    variants: dict[str, set[str]],
+    conn: sqlite3.Connection,
+) -> None:
+    for table_name, contract in _database_schema_contract(conn).items():
+        variants.setdefault(table_name, set()).add(contract["sql"])
+
+
+@lru_cache(maxsize=1)
+def _expected_table_sql_variants() -> dict[str, frozenset[str]]:
+    variants: dict[str, set[str]] = {}
+
+    effective = sqlite3.connect(":memory:", isolation_level=None)
+    effective.row_factory = sqlite3.Row
+    try:
+        effective.execute("PRAGMA foreign_keys=ON")
+        effective.executescript(V01_EFFECTIVE_SCHEMA)
+        _capture_table_sql_variants(variants, effective)
+    finally:
+        effective.close()
+
+    upgraded = sqlite3.connect(":memory:", isolation_level=None)
+    upgraded.row_factory = sqlite3.Row
+    try:
+        upgraded.execute("PRAGMA foreign_keys=ON")
+        upgraded.executescript(V01_RELEASE_SCHEMA)
+        migrate_persona_prompt_model(upgraded)
+        migrate_chat_session(upgraded)
+        _capture_table_sql_variants(variants, upgraded)
+        migrate_bootstrap_state(upgraded)
+        init_schema(upgraded)
+        _capture_table_sql_variants(variants, upgraded)
+        migrate_persona_prompt_preset_key(upgraded)
+        _capture_table_sql_variants(variants, upgraded)
+        upgraded.execute("ALTER TABLE regen_job ADD COLUMN snapshot_entry_count INTEGER")
+        _capture_table_sql_variants(variants, upgraded)
+        for statement in (
+            "ALTER TABLE regen_job_item ADD COLUMN request_format_version INTEGER",
+            "ALTER TABLE regen_job_item ADD COLUMN request_fingerprint TEXT",
+            "ALTER TABLE regen_job_item ADD COLUMN baseline_result_id INTEGER",
+        ):
+            upgraded.execute(statement)
+            _capture_table_sql_variants(variants, upgraded)
+    finally:
+        upgraded.close()
+
+    fresh = sqlite3.connect(":memory:", isolation_level=None)
+    fresh.row_factory = sqlite3.Row
+    try:
+        fresh.execute("PRAGMA foreign_keys=ON")
+        migrate_bootstrap_state(fresh)
+        init_schema(fresh)
+        migrate_persona_prompt_model(fresh)
+        migrate_persona_prompt_preset_key(fresh)
+        migrate_chat_session(fresh)
+        migrate_generation_safety(fresh)
+        _capture_table_sql_variants(variants, fresh)
+    finally:
+        fresh.close()
+
+    return {
+        table_name: frozenset(sql_values)
+        for table_name, sql_values in variants.items()
+    }
+
+
+def verify_v01_upgrade_schema(
+    conn: sqlite3.Connection,
+    *,
+    require_v02: bool = False,
+) -> None:
+    """Validate the frozen v0.1 contract and only known additive v0.2 schema changes."""
+    actual = _database_schema_contract(conn)
+    expected_v01 = _expected_v01_schema_contract()
+    expected_v02 = _expected_v02_schema_contract()
+    expected_sql = _expected_table_sql_variants()
+    actual_tables = set(actual)
+    v01_tables = set(expected_v01)
+    v02_tables = set(expected_v02)
+    missing_tables = sorted(v01_tables - actual_tables)
+    unknown_tables = sorted(actual_tables - v02_tables)
+    if require_v02:
+        missing_tables.extend(sorted(v02_tables - actual_tables))
+
+    problems = []
+    if missing_tables:
+        problems.append(f"missing_tables={sorted(set(missing_tables))}")
+    if unknown_tables:
+        problems.append(f"unknown_tables={unknown_tables}")
+    unexpected_objects = [
+        f"{row['type']}:{row['name']}"
+        for row in conn.execute(
+            "SELECT type, name FROM sqlite_master "
+            "WHERE type IN ('trigger', 'view') ORDER BY type, name"
+        )
+    ]
+    if unexpected_objects:
+        problems.append(f"unexpected_objects={unexpected_objects}")
+
+    for table_name in sorted(actual_tables.intersection(v02_tables)):
+        actual_table = actual[table_name]
+        expected_current = expected_v02[table_name]
+        if table_name in expected_v01:
+            expected_base = expected_v01[table_name]
+            base_columns = expected_base["columns"]
+            current_columns = expected_current["columns"]
+            actual_columns = actual_table["columns"]
+            missing_columns = sorted(set(base_columns) - set(actual_columns))
+            unknown_columns = sorted(set(actual_columns) - set(current_columns))
+            wrong_columns = sorted(
+                column
+                for column in set(actual_columns).intersection(base_columns)
+                if actual_columns[column] != base_columns[column]
+            )
+            wrong_additions = sorted(
+                column
+                for column in set(actual_columns) - set(base_columns)
+                if column in current_columns
+                and actual_columns[column] != current_columns[column]
+            )
+            if require_v02:
+                missing_columns.extend(
+                    sorted(set(current_columns) - set(actual_columns))
+                )
+            if missing_columns or unknown_columns or wrong_columns or wrong_additions:
+                problems.append(
+                    f"{table_name}.columns="
+                    f"missing:{sorted(set(missing_columns))},"
+                    f"unknown:{unknown_columns},"
+                    f"wrong:{wrong_columns + wrong_additions}"
+                )
+        elif actual_table["columns"] != expected_current["columns"]:
+            problems.append(f"{table_name}.columns")
+
+        if actual_table["foreign_keys"] != expected_current["foreign_keys"]:
+            problems.append(f"{table_name}.foreign_keys")
+        indexes_match = actual_table["indexes"] == expected_current["indexes"]
+        if (
+            not indexes_match
+            and not require_v02
+            and table_name == "regen_job_entry_snapshot"
+        ):
+            expected_before_named_index = [
+                index
+                for index in expected_current["indexes"]
+                if index[0] != "ix_regen_job_entry_snapshot_job"
+            ]
+            indexes_match = actual_table["indexes"] == expected_before_named_index
+        if not indexes_match:
+            problems.append(f"{table_name}.indexes")
+        if actual_table["sql"] not in expected_sql.get(table_name, frozenset()):
+            problems.append(f"{table_name}.sql")
+        for fragment in _REQUIRED_CHECK_FRAGMENTS.get(table_name, ()):
+            if _normalize_schema_sql(fragment) not in actual_table["sql"]:
+                problems.append(f"{table_name}.check:{fragment}")
+
+    if problems:
+        raise RuntimeError(
+            "database does not match the released v0.1/v0.2 schema contract: "
+            + "; ".join(problems)
+        )
 
 
 def init_schema(conn: sqlite3.Connection) -> None:
@@ -291,18 +729,99 @@ def migrate_bootstrap_state(conn: sqlite3.Connection) -> None:
         raise
 
 
-def initialize_database(conn: sqlite3.Connection) -> None:
-    """The one deep interface both app startup and the CLI import bootstrap call to fully
-    prepare a database file: fresh-vs-upgrade classification (see migrate_bootstrap_state),
-    schema, every migration, and the Analyst seed on a genuinely fresh install. Idempotent and
-    crash-safe; call once at the start of every process."""
+class OfflineBootstrapRequiredError(RuntimeError):
+    """A pre-v0.2 database must be migrated by the fail-locked offline CLI first."""
+
+
+def get_bootstrap_state(conn: sqlite3.Connection) -> dict[str, bool] | None:
+    tables = {
+        row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    if "db_bootstrap_state" not in tables:
+        return None
+    rows = conn.execute(
+        "SELECT id, is_fresh_install, analyst_seeded, current_result_selection_verified "
+        "FROM db_bootstrap_state ORDER BY id"
+    ).fetchall()
+    if len(rows) != 1 or rows[0]["id"] != 1:
+        raise RuntimeError("db_bootstrap_state must contain exactly the singleton row id=1")
+    row = rows[0]
+    for field in (
+        "is_fresh_install",
+        "analyst_seeded",
+        "current_result_selection_verified",
+    ):
+        if row[field] not in (0, 1):
+            raise RuntimeError(f"db_bootstrap_state.{field} must be 0 or 1")
+    return {
+        "is_fresh_install": bool(row["is_fresh_install"]),
+        "analyst_seeded": bool(row["analyst_seeded"]),
+        "current_result_selection_verified": bool(
+            row["current_result_selection_verified"]
+        ),
+    }
+
+
+def _migrate_database_schema(conn: sqlite3.Connection) -> None:
     migrate_bootstrap_state(conn)
     init_schema(conn)
     migrate_persona_prompt_model(conn)
     migrate_persona_prompt_preset_key(conn)
     migrate_chat_session(conn)
     migrate_generation_safety(conn)
+
+
+def initialize_database(conn: sqlite3.Connection) -> None:
+    """Initialize fresh/v0.2 databases, but refuse a v0.1 database that skipped offline bootstrap."""
+    tables = {
+        row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    bootstrap_state = get_bootstrap_state(conn)
+    application_tables = set(_expected_v01_schema_contract())
+    if bootstrap_state is None and tables.intersection(application_tables):
+        raise OfflineBootstrapRequiredError(
+            "offline bootstrap required before starting v0.2 against a pre-existing database"
+        )
+    if bootstrap_state is None and tables - {"sqlite_sequence"}:
+        raise RuntimeError("database contains unrecognized pre-existing tables")
+    if (
+        bootstrap_state is not None
+        and bootstrap_state["is_fresh_install"]
+        and not bootstrap_state["analyst_seeded"]
+    ):
+        enable_wal_mode(conn)
+        _migrate_database_schema(conn)
+        seed_analyst_prompt_if_fresh_install(conn)
+        require_v02_operational_schema(conn)
+        return
+    if bootstrap_state is not None:
+        require_v02_operational_schema(conn)
+        enable_wal_mode(conn)
+        return
+    enable_wal_mode(conn)
+    _migrate_database_schema(conn)
     seed_analyst_prompt_if_fresh_install(conn)
+
+
+def initialize_upgrade_database(conn: sqlite3.Connection) -> None:
+    """Run the additive v0.1-to-v0.2 schema path without any prompt seeding."""
+    _migrate_database_schema(conn)
+
+
+def require_v02_operational_schema(conn: sqlite3.Connection) -> dict[str, bool]:
+    """Require a completed, verified v0.2 database before live maintenance operations."""
+    state = get_bootstrap_state(conn)
+    if state is None:
+        raise RuntimeError("offline bootstrap has not completed")
+    verify_v01_upgrade_schema(conn, require_v02=True)
+    get_maintenance_locked(conn)
+    if not state["analyst_seeded"]:
+        raise RuntimeError("db_bootstrap_state.analyst_seeded is not complete")
+    if not state["current_result_selection_verified"]:
+        raise RuntimeError(
+            "db_bootstrap_state.current_result_selection_verified is not complete"
+        )
+    return state
 
 
 def seed_analyst_prompt_if_fresh_install(conn: sqlite3.Connection) -> None:
@@ -435,6 +954,86 @@ def get_active_prompt(conn: sqlite3.Connection) -> sqlite3.Row | None:
     return conn.execute(
         "SELECT * FROM persona_prompt WHERE is_active = 1"
     ).fetchone()
+
+
+ACTIVE_PROMPT_MANIFEST_FIELDS = (
+    "id",
+    "version_no",
+    "body_sha256",
+    "model",
+    "is_active",
+    "created_at",
+    "preset_key",
+)
+
+
+def prompt_identity_manifest(conn: sqlite3.Connection) -> list[dict[str, object]]:
+    """Return every prompt's identity without exposing any private body text."""
+    tables = {
+        row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    if "persona_prompt" not in tables:
+        return []
+
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(persona_prompt)")}
+    required_columns = ("id", "version_no", "body_text", "is_active", "created_at")
+    missing = set(required_columns) - columns
+    if missing:
+        raise RuntimeError(f"persona_prompt is missing required column(s): {sorted(missing)}")
+
+    optional_columns = [name for name in ("model", "preset_key") if name in columns]
+    select_columns = [*required_columns, *optional_columns]
+    rows = conn.execute(
+        f"SELECT {', '.join(select_columns)} FROM persona_prompt ORDER BY id"
+    ).fetchall()
+    manifest = []
+    for row in rows:
+        values = dict(zip(select_columns, row))
+        body_text = values["body_text"]
+        if not isinstance(body_text, str):
+            raise RuntimeError(
+                f"persona_prompt.body_text is not TEXT (got {type(body_text).__name__})"
+            )
+        manifest.append(
+            {
+                "id": values["id"],
+                "version_no": values["version_no"],
+                "body_sha256": hashlib.sha256(body_text.encode("utf-8")).hexdigest(),
+                "model": values.get("model"),
+                "is_active": values["is_active"],
+                "created_at": values["created_at"],
+                "preset_key": values.get("preset_key"),
+            }
+        )
+    return manifest
+
+
+def active_prompt_manifest(conn: sqlite3.Connection) -> dict[str, object] | None:
+    """Return the active prompt's identity without exposing its private body text."""
+    active = [row for row in prompt_identity_manifest(conn) if row["is_active"] == 1]
+    if not active:
+        return None
+    if len(active) > 1:
+        raise RuntimeError(f"persona_prompt has {len(active)} active rows; expected at most one")
+    return active[0]
+
+
+def install_prompt_identity_guard(conn: sqlite3.Connection) -> None:
+    """Block prompt DML on this connection while the offline upgrade runs."""
+    for operation in ("INSERT", "UPDATE", "DELETE"):
+        trigger_name = f"unflincher_bootstrap_block_prompt_{operation.lower()}"
+        conn.execute(
+            f"CREATE TEMP TRIGGER {trigger_name} "
+            f"BEFORE {operation} ON persona_prompt "
+            "BEGIN SELECT RAISE(ABORT, 'persona_prompt is immutable during bootstrap'); END"
+        )
+
+
+def remove_prompt_identity_guard(conn: sqlite3.Connection) -> None:
+    for operation in ("insert", "update", "delete"):
+        conn.execute(
+            f"DROP TRIGGER IF EXISTS unflincher_bootstrap_block_prompt_{operation}"
+        )
 
 
 def _insert_activated_persona_prompt_version(
@@ -833,6 +1432,23 @@ class MaintenanceLockedError(RuntimeError):
     acquire_lease()/enqueue_snapshot_regen_job()/retry_failed_job_item()."""
 
 
+class GenerationActivityError(RuntimeError):
+    """Maintenance cannot finish while admitted generation work is still active."""
+
+    def __init__(self, running_regen_job_ids: list[int], active_lease_count: int):
+        self.running_regen_job_ids = running_regen_job_ids
+        self.active_lease_count = active_lease_count
+        details = []
+        if running_regen_job_ids:
+            details.append(
+                "running regeneration job(s): "
+                + ", ".join(str(job_id) for job_id in running_regen_job_ids)
+            )
+        if active_lease_count:
+            details.append(f"active generation lease(s): {active_lease_count}")
+        super().__init__("active generation remains: " + "; ".join(details))
+
+
 class TargetBusyError(RuntimeError):
     """The target already has an active exclusive lease — another generation (direct, background,
     or a conversation turn) is currently using it. Stable, no-write, retryable."""
@@ -879,11 +1495,10 @@ class ItemJobMismatchError(RuntimeError):
 
 
 def get_maintenance_locked(conn: sqlite3.Connection) -> bool:
-    """Whether new generation work is currently blocked. Lazily seeds the single control row (a
-    brand-new database has none yet) so callers never have to special-case "table exists but
-    empty"."""
-    conn.execute("INSERT OR IGNORE INTO maintenance_control (id, locked) VALUES (1, 0)")
+    """Whether new generation work is currently blocked."""
     row = conn.execute("SELECT locked FROM maintenance_control WHERE id = 1").fetchone()
+    if row is None:
+        raise RuntimeError("maintenance_control singleton row (id=1) is missing")
     return bool(row["locked"])
 
 
@@ -892,11 +1507,104 @@ def set_maintenance_locked(conn: sqlite3.Connection, locked: bool) -> None:
     leases/jobs to drain, and clears it only after the target service is verified healthy — see
     the plan's Maintenance gate section. This function only flips the flag; draining and health
     verification are the caller's (deploy tooling's) responsibility."""
-    conn.execute("INSERT OR IGNORE INTO maintenance_control (id, locked) VALUES (1, 0)")
-    conn.execute(
-        "UPDATE maintenance_control SET locked = ?, updated_at = ? WHERE id = 1",
-        (1 if locked else 0, _now()),
-    )
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        result = conn.execute(
+            "UPDATE maintenance_control SET locked = ?, updated_at = ? WHERE id = 1",
+            (1 if locked else 0, _now()),
+        )
+        if result.rowcount != 1:
+            raise RuntimeError("maintenance_control singleton row (id=1) is missing")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def lock_maintenance_for_bootstrap(conn: sqlite3.Connection) -> None:
+    """Create the v0.2 gate if needed and make the first upgrade write fail-locked."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS maintenance_control ("
+            "id INTEGER PRIMARY KEY CHECK (id = 1), "
+            "locked INTEGER NOT NULL DEFAULT 0, "
+            "updated_at TEXT NOT NULL DEFAULT (datetime('now'))"
+            ")"
+        )
+        conn.execute("INSERT OR IGNORE INTO maintenance_control (id, locked) VALUES (1, 1)")
+        conn.execute(
+            "UPDATE maintenance_control SET locked = 1, updated_at = ? WHERE id = 1",
+            (_now(),),
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def get_generation_activity(conn: sqlite3.Connection) -> dict[str, object]:
+    """Return the non-private drain state used by maintenance tooling."""
+    tables = {
+        row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    running_job_ids = []
+    if "regen_job" in tables:
+        running_job_ids = [
+            row["id"]
+            for row in conn.execute(
+                "SELECT id FROM regen_job WHERE status = 'running' ORDER BY id"
+            ).fetchall()
+        ]
+    active_lease_count = 0
+    if "generation_lease" in tables:
+        active_lease_count = conn.execute(
+            "SELECT COUNT(*) AS count FROM generation_lease"
+        ).fetchone()["count"]
+    return {
+        "active_lease_count": active_lease_count,
+        "running_regen_job_ids": running_job_ids,
+    }
+
+
+def require_no_running_regen_jobs(conn: sqlite3.Connection) -> None:
+    """Abort offline bootstrap before writes if a prior service still owns a running job."""
+    activity = get_generation_activity(conn)
+    running_job_ids = activity["running_regen_job_ids"]
+    if running_job_ids:
+        raise GenerationActivityError(running_job_ids, 0)
+
+
+def require_generation_idle(conn: sqlite3.Connection) -> None:
+    """Require every admitted generation job and lease to have drained."""
+    activity = get_generation_activity(conn)
+    if activity["running_regen_job_ids"] or activity["active_lease_count"]:
+        raise GenerationActivityError(
+            activity["running_regen_job_ids"],
+            activity["active_lease_count"],
+        )
+
+
+def unlock_maintenance_if_idle(conn: sqlite3.Connection) -> None:
+    """Atomically verify the drain state and clear maintenance under one writer lock."""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        activity = get_generation_activity(conn)
+        if activity["running_regen_job_ids"] or activity["active_lease_count"]:
+            raise GenerationActivityError(
+                activity["running_regen_job_ids"],
+                activity["active_lease_count"],
+            )
+        result = conn.execute(
+            "UPDATE maintenance_control SET locked = 0, updated_at = ? WHERE id = 1",
+            (_now(),),
+        )
+        if result.rowcount != 1:
+            raise RuntimeError("maintenance_control singleton row (id=1) is missing")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def entry_target_key(entry_id: int) -> str:

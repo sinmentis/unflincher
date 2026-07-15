@@ -397,6 +397,52 @@ def test_active_prompt_manifest_does_not_mutate_the_callers_row_factory(tmp_path
     conn.close()
 
 
+def test_app_and_backup_prompt_manifest_implementations_stay_in_sync(tmp_path):
+    import importlib.util
+
+    from unflincher.db import (
+        ACTIVE_PROMPT_MANIFEST_FIELDS,
+        active_prompt_manifest as app_active_prompt_manifest,
+    )
+
+    spec = importlib.util.spec_from_file_location("verify_unflincher_backup", VERIFY_SCRIPT)
+    verify_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verify_module)
+    assert ACTIVE_PROMPT_MANIFEST_FIELDS == verify_module.ACTIVE_PROMPT_MANIFEST_FIELDS
+
+    db_path = tmp_path / "manifest-parity.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO persona_prompt "
+        "(id, version_no, body_text, model, is_active, preset_key, created_at) "
+        "VALUES (3, 9, 'private instructions', 'gpt-5.4', 1, NULL, "
+        "'2026-07-01T02:03:04+00:00')"
+    )
+    conn.commit()
+
+    assert app_active_prompt_manifest(conn) == verify_module.active_prompt_manifest(conn)
+    conn.close()
+
+    legacy_path = tmp_path / "legacy-manifest-parity.db"
+    legacy = sqlite3.connect(legacy_path)
+    legacy.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, is_active INTEGER, created_at TEXT)"
+    )
+    legacy.execute(
+        "INSERT INTO persona_prompt "
+        "(id, version_no, body_text, is_active, created_at) "
+        "VALUES (1, 1, 'legacy private instructions', 1, '2026-01-01T00:00:00+00:00')"
+    )
+    legacy.commit()
+    assert app_active_prompt_manifest(legacy) == verify_module.active_prompt_manifest(legacy)
+    legacy.close()
+
+
 def test_backup_verifier_active_prompt_manifest_rejects_invalid_gzip(tmp_path):
     archive = tmp_path / "broken.db.gz"
     archive.write_bytes(b"not a gzip stream")

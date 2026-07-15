@@ -7,6 +7,7 @@ import pytest
 
 from unflincher.db import (
     CurrentResultSelectionAmbiguousError,
+    OfflineBootstrapRequiredError,
     PreparedRegenTarget,
     TargetBusyError,
     get_active_prompt,
@@ -17,6 +18,7 @@ from unflincher.db import (
     get_report_by_id,
     init_schema,
     initialize_database,
+    initialize_upgrade_database,
     list_commentary_versions,
     list_report_versions,
     migrate_bootstrap_state,
@@ -115,7 +117,7 @@ def test_migrate_bootstrap_state_classifies_pre_existing_populated_table_as_upgr
     c.close()
 
 
-def test_migrate_bootstrap_state_classifies_a_partial_schema_crash_as_upgrade(tmp_path):
+def test_application_initialization_requires_offline_bootstrap_for_partial_schema(tmp_path):
     """Regression test: a pre-v0.2 database that crashed partway through init_schema() -- some
     tables (e.g. diary_entry) exist, but persona_prompt itself does not yet -- is a partial
     schema, not a truly new install, and must never be classified as fresh or seeded. Freshness
@@ -135,16 +137,14 @@ def test_migrate_bootstrap_state_classifies_a_partial_schema_crash_as_upgrade(tm
         row["name"] for row in c.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
 
-    initialize_database(c)
+    with pytest.raises(OfflineBootstrapRequiredError):
+        initialize_database(c)
 
-    bootstrap = c.execute("SELECT * FROM db_bootstrap_state WHERE id = 1").fetchone()
-    assert bootstrap["is_fresh_install"] == 0
-    assert bootstrap["analyst_seeded"] == 1
-    # Migrations still completed -- persona_prompt now fully exists with its columns...
-    columns = {row["name"] for row in c.execute("PRAGMA table_info(persona_prompt)")}
-    assert {"model", "preset_key"} <= columns
-    # ...but nothing was ever seeded into it.
-    assert c.execute("SELECT COUNT(*) AS n FROM persona_prompt").fetchone()["n"] == 0
+    tables = {
+        row["name"] for row in c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    assert "db_bootstrap_state" not in tables
+    assert "persona_prompt" not in tables
     c.close()
 
 
@@ -169,24 +169,34 @@ def test_migrate_bootstrap_state_survives_a_crash_between_schema_creation_and_se
     db_path = str(tmp_path / "crash-window.db")
     first_process = get_connection(db_path)
     migrate_bootstrap_state(first_process)
-    init_schema(first_process)
-    migrate_persona_prompt_model(first_process)
-    migrate_persona_prompt_preset_key(first_process)
-    # Crash here -- seed_analyst_prompt_if_fresh_install never runs.
+    # Crash here before schema creation or seed_analyst_prompt_if_fresh_install runs.
     first_process.close()
 
     second_process = get_connection(db_path)
-    migrate_bootstrap_state(second_process)  # idempotent no-op: table already exists
-    init_schema(second_process)
-    migrate_persona_prompt_model(second_process)
-    migrate_persona_prompt_preset_key(second_process)
-    seed_analyst_prompt_if_fresh_install(second_process)
+    initialize_database(second_process)
 
     active = get_active_prompt(second_process)
     assert active is not None
     assert active["preset_key"] == "analyst"
     assert active["version_no"] == 1
     second_process.close()
+
+
+def test_application_initialization_rejects_missing_maintenance_row_without_recreating_it(
+    tmp_path,
+):
+    c = get_connection(str(tmp_path / "missing-maintenance-row.db"))
+    initialize_database(c)
+    c.execute("DELETE FROM maintenance_control WHERE id = 1")
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"maintenance_control singleton row \(id=1\) is missing",
+    ):
+        initialize_database(c)
+
+    assert c.execute("SELECT COUNT(*) AS n FROM maintenance_control").fetchone()["n"] == 0
+    c.close()
 
 
 # ---------------------------------------------------------------------------
@@ -356,11 +366,11 @@ def test_initialize_database_composes_the_full_sequence_for_a_fresh_database(tmp
     c.close()
 
 
-def test_initialize_database_migrates_without_seeding_an_upgrade_database(tmp_path):
+def test_initialize_upgrade_database_migrates_without_seeding_an_upgrade_database(tmp_path):
     c = get_connection(str(tmp_path / "init-upgrade.db"))
     init_schema(c)  # persona_prompt exists first, as if from an earlier release
 
-    initialize_database(c)
+    initialize_upgrade_database(c)
 
     columns = {row["name"] for row in c.execute("PRAGMA table_info(persona_prompt)")}
     assert {"model", "preset_key"} <= columns

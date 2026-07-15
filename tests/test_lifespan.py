@@ -14,14 +14,19 @@ import pytest
 import unflincher.llm as llm_module
 from unflincher.app import create_app
 from unflincher.db import (
+    OfflineBootstrapRequiredError,
     PreparedRegenTarget,
+    V01_EFFECTIVE_SCHEMA,
     enqueue_snapshot_regen_job,
     get_connection,
-    init_schema,
-    migrate_generation_safety,
-    migrate_persona_prompt_model,
+    initialize_database,
 )
 from unflincher.request_envelope import fingerprint as envelope_fingerprint
+
+
+def _prepare_v02_database(conn):
+    initialize_database(conn)
+    conn.execute("DELETE FROM persona_prompt")
 
 
 async def test_startup_recovers_snapshot_backed_crashed_running_job(tmp_path, monkeypatch):
@@ -31,9 +36,7 @@ async def test_startup_recovers_snapshot_backed_crashed_running_job(tmp_path, mo
     # (its entry_commentary item stuck 'running') plus its already-finished aggregate_report
     # item. Use a throwaway connection, then close it.
     seed = get_connection(db_path)
-    init_schema(seed)
-    migrate_persona_prompt_model(seed)
-    migrate_generation_safety(seed)
+    _prepare_v02_database(seed)
     entry_row_id = seed.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('日记0', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
@@ -107,9 +110,7 @@ async def test_startup_recovery_refuses_a_job_whose_reconstructed_fingerprint_no
     db_path = str(tmp_path / "recovery-fingerprint-mismatch.db")
 
     seed = get_connection(db_path)
-    init_schema(seed)
-    migrate_persona_prompt_model(seed)
-    migrate_generation_safety(seed)
+    _prepare_v02_database(seed)
     entry_row_id = seed.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('日记0', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
@@ -189,9 +190,7 @@ async def test_lifespan_shutdown_settles_in_flight_recovered_job_before_client_a
     db_path = str(tmp_path / "shutdown-recovery.db")
 
     seed = get_connection(db_path)
-    init_schema(seed)
-    migrate_persona_prompt_model(seed)
-    migrate_generation_safety(seed)
+    _prepare_v02_database(seed)
     entry_row_id = seed.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('日记0', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
@@ -269,9 +268,7 @@ async def test_startup_cancels_legacy_running_job_without_snapshot(tmp_path, mon
     # workstream, or restored from a v0.1 backup): startup must NEVER resume it against the live
     # archive. It must be cancelled and its unfinished items deleted instead.
     seed = get_connection(db_path)
-    init_schema(seed)
-    migrate_persona_prompt_model(seed)
-    migrate_generation_safety(seed)
+    _prepare_v02_database(seed)
     entry_id = seed.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('日记0', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
@@ -404,16 +401,16 @@ def test_startup_seeds_exactly_one_analyst_prompt_on_a_brand_new_database(tmp_pa
     assert rows[0]["is_active"] == 1
 
 
-def test_startup_never_inserts_a_prompt_row_into_an_upgraded_empty_database(tmp_path, monkeypatch):
-    """An existing (pre-workstream-4) database whose persona_prompt table already exists but
-    happens to have zero rows (e.g. an earlier crash before the old seeder ever ran) must NEVER
-    receive a fresh Analyst seed -- see migrate_bootstrap_state's row-count-is-not-freshness
-    rationale."""
+def test_startup_requires_offline_bootstrap_for_an_upgraded_empty_database(
+    tmp_path,
+    monkeypatch,
+):
     from fastapi.testclient import TestClient
 
     db_path = str(tmp_path / "upgraded-empty.db")
     seed = get_connection(db_path)
-    init_schema(seed)  # persona_prompt exists, as if from an earlier release; zero rows
+    seed.executescript(V01_EFFECTIVE_SCHEMA)
+    assert seed.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
     seed.close()
 
     monkeypatch.setenv("UNFLINCHER_DB", db_path)
@@ -424,28 +421,37 @@ def test_startup_never_inserts_a_prompt_row_into_an_upgraded_empty_database(tmp_
     monkeypatch.setattr(llm_module, "shutdown_client", _noop)
 
     app = create_app()
-    with TestClient(app) as c:
-        c.get("/healthz")
-        db = app.state.db
-        rows = db.execute("SELECT * FROM persona_prompt").fetchall()
+    with pytest.raises(OfflineBootstrapRequiredError):
+        with TestClient(app):
+            pass
 
-    assert rows == []  # never seeded
+    reopened = get_connection(db_path)
+    assert reopened.execute("SELECT * FROM persona_prompt").fetchall() == []
+    assert "preset_key" not in {
+        row["name"] for row in reopened.execute("PRAGMA table_info(persona_prompt)")
+    }
+    assert reopened.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+    reopened.close()
 
 
-def test_startup_preserves_an_existing_active_prompt_byte_for_byte(tmp_path, monkeypatch):
-    """Every field of a pre-existing active prompt row -- id, version_no, body_text, model,
-    is_active, created_at -- must survive startup completely unchanged, gaining only
-    preset_key IS NULL (see the plan's Persistence and migration section, item 2)."""
+def test_startup_refuses_existing_prompt_upgrade_without_mutating_it(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
-
-    from unflincher.db import set_active_prompt
 
     db_path = str(tmp_path / "upgraded-populated.db")
     seed = get_connection(db_path)
-    init_schema(seed)
-    migrate_persona_prompt_model(seed)
-    original_id = set_active_prompt(seed, "operator's own custom persona, phrased distinctly", "gpt-5.4")
-    original_row = dict(seed.execute("SELECT * FROM persona_prompt WHERE id = ?", (original_id,)).fetchone())
+    seed.executescript(V01_EFFECTIVE_SCHEMA)
+    original_id = seed.execute(
+        "INSERT INTO persona_prompt "
+        "(version_no, body_text, model, is_active, created_at) "
+        "VALUES (3, 'operator custom persona', 'gpt-5.4', 1, "
+        "'2026-01-01T00:00:00+00:00')"
+    ).lastrowid
+    original_row = dict(
+        seed.execute(
+            "SELECT * FROM persona_prompt WHERE id = ?",
+            (original_id,),
+        ).fetchone()
+    )
     seed.close()
 
     monkeypatch.setenv("UNFLINCHER_DB", db_path)
@@ -456,33 +462,29 @@ def test_startup_preserves_an_existing_active_prompt_byte_for_byte(tmp_path, mon
     monkeypatch.setattr(llm_module, "shutdown_client", _noop)
 
     app = create_app()
-    with TestClient(app) as c:
-        c.get("/healthz")
-        db = app.state.db
-        rows = db.execute("SELECT * FROM persona_prompt").fetchall()
+    with pytest.raises(OfflineBootstrapRequiredError):
+        with TestClient(app):
+            pass
 
-    assert len(rows) == 1  # no new row inserted
-    after_row = dict(rows[0])
-    assert after_row["id"] == original_row["id"]
-    assert after_row["version_no"] == original_row["version_no"]
-    assert after_row["body_text"] == original_row["body_text"]
-    assert after_row["model"] == original_row["model"]
-    assert after_row["is_active"] == original_row["is_active"]
-    assert after_row["created_at"] == original_row["created_at"]
-    assert after_row["preset_key"] is None  # the ONLY change: additive, defaults to Custom
+    reopened = get_connection(db_path)
+    after_row = dict(
+        reopened.execute(
+            "SELECT * FROM persona_prompt WHERE id = ?",
+            (original_id,),
+        ).fetchone()
+    )
+    reopened.close()
+    assert after_row == original_row
 
 
-def test_startup_aborts_when_current_result_selection_is_ambiguous(tmp_path, monkeypatch):
-    """A tied-max-created_at target must abort startup with a stable, explicit compatibility
-    error rather than silently switch selection rules or start the app with divergent behavior
-    (see the plan's item 10)."""
-    from unflincher.db import CurrentResultSelectionAmbiguousError, migrate_generation_safety
+def test_startup_requires_offline_bootstrap_before_compatibility_migration(
+    tmp_path,
+    monkeypatch,
+):
 
     db_path = str(tmp_path / "ambiguous.db")
     seed = get_connection(db_path)
-    init_schema(seed)
-    migrate_persona_prompt_model(seed)
-    migrate_generation_safety(seed)
+    seed.executescript(V01_EFFECTIVE_SCHEMA)
     prompt_id = seed.execute(
         "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
         "VALUES (1, 'p', 'gpt-5.4', 1, '2026-01-01T00:00:00+00:00')"
@@ -517,7 +519,7 @@ def test_startup_aborts_when_current_result_selection_is_ambiguous(tmp_path, mon
         async with app.router.lifespan_context(app):
             pass  # pragma: no cover -- must never be reached
 
-    with pytest.raises(CurrentResultSelectionAmbiguousError):
+    with pytest.raises(OfflineBootstrapRequiredError):
         asyncio.run(_start())
 
     # Changes no data: still exactly the two rows this test seeded, untouched.
@@ -532,13 +534,9 @@ def test_startup_closes_the_connection_when_initialization_aborts(tmp_path, monk
     still be closed -- there is no shutdown path to do it otherwise."""
     import sqlite3
 
-    from unflincher.db import CurrentResultSelectionAmbiguousError, migrate_generation_safety
-
     db_path = str(tmp_path / "abort-closes-connection.db")
     seed = get_connection(db_path)
-    init_schema(seed)
-    migrate_persona_prompt_model(seed)
-    migrate_generation_safety(seed)
+    seed.executescript(V01_EFFECTIVE_SCHEMA)
     prompt_id = seed.execute(
         "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
         "VALUES (1, 'p', 'gpt-5.4', 1, '2026-01-01T00:00:00+00:00')"
@@ -579,7 +577,7 @@ def test_startup_closes_the_connection_when_initialization_aborts(tmp_path, monk
         async with app.router.lifespan_context(app):
             pass  # pragma: no cover -- must never be reached
 
-    with pytest.raises(CurrentResultSelectionAmbiguousError):
+    with pytest.raises(OfflineBootstrapRequiredError):
         asyncio.run(_start())
 
     with pytest.raises(sqlite3.ProgrammingError):
