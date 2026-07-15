@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. This project follows semantic versioning.
 
-## Unreleased (target 0.2.0)
+## 0.2.0 (2026-07-16)
 
 - Repositioned Unflincher as an evidence-grounded AI reflection partner for people with years of
   journal entries.

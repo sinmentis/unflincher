@@ -1,8 +1,8 @@
-# Release notes: v0.2.0 release candidate
+# Release notes: v0.2.0
 
 Prepared: 2026-07-16. Not published.
 
-This v0.2.0 release candidate reframes Unflincher as an evidence-grounded AI reflection partner for
+This v0.2.0 release reframes Unflincher as an evidence-grounded AI reflection partner for
 people with years of journal entries. It reads across a Journal Archive, names dated Entry References
 behind an interpretation, and keeps that interpretation open to Conversation.
 

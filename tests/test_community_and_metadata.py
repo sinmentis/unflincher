@@ -49,10 +49,10 @@ def test_code_of_conduct_exists_without_personal_email():
     assert _problems(text) == []
 
 
-def test_changelog_and_release_notes_prepare_v0_2_0():
+def test_changelog_and_release_notes_freeze_v0_2_0():
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     notes = (ROOT / "docs" / "release-notes-v0.2.0.md").read_text(encoding="utf-8")
-    assert changelog.index("Unreleased (target 0.2.0)") < changelog.index("0.1.0")
+    assert changelog.index("0.2.0 (2026-07-16)") < changelog.index("0.1.0")
     assert "0.2.0" in notes
     assert "Prepared: 2026-07-16. Not published." in notes
     assert "An existing v0.1 database must use the fail-locked procedure" in notes
@@ -152,7 +152,7 @@ def test_gitleaks_ignore_allows_only_verified_false_positive():
 def test_pyproject_metadata_is_enriched_without_osi_classifier():
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
-    assert project["version"] == "0.1.0"
+    assert project["version"] == "0.2.0"
     assert project["description"] == (
         "Evidence-grounded AI reflection partner for finding patterns across years of journal entries."
     )
