@@ -113,6 +113,7 @@ Reflections, Life Reports, or Conversations additionally requires `COPILOT_GITHU
 ## Documentation
 
 - Installation and deployment behind Cloudflare Access: [docs/deployment.md](docs/deployment.md)
+- Safe v0.1 to v0.2 upgrade: [docs/upgrade-v0.2.md](docs/upgrade-v0.2.md)
 - Backups and recovery: [docs/backup-and-recovery.md](docs/backup-and-recovery.md)
 - Configuration reference: [docs/configuration.md](docs/configuration.md)
 - Importing existing entries: [docs/import.md](docs/import.md)

@@ -41,6 +41,11 @@ EXPECTED="$(
 deploy/scripts/unflincher-restore-drill.sh "$LATEST" "$EXPECTED"
 ```
 
+For a v0.1 backup tested with a v0.2 image, set `UNFLINCHER_RESTORE_BOOTSTRAP=1`. The offline
+bootstrap runs only against the disposable restored copy before the temporary application starts.
+The release deployment script uses this mode to prove the migration path without touching
+production.
+
 ## Restore production
 
 This overwrites the production database. Run the drill first, then take one final verified backup.

@@ -17,6 +17,8 @@ All notable changes to this project are documented here. This project follows se
   never silently drop older archive entries or Conversation history.
 - Added ordered archive snapshots, request fingerprints, exclusive generation leases, safer retry
   and recovery behavior, and a maintenance gate for controlled deployment.
+- Added fail-locked v0.1 bootstrap, immutable image identity, exact-image deployment, verified
+  rollback tags, offline backup drills, and revision-aware health checks.
 - Rebuilt the fictional public demo and landing page around dated Entry References, Perspectives,
   Conversation, accurate data-flow disclosures, and the non-therapy boundary.
 - Added visible FAQ content with matching structured data, factual application features,

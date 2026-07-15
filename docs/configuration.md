@@ -20,6 +20,8 @@ values are injected by the Quadlet unit's `Environment=` and `Secret=` directive
 | `UNFLINCHER_CF_ACCESS_AUD` | empty | Cloudflare Access application audience tag |
 | `UNFLINCHER_OPERATOR_EMAIL` | empty | The email allowed to authenticate through Cloudflare Access |
 | `UNFLINCHER_REQUIRE_ACCESS_AUTH` | `true` | Set to `false` to disable the Cloudflare Access login check (local dev only) |
+| `UNFLINCHER_REVISION` | `development` | Image revision returned by `/healthz`; release images bake the exact commit SHA |
+| `UNFLINCHER_VERSION` | installed package version | Version returned by `/healthz`; release images bake the release version |
 
 `UNFLINCHER_LLM_MODEL` and `UNFLINCHER_LLM_CONCURRENCY` are also read in `src/unflincher/llm.py`,
 which drives every generation path through one shared Copilot client and bounds how many model
@@ -51,3 +53,19 @@ Existing installations keep their active prompt unchanged during migration and d
 The backup and restore scripts read their own environment variables, such as the backup directory,
 retention window, and restore port. Those are documented in
 [backup-and-recovery.md](backup-and-recovery.md).
+
+## Release deployment variables
+
+`deploy/scripts/build-unflincher-release.sh` requires `UNFLINCHER_RELEASE_REVISION` and
+`UNFLINCHER_RELEASE_VERSION`. The deploy script requires:
+
+| Variable | Description |
+|---|---|
+| `UNFLINCHER_RELEASE_IMAGE` | Prebuilt local SHA-tagged image to deploy |
+| `UNFLINCHER_EXPECTED_REVISION` | Exact 40-character Git commit SHA expected in the image and health response |
+| `UNFLINCHER_EXPECTED_VERSION` | Exact release version expected in the image and health response |
+| `UNFLINCHER_DEPLOY_MODE` | Explicitly `first-upgrade` or `routine`; the script never guesses the version boundary |
+| `UNFLINCHER_COPILOT_SECRET` | Podman secret name used by the deployed Quadlet |
+| `UNFLINCHER_DEPLOY_STATE_DIR` | Private deployment evidence directory; defaults to `~/.local/state/unflincher-deploy` |
+
+See [deployment.md](deployment.md) and [upgrade-v0.2.md](upgrade-v0.2.md).

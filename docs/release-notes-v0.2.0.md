@@ -77,12 +77,12 @@ professional. It does not replace professional care or relationships with other 
 The schema migration is additive. Existing prompt versions, Entry Reflections, Life Reports, journal
 entries, and Conversation messages remain in place.
 
-Do not run this release candidate against an existing v0.1 database yet. The final v0.1 to v0.2
-procedure requires a verified pre-upgrade backup, the v0.1 service stopped with no running
-regeneration job, an offline bootstrap that creates the maintenance gate in its locked state, and
-prompt-preservation, migration, service-health, and local deployment-probe checks before generation
-is unlocked. The final release will document the exact commands in the
-[deployment guide](deployment.md).
+An existing v0.1 database must use the fail-locked procedure in
+[upgrade-v0.2.md](upgrade-v0.2.md). Ordinary v0.2 startup refuses to migrate it. The release tooling
+builds an exact SHA-tagged image, verifies a pristine backup and disposable restore, performs the
+offline bootstrap with maintenance locked, checks prompt and entry preservation, verifies the
+running revision and local synthetic model probe, and unlocks generation only after every check
+passes.
 
 ## License
 

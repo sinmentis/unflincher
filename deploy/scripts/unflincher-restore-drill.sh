@@ -14,6 +14,7 @@ EXPECTED_ENTRY_COUNT="${2:-}"
 VERIFY_SCRIPT="${UNFLINCHER_BACKUP_VERIFY_SCRIPT:-$SCRIPT_DIR/verify-unflincher-backup.py}"
 IMAGE="${UNFLINCHER_RESTORE_IMAGE:-localhost/unflincher:latest}"
 PORT="${UNFLINCHER_RESTORE_PORT:-18096}"
+BOOTSTRAP="${UNFLINCHER_RESTORE_BOOTSTRAP:-0}"
 RUN_ID="$$-$(date +%s)"
 CONTAINER="unflincher-restore-drill-${RUN_ID}"
 VOLUME="unflincher-restore-drill-${RUN_ID}"
@@ -64,6 +65,16 @@ podman run --rm --pull=never --entrypoint sh \
   -v "${TMP_DIR}:/restore:ro,Z" \
   "$IMAGE" \
   -c "cp /restore/unflincher.db /data/unflincher.db"
+
+if [[ "$BOOTSTRAP" == "1" ]]; then
+  podman run --rm --pull=never \
+    -v "${VOLUME}:/data:Z" \
+    "$IMAGE" \
+    python -m unflincher.cli bootstrap --db /data/unflincher.db --json >/dev/null
+elif [[ "$BOOTSTRAP" != "0" ]]; then
+  echo "restore drill failed: UNFLINCHER_RESTORE_BOOTSTRAP must be 0 or 1" >&2
+  exit 2
+fi
 
 podman run -d --rm --pull=never \
   --name "$CONTAINER" \

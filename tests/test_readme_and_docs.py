@@ -131,11 +131,29 @@ def test_repository_agent_guidance_covers_verified_public_contracts():
 def test_deployment_doc_retains_key_operations():
     text = (DOCS / "deployment.md").read_text(encoding="utf-8")
     for token in (
-        "podman build -t localhost/unflincher:latest",
+        "build-unflincher-release.sh",
+        "UNFLINCHER_RELEASE_IMAGE",
+        "UNFLINCHER_EXPECTED_REVISION",
+        "UNFLINCHER_DEPLOY_MODE=routine",
         "cloudflared tunnel route dns",
         "create-access-unflincher-app.sh",
         "Account.Access: Apps and Policies",
         "systemctl --user",
+    ):
+        assert token in text
+    assert "podman build -t localhost/unflincher:latest" not in text
+    assert _problems(text) == []
+
+
+def test_v0_2_upgrade_doc_keeps_bootstrap_and_restore_fail_locked():
+    text = (DOCS / "upgrade-v0.2.md").read_text(encoding="utf-8")
+    for token in (
+        "UNFLINCHER_DEPLOY_MODE=first-upgrade",
+        "offline bootstrap",
+        "pristine offline SQLite backup",
+        "generation_locked",
+        "manual approval boundary",
+        "Do not start v0.1 against the evolved live database",
     ):
         assert token in text
     assert _problems(text) == []
@@ -166,7 +184,13 @@ def test_backup_doc_retains_backup_and_restore():
 
 def test_configuration_doc_retains_env_table():
     text = (DOCS / "configuration.md").read_text(encoding="utf-8")
-    for token in ("UNFLINCHER_DB", "UNFLINCHER_REQUIRE_ACCESS_AUTH", "src/unflincher/config.py"):
+    for token in (
+        "UNFLINCHER_DB",
+        "UNFLINCHER_REQUIRE_ACCESS_AUTH",
+        "UNFLINCHER_REVISION",
+        "UNFLINCHER_RELEASE_IMAGE",
+        "src/unflincher/config.py",
+    ):
         assert token in text
     flat = _flat(text)
     assert "Analyst is the default Perspective for a new database." in flat

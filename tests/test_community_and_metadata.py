@@ -55,7 +55,8 @@ def test_changelog_and_release_notes_prepare_v0_2_0():
     assert changelog.index("Unreleased (target 0.2.0)") < changelog.index("0.1.0")
     assert "0.2.0" in notes
     assert "Prepared: 2026-07-16. Not published." in notes
-    assert "Do not run this release candidate against an existing v0.1 database yet." in notes
+    assert "An existing v0.1 database must use the fail-locked procedure" in notes
+    assert "[upgrade-v0.2.md](upgrade-v0.2.md)" in notes
     for phrase in (
         "evidence-grounded AI reflection partner",
         "Companion",
