@@ -1,10 +1,15 @@
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = ROOT / "site" / "index.html"
+SITE_JS = ROOT / "site" / "assets" / "js" / "site.js"
+LANDING_CSS = ROOT / "site" / "assets" / "css" / "landing.css"
 
 EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]")
 DASHES = ("\u2014", "\u2013")
@@ -25,16 +30,34 @@ def public_text_problems(text: str) -> list[str]:
     return problems
 
 
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
 def test_landing_shell_and_first_half_sections_exist():
     html = INDEX.read_text(encoding="utf-8")
     assert '<html lang="en">' in html
     assert html.count("<h1") == 1
     for section_id in ('id="hero"', 'id="pattern"', 'id="demo"', 'id="evidence"'):
         assert section_id in html
-    assert "Explore the demo" in html
-    assert "View on GitHub" in html
+    assert "AI reflection partner" in html
+    assert "An outside perspective on years of your journal." in html
+    assert "Explore the fictional demo" in html
+    assert "See how it works" in html
+    assert "No account and no model call in the demo." in html
     assert "Source available for noncommercial use" in html
     assert "Sample data" in html
+
+
+def test_landing_leads_with_value_before_setup_or_license():
+    html = INDEX.read_text(encoding="utf-8")
+    hero = html[html.index('id="hero"') : html.index("</section>", html.index('id="hero"'))]
+    assert "Journal Archive" in hero
+    assert "recurring patterns" in hero
+    assert "dated entries" in hero
+    assert "conversation" in hero
+    assert "Source available" not in hero
+    assert "GitHub Copilot" not in hero
 
 
 def test_landing_embeds_the_demo_with_relative_fixture():
@@ -67,14 +90,6 @@ def test_landing_first_half_copy_is_clean_public_english():
     assert public_text_problems(html) == []
 
 
-import json
-import shutil
-import subprocess
-
-SITE_JS = ROOT / "site" / "assets" / "js" / "site.js"
-LANDING_CSS = ROOT / "site" / "assets" / "css" / "landing.css"
-
-
 def _run_site_node(source: str) -> str:
     return subprocess.run(
         ["node", "-e", source, str(SITE_JS)],
@@ -86,14 +101,90 @@ def _run_site_node(source: str) -> str:
 
 def test_landing_second_half_sections_exist():
     html = INDEX.read_text(encoding="utf-8")
-    for section_id in ('id="conversation"', 'id="workshop"', 'id="privacy"', 'id="cta"'):
+    for section_id in (
+        'id="perspectives"',
+        'id="conversation"',
+        'id="archive"',
+        'id="privacy"',
+        'id="cta"',
+    ):
         assert section_id in html
     assert "<!-- LANDING-PART-2" not in html
-    assert ">Local<" in html
-    assert "External processing" in html
-    assert "current request" in html
+    assert "Companion" in html
+    assert "Coach" in html
+    assert "Challenger" in html
+    assert "Analyst" in html
+    assert "Custom" in html
     assert "GitHub Pages" in html
     assert "platform logging and privacy practices" in html
+
+
+def test_landing_sections_follow_the_product_story_order():
+    html = INDEX.read_text(encoding="utf-8")
+    section_ids = (
+        "hero",
+        "pattern",
+        "demo",
+        "evidence",
+        "perspectives",
+        "conversation",
+        "archive",
+        "privacy",
+        "cta",
+    )
+    positions = [html.index(f'id="{section_id}"') for section_id in section_ids]
+    assert positions == sorted(positions)
+
+
+def test_landing_perspectives_and_proof_use_real_demo_views():
+    html = INDEX.read_text(encoding="utf-8")
+    assert 'href="demo/?view=report"' in html
+    assert 'href="demo/?view=conversation"' in html
+    assert 'href="demo/?view=workshop"' in html
+    for image in ("demo-report.png", "demo-conversation.png", "demo-workshop.png"):
+        assert f'src="assets/images/{image}"' in html
+    assert "Choose the stance you need." in html
+    assert "globally active" in html
+
+
+def test_landing_describes_only_supported_archive_paths():
+    html = _flat(INDEX.read_text(encoding="utf-8"))
+    assert "Bring the archive you already have." in html
+    assert "Douban diary Excel export" in html
+    assert "CLI importer" in html
+    assert "Write page" in html
+    for unsupported in ("Day One", "Notion", "Google Docs", "generic Excel"):
+        assert unsupported not in html
+
+
+def test_landing_discloses_each_generation_payload_and_context_limit():
+    html = _flat(INDEX.read_text(encoding="utf-8"))
+    required = (
+        "Entry Reflection sends the full Journal Archive, the active prompt, and the selected-entry focus.",
+        "Life Report sends the full Journal Archive and the active prompt.",
+        "General Conversation sends the full Journal Archive, the active prompt, the complete current-session history, and the current message.",
+        "Entry Conversation sends the selected entry, its latest reflection when present, the complete thread history, the active prompt, and the current message.",
+        "Prompt Workshop preview sends the full Journal Archive, the selected-entry focus, the draft instructions, and the selected model without persisting the output.",
+        "first message of a new general Conversation",
+        "separate model",
+        "date title remains",
+        "selected model's context window",
+        "fails clearly instead of silently dropping",
+    )
+    for phrase in required:
+        assert phrase in html
+
+
+def test_landing_states_product_boundary_and_license_accurately():
+    html = _flat(INDEX.read_text(encoding="utf-8"))
+    assert "Unflincher is not therapy" in html
+    assert "does not diagnose or treat" in html
+    assert "does not impersonate a licensed professional" in html
+    assert "does not replace professional care or relationships with other people" in html
+    assert "Source available for noncommercial use under PolyForm Noncommercial 1.0.0." in html
+    assert "self-hosted AI journal" not in html
+    assert re.search(r"\bpersona\b", html, re.IGNORECASE) is None
+    assert "commentary" not in html.lower()
 
 
 def test_landing_loads_the_reveal_script():
@@ -105,6 +196,8 @@ def test_landing_is_responsive_and_reduced_motion_aware():
     css = LANDING_CSS.read_text(encoding="utf-8")
     assert "@media (max-width: 768px)" in css
     assert "grid-template-columns: 1fr" in css
+    assert "min-width: 0" in css
+    assert "calc(100dvh - 4.75rem)" in css
     js = SITE_JS.read_text(encoding="utf-8")
     assert "prefers-reduced-motion" in js
 

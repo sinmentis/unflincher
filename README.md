@@ -1,54 +1,104 @@
 # Unflincher
 
-A self-hosted AI journal for long-term reflection. Unflincher reads across years of your writing,
-finds the patterns that repeat, backs each reading with evidence from your own entries, and lets you
-argue with the interpretation instead of just accepting it.
+Unflincher is an evidence-grounded AI reflection partner for people with years of journal entries.
+It reads across your Journal Archive, finds recurring patterns, points each interpretation back to
+dated entries, and lets you challenge the reading in Conversation.
 
 Source available for noncommercial use.
 
-![Life Report view showing a recurring pattern supported by dated evidence from a fictional sample journal.](site/assets/images/demo-report.png)
+![Life Report showing a recurring pattern supported by dated Entry References from a fictional Journal Archive.](site/assets/images/demo-report.png)
 
-- Explore the demo: https://sinmentis.github.io/unflincher/demo/
+- Explore the fictional demo: https://sinmentis.github.io/unflincher/demo/
 - Install Unflincher: [docs/deployment.md](docs/deployment.md)
 
 ## What this is
 
-A normal diary shows one day at a time, which hides the patterns that only surface across years.
-Unflincher looks at the whole archive. It writes commentary on individual entries, builds a Life
-Report that cites the specific entries behind each reading, and lets you talk back to that reading in
-a conversation that pushes on your interpretation rather than simply agreeing with it.
+A normal journal shows one day at a time. Unflincher looks across the archive for changes,
+contradictions, recurring explanations, and goals that are hard to see entry by entry.
 
-- Single-user and self-hosted. No accounts and no multi-tenancy.
-- FastAPI, Jinja2, htmx, and Server-Sent Events, with SQLite storage and no frontend build step.
-- The GitHub Copilot SDK is the only model integration, reusing your existing Copilot access.
-- The AI voice is not fixed. The Prompt Workshop lets you rewrite the persona and switch the model
-  at any time.
-- The interface chrome is translated into nine languages. Your entries, the persona prompt, and the
-  generated text stay exactly as written.
+- Single-user and self-hosted, with no account system or multi-tenancy.
+- FastAPI, Jinja2, htmx, Server-Sent Events, and local SQLite storage, with no frontend build step.
+- GitHub Copilot as the only model integration, reusing your existing Copilot access.
+- Entry References that name the dated entries behind an interpretation. They are not independently
+  verified citations.
+- Nine translated interface catalogs. Entries, instructions, and generated text stay in the
+  language in which they were written.
+
+## Perspectives
+
+Unflincher uses one globally active Perspective for future Entry Reflections, Life Reports, and
+Conversations. Changing it never rewrites existing generated content.
+
+- **Companion** acknowledges the emotional reality first, then broadens the reading without hiding a
+  clear pattern.
+- **Coach** connects supported patterns to decisions, goals, and small next steps.
+- **Challenger** names contradiction, avoidance, and moving excuses without attacking identity or
+  worth.
+- **Analyst** separates observation from interpretation with minimal editorializing.
+- **Custom** keeps instructions you write yourself when they do not exactly match a shipped preset.
+
+Analyst is the default on a new database. Prompt Workshop is where you choose a Perspective, edit its
+instructions, select a model, preview one entry, and apply the result.
 
 ## Product tour
 
-- Timeline and entry reading: browse the archive by year and read any entry.
-- Entry commentary: generate a mentor-style note on a single entry.
-- Life Report: a cross-year reading that cites the entries it interprets.
-- Entry and general conversations: challenge or extend a reading in dialogue.
-- Prompt Workshop and version history: edit the persona, preview a change, and keep prior versions.
+- **Timeline and entry reading:** browse the Journal Archive by year and open any entry.
+- **Entry Reflection:** generate a reading of one entry grounded in that entry and the archive.
+- **Life Report:** create a cross-year synthesis that names the entries behind each pattern.
+- **Entry and general Conversation:** challenge or extend a reading around one entry or the archive.
+- **Prompt Workshop:** choose a Perspective, tune the active instructions, preview one entry, and
+  keep prior prompt versions.
+- **Version history:** keep every prior Entry Reflection and Life Report instead of overwriting it.
+
+## Bring an existing archive
+
+The supported archive import is an untouched Douban diary Excel export from the Tofu Chrome
+extension. A CLI importer reads that `.xlsx` file directly. There is no browser upload or generic
+spreadsheet importer.
+
+If you have no Douban archive, skip import. Entries added from the Write page become part of the same
+Journal Archive. See [docs/import.md](docs/import.md).
 
 ## Privacy and data flow
 
-- Your diary entries, persona prompts, generated commentary, reports, and conversations are stored
-  in your local SQLite database.
-- Generation sends the selected persona prompt, the relevant diary context, and your current request
-  through GitHub Copilot to the chosen model. Nothing else leaves your machine.
-- The public demo contains only fictional data and performs no model calls, tracking, cookies,
-  storage, or writable operations. Its buttons are inert.
-- The public demo and landing page are hosted on GitHub Pages and are subject to GitHub's platform
-  logging and privacy practices.
+Your entries, active prompt, generated reflections, reports, and Conversation history are stored in
+your local SQLite database.
+
+GitHub Copilot is the only model integration. Each feature sends the following content to the
+selected model:
+
+- **Entry Reflection:** Entry Reflection sends the full Journal Archive, the active prompt, and the
+  selected-entry focus.
+- **Life Report:** Life Report sends the full Journal Archive and the active prompt.
+- **General Conversation:** General Conversation sends the full Journal Archive, the active prompt,
+  the complete current-session history, and the current message.
+- **Entry Conversation:** Entry Conversation sends the selected entry, its latest reflection when
+  present, the complete thread history, the active prompt, and the current message.
+- **Prompt Workshop preview:** Prompt Workshop preview sends the full Journal Archive, the
+  selected-entry focus, the draft instructions, and the selected model without persisting the
+  output.
+- **Conversation title:** When its separate model passes preflight, the first message of a new
+  general Conversation is also sent once to generate a short title. Otherwise the date title
+  remains.
+
+The complete request must fit the selected model's context window. Unflincher fails clearly and
+never silently drops older entries or Conversation history. It does not truncate, sample, summarize,
+or omit older archive content to make a request fit.
+
+The public demo contains only fictional data and performs no model calls, tracking, cookies, storage,
+or writable operations. Its controls are inert where the self-hosted app would write or generate.
+The demo and landing page are hosted on GitHub Pages and are subject to GitHub's platform logging and
+privacy practices.
+
+## Product boundary
+
+Unflincher is not therapy, does not diagnose or treat, and does not impersonate a licensed
+professional. It does not replace professional care or relationships with other people.
 
 ## Requirements and fast local trial
 
 - Python 3.12 or newer.
-- A GitHub Copilot subscription for the AI features.
+- A GitHub Copilot subscription for generation.
 - Optional Cloudflare account for the Access login gate on an internet-reachable deployment.
 
 ```bash
@@ -57,8 +107,8 @@ UNFLINCHER_REQUIRE_ACCESS_AUTH=false .venv/bin/uvicorn unflincher.app:app --relo
 .venv/bin/pytest -q
 ```
 
-Open http://localhost:8000. Browsing, writing, and reading work immediately. Generating AI
-commentary, reports, or chat additionally requires `COPILOT_GITHUB_TOKEN` to be set.
+Open http://localhost:8000. Browsing, writing, and reading work immediately. Generating Entry
+Reflections, Life Reports, or Conversations additionally requires `COPILOT_GITHUB_TOKEN`.
 
 ## Documentation
 

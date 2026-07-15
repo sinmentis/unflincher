@@ -3,9 +3,9 @@ name = "unflincher"
 version = "0.1.0"
 requires-python = ">=3.12"
 license = {text = "PolyForm-Noncommercial-1.0.0"}
-description = "Self-hosted AI journal for entry commentary, life reports, and reflective conversations using GitHub Copilot."
+description = "Evidence-grounded AI reflection partner for finding patterns across years of journal entries."
 readme = "README.md"
-keywords = ["journaling", "diary", "self-hosted", "self-reflection", "llm", "github-copilot", "fastapi", "sqlite", "privacy"]
+keywords = ["journaling", "diary", "self-hosted", "self-reflection", "reflection", "journal-analysis", "ai-reflection-partner", "llm", "github-copilot", "fastapi", "sqlite", "privacy"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: FastAPI",

@@ -142,6 +142,11 @@ a:hover { text-decoration-color: var(--accent); }
     scroll-behavior: auto !important;
   }
 }
+@media (max-width: 480px) {
+  .site-header { gap: var(--space-4); padding-right: var(--space-4); padding-left: var(--space-4); }
+  .site-nav { gap: var(--space-4); }
+  .site-nav a { white-space: nowrap; }
+}
 @media (forced-colors: active) {
   .btn { border: 1px solid; }
   a { text-decoration: underline; }

@@ -4,6 +4,10 @@ If you are migrating from a Tofu Chrome extension export of your Douban diary, p
 `.xlsx` export to the importer. The importer recognizes the extension's original diary sheet and
 column layout, so you do not need to rename anything in the workbook.
 
+The app's first-run guidance links to this document. Import remains CLI-only: there is no browser
+upload, generic Excel importer, or support for Day One, Notion, or Google Docs exports. If you have no
+existing archive, skip import and add entries from the Write page.
+
 ## Production import
 
 Run the importer once, before the service is first started, so there are never two writers to the
@@ -28,4 +32,4 @@ For a local development database, call the CLI directly against the file it shou
 ## No existing archive
 
 If you are not migrating from Douban, skip this entirely. New entries can always be typed directly
-into the Write page in the app.
+into the Write page in the app, where they become part of the same Journal Archive.

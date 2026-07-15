@@ -13,12 +13,12 @@
   <meta property="og:image" content="https://sinmentis.github.io/unflincher/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
-  <meta property="og:image:alt" content="Dark social card with the text Source available for noncommercial use, the promise A self-hosted AI journal that reads across years of your writing, and the Unflincher repository URL.">
+  <meta property="og:image:alt" content="Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Unflincher interactive demo">
   <meta name="twitter:description" content="Try Unflincher on fictional sample data. No account, no model call, and no journal content is sent to a backend or model.">
   <meta name="twitter:image" content="https://sinmentis.github.io/unflincher/assets/images/social-preview.png">
-  <meta name="twitter:image:alt" content="Dark social card with the text Source available for noncommercial use, the promise A self-hosted AI journal that reads across years of your writing, and the Unflincher repository URL.">
+  <meta name="twitter:image:alt" content="Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL.">
   <link rel="icon" href="../assets/images/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/site.css">
   <link rel="stylesheet" href="../assets/css/demo.css">
@@ -36,7 +36,7 @@
       <h1>Interactive demo</h1>
       <span class="demo-badge">Sample data</span>
     </div>
-    <p class="demo-note">The interactive logic runs in your browser on fictional data. After the page assets load, it requests only the committed sample file and never contacts a model. Writing, regeneration, and live chat are disabled here and available in the self-hosted app. The public site is hosted on GitHub Pages and is subject to GitHub's platform logging and privacy practices.</p>
+    <p class="demo-note">The interactive logic runs in your browser on fictional data. After the page assets load, it requests only the committed sample file. It performs no model calls, tracking, cookies, storage, or writable operations. Writing, generation, and live conversations are available only in the self-hosted app. The public site is hosted on GitHub Pages and is subject to GitHub's platform logging and privacy practices.</p>
     <h2>Explore five views</h2>
     <section class="demo-shell" data-demo-root data-initial-view="timeline" data-fixture="../data/sample-journal.json">
       <nav class="demo-nav" aria-label="Demo views">
@@ -56,7 +56,7 @@
             <li><img src="../assets/images/demo-workshop.png" alt="Prompt Workshop view showing the same fictional entry read by the Companion, Coach, Challenger, Analyst, and Custom Perspectives." width="1440" height="900"></li>
           </ul>
           <p>The interactive controls need JavaScript. The screenshots above show the five views.</p>
-          <p>The self-hosted app stores journal data in your local SQLite database. Generation sends the selected prompt and relevant context through GitHub Copilot. It requires GitHub Copilot access, a host you control, and basic terminal setup.</p>
+          <p>The self-hosted app stores journal data in your local SQLite database. Depending on the feature, generation can send the full Journal Archive, active prompt, selected-entry focus, Conversation history, and current message through GitHub Copilot. Read the exact transmission list on the <a href="../#privacy">home page</a>.</p>
           <p>Read the product story on the <a href="../">home page</a> or view the source on <a href="https://github.com/sinmentis/unflincher">GitHub</a>.</p>
         </div>
       </div>

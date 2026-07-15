@@ -13,8 +13,8 @@ values are injected by the Quadlet unit's `Environment=` and `Secret=` directive
 | Variable | Default | Description |
 |---|---|---|
 | `UNFLINCHER_DB` | `unflincher.dev.db` | SQLite database file path |
-| `UNFLINCHER_LLM_MODEL` | `claude-sonnet-4.6` | Default model for the active persona |
-| `UNFLINCHER_BATCH_CONCURRENCY` | `3` | Max concurrent items when regenerating all commentary |
+| `UNFLINCHER_LLM_MODEL` | `claude-sonnet-4.6` | Default model for the active Perspective |
+| `UNFLINCHER_BATCH_CONCURRENCY` | `3` | Max concurrent items when regenerating all Entry Reflections |
 | `UNFLINCHER_LLM_CONCURRENCY` | `4` | Max concurrent model sessions on the shared Copilot client |
 | `UNFLINCHER_CF_TEAM_DOMAIN` | empty | Cloudflare Access team name, short form without the `.cloudflareaccess.com` suffix |
 | `UNFLINCHER_CF_ACCESS_AUD` | empty | Cloudflare Access application audience tag |
@@ -24,6 +24,17 @@ values are injected by the Quadlet unit's `Environment=` and `Secret=` directive
 `UNFLINCHER_LLM_MODEL` and `UNFLINCHER_LLM_CONCURRENCY` are also read in `src/unflincher/llm.py`,
 which drives every generation path through one shared Copilot client and bounds how many model
 sessions run on it at once.
+
+## Perspective behavior
+
+Analyst is the default Perspective for a new database. Unflincher uses one globally active
+Perspective for future Entry Reflections, Life Reports, and Conversations. Change it in Prompt
+Workshop without restarting the application. Existing generated output keeps the prompt version that
+created it.
+
+A saved prompt is labeled Companion, Coach, Challenger, or Analyst only when its text exactly matches
+a shipped preset. Any edited preset or user-authored instruction is stored and displayed as Custom.
+Existing installations keep their active prompt unchanged during migration and display it as Custom.
 
 ## Copilot authentication
 

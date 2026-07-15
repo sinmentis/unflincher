@@ -6,7 +6,7 @@ from xml.dom import minidom
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 BASE = "https://sinmentis.github.io/unflincher/"
-SOCIAL_ALT = "Dark social card with the text Source available for noncommercial use, the promise A self-hosted AI journal that reads across years of your writing, and the Unflincher repository URL."
+SOCIAL_ALT = "Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL."
 
 
 def _json_ld(html: str) -> dict:
@@ -17,6 +17,12 @@ def _json_ld(html: str) -> dict:
 
 def test_index_has_canonical_and_social_metadata():
     html = (SITE / "index.html").read_text(encoding="utf-8")
+    assert "<title>Unflincher: an AI reflection partner for your journal</title>" in html
+    assert (
+        '<meta name="description" content="Unflincher reads years of journal entries, '
+        "finds recurring patterns, is designed to point back to dated entries, and keeps "
+        'the interpretation open to conversation.">'
+    ) in html
     assert f'<link rel="canonical" href="{BASE}">' in html
     assert f'content="{BASE}assets/images/social-preview.png"' in html
     assert '<meta property="og:type" content="website">' in html

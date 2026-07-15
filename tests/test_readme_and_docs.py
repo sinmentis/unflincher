@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
 DOCS = ROOT / "docs"
+AGENTS = ROOT / "AGENTS.md"
 QUADLET = ROOT / "deploy" / "quadlet" / "unflincher.container"
 DEPLOY_SCRIPT = ROOT / "deploy" / "scripts" / "deploy-unflincher.sh"
 
@@ -32,6 +33,10 @@ def _flat(text: str) -> str:
 def test_readme_leads_with_promise_label_screenshot_and_links():
     text = README.read_text(encoding="utf-8")
     head = "\n".join(text.splitlines()[:45])
+    assert "evidence-grounded AI reflection partner" in head
+    assert "years of journal entries" in head
+    assert "dated entries" in head
+    assert "challenge" in head
     assert "Source available for noncommercial use" in head
     assert "site/assets/images/demo-report.png" in head
     assert "sinmentis.github.io/unflincher/demo/" in head
@@ -58,8 +63,38 @@ def test_readme_links_to_all_split_docs_and_community_files():
 
 def test_readme_privacy_names_full_copilot_payload():
     low = _flat(README.read_text(encoding="utf-8")).lower()
-    for phrase in ("persona prompt", "relevant diary context", "current request", "github copilot"):
+    for phrase in ("active prompt", "journal archive", "current message", "github copilot"):
         assert phrase in low
+
+
+def test_readme_describes_perspectives_supported_import_and_boundaries():
+    text = _flat(README.read_text(encoding="utf-8"))
+    for perspective in ("Companion", "Coach", "Challenger", "Analyst", "Custom"):
+        assert perspective in text
+    assert "Analyst is the default on a new database" in text
+    assert "one globally active Perspective" in text
+    assert "Douban diary Excel export" in text
+    assert "CLI importer" in text
+    assert "Write page" in text
+    assert "not therapy" in text
+    assert "does not diagnose or treat" in text
+    assert "does not replace professional care or relationships with other people" in text
+    assert "selected model's context window" in text
+    assert "never silently drops older entries or Conversation history" in text
+
+
+def test_readme_privacy_discloses_each_generation_path():
+    text = _flat(README.read_text(encoding="utf-8"))
+    for phrase in (
+        "Entry Reflection sends the full Journal Archive",
+        "Life Report sends the full Journal Archive",
+        "General Conversation sends the full Journal Archive",
+        "Entry Conversation sends the selected entry",
+        "Prompt Workshop preview sends the full Journal Archive",
+        "first message of a new general Conversation",
+        "date title remains",
+    ):
+        assert phrase in text
 
 
 def test_readme_describes_inert_public_demo():
@@ -77,6 +112,20 @@ def test_readme_discloses_github_pages_logging():
 def test_readme_links_support_issue_tracker():
     text = README.read_text(encoding="utf-8")
     assert "https://github.com/sinmentis/unflincher/issues" in text
+
+
+def test_repository_agent_guidance_covers_verified_public_contracts():
+    text = AGENTS.read_text(encoding="utf-8")
+    for phrase in (
+        ".venv/bin/pytest -q",
+        "nine translation catalogs",
+        "English-only",
+        "source-available",
+        "fictional",
+        "CONTRIBUTING.md",
+    ):
+        assert phrase in text
+    assert _problems(text) == []
 
 
 def test_deployment_doc_retains_key_operations():
@@ -119,6 +168,12 @@ def test_configuration_doc_retains_env_table():
     text = (DOCS / "configuration.md").read_text(encoding="utf-8")
     for token in ("UNFLINCHER_DB", "UNFLINCHER_REQUIRE_ACCESS_AUTH", "src/unflincher/config.py"):
         assert token in text
+    flat = _flat(text)
+    assert "Analyst is the default Perspective for a new database." in flat
+    assert "one globally active Perspective" in flat
+    assert "future Entry Reflections, Life Reports, and Conversations" in flat
+    assert "exactly matches a shipped preset" in flat
+    assert "Custom" in flat
     assert _problems(text) == []
 
 
@@ -126,4 +181,8 @@ def test_import_doc_retains_importer_command():
     text = (DOCS / "import.md").read_text(encoding="utf-8")
     assert "import-unflincher.sh" in text
     assert ".xlsx" in text
+    flat = _flat(text)
+    assert "first-run guidance" in flat
+    assert "CLI-only" in flat
+    assert "Write page" in flat
     assert _problems(text) == []

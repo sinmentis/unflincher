@@ -78,7 +78,7 @@
   list-style: none;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(82%, 1fr);
+  grid-auto-columns: 82%;
   gap: var(--space-4);
   margin: 0;
   padding: 0 0 var(--space-2);
@@ -87,3 +87,15 @@
 }
 .demo-fallback li { scroll-snap-align: start; }
 .demo-fallback img { border: 1px solid var(--line); border-radius: var(--radius); }
+
+@media (max-width: 600px) {
+  .demo-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .demo-nav button {
+    flex: 0 0 auto;
+    min-width: 8.5rem;
+    white-space: nowrap;
+  }
+}

@@ -3,7 +3,7 @@
 Unflincher is self-hosted and source-available. This guide covers a rootless Podman plus Quadlet
 deployment kept private behind a Cloudflare Tunnel and Cloudflare Access. The container publishes to
 loopback only and has no login of its own, so Access is the only thing between the internet and your
-diary. You can adapt the steps for Docker; the application has no Podman-specific code.
+journal. You can adapt the steps for Docker; the application has no Podman-specific code.
 
 This guide changes only your own host. It does not touch any existing server and never rotates a
 secret you already created.
@@ -17,7 +17,8 @@ secret you already created.
 
 ## GitHub Copilot authentication
 
-Every AI feature (commentary, reports, chat) calls the model through the GitHub Copilot SDK.
+Every generation feature (Entry Reflections, Life Reports, Conversations, and Prompt Workshop
+preview) calls the model through the GitHub Copilot SDK.
 
 - The SDK runtime auto-detects `COPILOT_GITHUB_TOKEN`, which is the highest-priority source it
   checks. Generation runs through a Copilot CLI runtime that downloads on first use; the image

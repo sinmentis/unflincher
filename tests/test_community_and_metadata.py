@@ -102,9 +102,13 @@ def test_issue_templates_warn_against_real_private_data():
 def test_pyproject_metadata_is_enriched_without_osi_classifier():
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
-    assert project["description"]
+    assert project["description"] == (
+        "Evidence-grounded AI reflection partner for finding patterns across years of journal entries."
+    )
     assert project["readme"] == "README.md"
-    assert project["keywords"]
+    assert {"reflection", "journal-analysis", "ai-reflection-partner"}.issubset(
+        project["keywords"]
+    )
     assert "Homepage" in project["urls"]
     for classifier in project.get("classifiers", []):
         assert "OSI Approved" not in classifier
