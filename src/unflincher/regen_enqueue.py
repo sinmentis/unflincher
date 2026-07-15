@@ -91,7 +91,7 @@ async def enqueue_single_entry_job(
 
 async def enqueue_apply_all_job(
     conn, *, persona_text: str, model: str, owner_token: str,
-    activate: bool, prompt_version_id: int | None = None,
+    activate: bool, prompt_version_id: int | None = None, activate_preset_key: str | None = None,
 ) -> tuple[int, int | None]:
     """Prepare+preflight EVERY concrete Entry Reflection request plus the Life Report request for
     the current archive, then atomically activate the prompt (if activate=True) and enqueue the
@@ -104,7 +104,9 @@ async def enqueue_apply_all_job(
     argument is used: activate=True builds targets from (persona_text, model) and activates them
     as a new persona_prompt version; activate=False reuses the given prompt_version_id (the
     already-active prompt) unchanged -- mirrors the legacy no-body vs. {draft_prompt, model}
-    apply-all behavior."""
+    apply-all behavior. activate_preset_key is an optional caller-claimed preset hint, ignored
+    when activate=False and never trusted when activate=True -- db.py always derives the stored
+    preset_key from the exact persona_text (see db._insert_activated_persona_prompt_version)."""
     if activate and prompt_version_id is not None:
         raise ValueError("prompt_version_id must not be given when activate=True")
     if not activate and prompt_version_id is None:
@@ -140,6 +142,7 @@ async def enqueue_apply_all_job(
         kwargs = dict(preflight_entry_ids=preflight_entry_ids, targets=targets, owner_token=owner_token)
         if activate:
             kwargs["activate_prompt"] = (persona_text, model)
+            kwargs["activate_preset_key"] = activate_preset_key
         else:
             kwargs["prompt_version_id"] = prompt_version_id
 

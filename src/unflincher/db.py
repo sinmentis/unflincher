@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS persona_prompt (
     version_no INTEGER NOT NULL,
     body_text TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 0,
+    preset_key TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_persona_prompt_one_active
@@ -204,6 +205,143 @@ def migrate_persona_prompt_model(conn: sqlite3.Connection) -> None:
         )
 
 
+def migrate_persona_prompt_preset_key(conn: sqlite3.Connection) -> None:
+    """Add persona_prompt.preset_key to a database created before the column existed (see the
+    plan's Persistence and migration section).
+
+    Unlike migrate_persona_prompt_model, brand-new databases ALSO get this column straight from
+    SCHEMA's own CREATE TABLE (see item 1's explicit "new-database schema and an idempotent
+    migration for existing DBs" requirement) -- this function exists purely for a database that
+    was created by an EARLIER release, before the column existed. Idempotent and safe on every
+    startup. preset_key is nullable with NO default, so ALTER TABLE ADD COLUMN backfills every
+    pre-existing row to NULL (Custom) automatically -- no body text, model, active state, version
+    number, or created_at is ever touched by this migration."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(persona_prompt)")}
+    if "preset_key" not in columns:
+        conn.execute("ALTER TABLE persona_prompt ADD COLUMN preset_key TEXT")
+
+
+def migrate_bootstrap_state(conn: sqlite3.Connection) -> None:
+    """One-time, crash-safe fresh-vs-upgrade classification. MUST run before init_schema() so it
+    can observe the database's tables beforehand -- see initialize_database, the one entry point
+    app startup and the CLI import bootstrap both use.
+
+    "Fresh" means NO pre-existing user tables at all, not merely "persona_prompt is absent" -- a
+    pre-v0.2 database that crashed partway through init_schema() (e.g. diary_entry exists but
+    persona_prompt does not yet) is a partial schema, not a truly new install, and must never be
+    seeded. Row count is not a safe freshness signal either way (an upgrade database can
+    legitimately have zero persona_prompt rows).
+
+    For a genuine upgrade, verify_current_result_selection_compatibility runs read-only before
+    any mutation -- a tie or mismatch propagates before anything is ever written. Records
+    is_fresh_install, analyst_seeded (0 until seed_analyst_prompt_if_fresh_install actually
+    inserts a row), and current_result_selection_verified.
+
+    The durable marker is read explicitly, not inferred from mere table existence: a missing
+    singleton row is an explicit error (never silently treated as verified); verified=1 is a
+    no-op; verified=0 reruns the read-only verifier and only then atomically sets it to 1 --
+    on failure the flag stays 0 and nothing else changes."""
+    existing_tables = {
+        row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+
+    if "db_bootstrap_state" in existing_tables:
+        row = conn.execute("SELECT * FROM db_bootstrap_state WHERE id = 1").fetchone()
+        if row is None:
+            raise RuntimeError("db_bootstrap_state exists but its singleton row (id=1) is missing")
+        if row["current_result_selection_verified"]:
+            return
+        verify_current_result_selection_compatibility(conn)  # read-only; raises before any write
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("UPDATE db_bootstrap_state SET current_result_selection_verified = 1 WHERE id = 1")
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+        return
+
+    # sqlite_sequence is SQLite's own AUTOINCREMENT bookkeeping table, not a user table -- a
+    # database with only that (or nothing) has no schema of its own yet.
+    was_pre_existing = bool(existing_tables - {"sqlite_sequence"})
+    if was_pre_existing:
+        verify_current_result_selection_compatibility(conn)  # read-only; raises before any write
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute(
+            "CREATE TABLE db_bootstrap_state ("
+            "id INTEGER PRIMARY KEY CHECK (id = 1), "
+            "is_fresh_install INTEGER NOT NULL, "
+            "analyst_seeded INTEGER NOT NULL DEFAULT 0, "
+            "current_result_selection_verified INTEGER NOT NULL DEFAULT 0, "
+            "created_at TEXT NOT NULL DEFAULT (datetime('now'))"
+            ")"
+        )
+        is_fresh = 0 if was_pre_existing else 1
+        conn.execute(
+            "INSERT INTO db_bootstrap_state "
+            "(id, is_fresh_install, analyst_seeded, current_result_selection_verified) "
+            "VALUES (1, ?, ?, 1)",
+            (is_fresh, 0 if is_fresh else 1),
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def initialize_database(conn: sqlite3.Connection) -> None:
+    """The one deep interface both app startup and the CLI import bootstrap call to fully
+    prepare a database file: fresh-vs-upgrade classification (see migrate_bootstrap_state),
+    schema, every migration, and the Analyst seed on a genuinely fresh install. Idempotent and
+    crash-safe; call once at the start of every process."""
+    migrate_bootstrap_state(conn)
+    init_schema(conn)
+    migrate_persona_prompt_model(conn)
+    migrate_persona_prompt_preset_key(conn)
+    migrate_chat_session(conn)
+    migrate_generation_safety(conn)
+    seed_analyst_prompt_if_fresh_install(conn)
+
+
+def seed_analyst_prompt_if_fresh_install(conn: sqlite3.Connection) -> None:
+    """Seeds exactly one active persona_prompt (the Analyst preset, preset_key='analyst',
+    version 1, DEFAULT_MODEL) the first time it is safe on a genuinely fresh database -- see
+    migrate_bootstrap_state (which MUST already have run). A no-op otherwise: an upgraded
+    database (analyst_seeded forced to 1), an already-seeded fresh database, or a missing
+    bootstrap-state row (caller bug, never treated as "seed anyway"). Insert and flag-update
+    happen in one transaction, so a crash between them is impossible."""
+    from unflincher.perspectives import DEFAULT_PERSPECTIVE_KEY, get_preset
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        tables = {
+            r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        if "db_bootstrap_state" not in tables:
+            conn.execute("COMMIT")
+            return
+        row = conn.execute("SELECT * FROM db_bootstrap_state WHERE id = 1").fetchone()
+        if row is None or row["analyst_seeded"]:
+            conn.execute("COMMIT")
+            return
+        preset = get_preset(DEFAULT_PERSPECTIVE_KEY)
+        version_row = conn.execute("SELECT MAX(version_no) AS m FROM persona_prompt").fetchone()
+        next_version = (version_row["m"] or 0) + 1
+        conn.execute("UPDATE persona_prompt SET is_active = 0 WHERE is_active = 1")
+        conn.execute(
+            "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active, created_at) "
+            "VALUES (?, ?, ?, ?, 1, ?)",
+            (next_version, preset.prompt, DEFAULT_MODEL, preset.key, _now()),
+        )
+        conn.execute("UPDATE db_bootstrap_state SET analyst_seeded = 1 WHERE id = 1")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
 def migrate_chat_session(conn: sqlite3.Connection) -> None:
     """Add chat_message.session_id for the multi-session general chat feature.
 
@@ -299,23 +437,47 @@ def get_active_prompt(conn: sqlite3.Connection) -> sqlite3.Row | None:
     ).fetchone()
 
 
-def set_active_prompt(conn: sqlite3.Connection, body_text: str, model: str) -> int:
+def _insert_activated_persona_prompt_version(
+    conn: sqlite3.Connection, body_text: str, model: str,
+) -> int:
+    """The ONE place a new persona_prompt version is created and made active -- used by
+    set_active_prompt, set_active_prompt_and_start_regen_job, and
+    enqueue_snapshot_regen_job's activate_prompt path so all three cannot drift apart.
+
+    preset_key always comes from perspectives.classify_prompt(body_text) -- an exact match
+    against a current shipped preset, or NULL (Custom). Any caller-claimed preset hint is
+    resolved here and only here; it is never trusted directly (see each public function's own
+    `preset_key`/`activate_preset_key` parameter docstring). Caller owns the transaction."""
+    from unflincher.perspectives import classify_prompt
+
+    row = conn.execute("SELECT MAX(version_no) AS m FROM persona_prompt").fetchone()
+    next_version = (row["m"] or 0) + 1
+    conn.execute("UPDATE persona_prompt SET is_active = 0 WHERE is_active = 1")
+    cur = conn.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active, created_at) "
+        "VALUES (?, ?, ?, ?, 1, ?)",
+        (next_version, body_text, model, classify_prompt(body_text), _now()),
+    )
+    return cur.lastrowid
+
+
+def set_active_prompt(
+    conn: sqlite3.Connection, body_text: str, model: str, *, preset_key: str | None = None,
+) -> int:
     """Insert a new persona_prompt version and make it the only active one. Atomic.
 
-    model is required (never defaulted here): the model is part of "how generation happens" and
-    every caller — the workshop apply route, the default-persona seeder — must choose it
-    explicitly so a version never silently inherits some other version's model."""
+    model is required: every caller chooses it explicitly so a version never silently inherits
+    another version's model.
+
+    preset_key is an optional caller-claimed hint (unused today; accepted for a future Workshop
+    UI). It is NEVER trusted: the stored value always comes from
+    perspectives.classify_prompt(body_text) via _insert_activated_persona_prompt_version, so a
+    stale or forged hint can never misclassify edited/arbitrary text, and an exact shipped preset
+    classifies correctly even if the hint claims something else."""
+    del preset_key  # server-side classification only -- see docstring
     conn.execute("BEGIN IMMEDIATE")
     try:
-        row = conn.execute("SELECT MAX(version_no) AS m FROM persona_prompt").fetchone()
-        next_version = (row["m"] or 0) + 1
-        conn.execute("UPDATE persona_prompt SET is_active = 0 WHERE is_active = 1")
-        cur = conn.execute(
-            "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
-            "VALUES (?, ?, ?, 1, ?)",
-            (next_version, body_text, model, _now()),
-        )
-        new_id = cur.lastrowid
+        new_id = _insert_activated_persona_prompt_version(conn, body_text, model)
         conn.execute("COMMIT")
         return new_id
     except Exception:
@@ -324,40 +486,64 @@ def set_active_prompt(conn: sqlite3.Connection, body_text: str, model: str) -> i
 
 
 def get_current_commentary(conn: sqlite3.Connection, entry_id: int) -> sqlite3.Row | None:
+    # "Current" is the highest successful RESULT ID, not latest created_at (see the plan's
+    # Persistence and migration section) -- exclusive same-target leases serialize admission and
+    # completion, so result IDs give a monotonic order independent of clock format/rollback. Safe
+    # because verify_current_result_selection_compatibility() is a one-time compatibility
+    # precondition (see migrate_bootstrap_state) that must pass before any pre-existing database
+    # is ever allowed to reach this query.
     return conn.execute(
-        "SELECT * FROM entry_commentary WHERE entry_id = ? AND status = 'ok' "
-        "ORDER BY created_at DESC LIMIT 1",
+        "SELECT ec.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
+        "FROM entry_commentary ec JOIN persona_prompt pp ON pp.id = ec.prompt_version_id "
+        "WHERE ec.entry_id = ? AND ec.status = 'ok' ORDER BY ec.id DESC LIMIT 1",
         (entry_id,),
     ).fetchone()
 
 
 def get_current_report(conn: sqlite3.Connection) -> sqlite3.Row | None:
     return conn.execute(
-        "SELECT * FROM aggregate_report WHERE status = 'ok' ORDER BY created_at DESC LIMIT 1"
+        "SELECT ar.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
+        "FROM aggregate_report ar JOIN persona_prompt pp ON pp.id = ar.prompt_version_id "
+        "WHERE ar.status = 'ok' ORDER BY ar.id DESC LIMIT 1"
     ).fetchone()
 
 
 def list_commentary_versions(conn: sqlite3.Connection, entry_id: int) -> list[sqlite3.Row]:
     # Unlike get_current_commentary, the history view keeps failed rows too, so the owner can
-    # see that a regen failed on a given date. Newest first.
+    # see that a regen failed on a given date. Newest first (by created_at -- history ordering is
+    # a display concern, not the "current" selection rule above).
     return conn.execute(
-        "SELECT * FROM entry_commentary WHERE entry_id = ? ORDER BY created_at DESC",
+        "SELECT ec.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
+        "FROM entry_commentary ec JOIN persona_prompt pp ON pp.id = ec.prompt_version_id "
+        "WHERE ec.entry_id = ? ORDER BY ec.created_at DESC",
         (entry_id,),
     ).fetchall()
 
 
 def get_commentary_by_id(conn: sqlite3.Connection, commentary_id: int) -> sqlite3.Row | None:
     return conn.execute(
-        "SELECT * FROM entry_commentary WHERE id = ?", (commentary_id,)
+        "SELECT ec.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
+        "FROM entry_commentary ec JOIN persona_prompt pp ON pp.id = ec.prompt_version_id "
+        "WHERE ec.id = ?",
+        (commentary_id,),
     ).fetchone()
 
 
 def list_report_versions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    return conn.execute("SELECT * FROM aggregate_report ORDER BY created_at DESC").fetchall()
+    return conn.execute(
+        "SELECT ar.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
+        "FROM aggregate_report ar JOIN persona_prompt pp ON pp.id = ar.prompt_version_id "
+        "ORDER BY ar.created_at DESC"
+    ).fetchall()
 
 
 def get_report_by_id(conn: sqlite3.Connection, report_id: int) -> sqlite3.Row | None:
-    return conn.execute("SELECT * FROM aggregate_report WHERE id = ?", (report_id,)).fetchone()
+    return conn.execute(
+        "SELECT ar.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
+        "FROM aggregate_report ar JOIN persona_prompt pp ON pp.id = ar.prompt_version_id "
+        "WHERE ar.id = ?",
+        (report_id,),
+    ).fetchone()
 
 
 def _insert_full_regen_job(
@@ -409,25 +595,19 @@ def set_active_prompt_and_start_regen_job(
     body_text: str,
     model: str,
     entry_ids: list[int],
+    *,
+    preset_key: str | None = None,
 ) -> tuple[int, int]:
     """Activate one prompt version and create its full regeneration job atomically.
 
-    Mirrors set_active_prompt's version swap, then inserts the job in the SAME transaction so the
-    two commit or roll back together. If a job is already running, _insert_full_regen_job trips the
-    single-flight index and the ROLLBACK below restores the previously active prompt and drops the
-    uncommitted version -- the visible "apply and regenerate all" never persists a prompt whose job
-    was rejected as busy."""
+    Mirrors set_active_prompt (see its docstring re preset_key). If a job is already running,
+    _insert_full_regen_job trips the single-flight index and the ROLLBACK below discards the
+    uncommitted prompt version too -- never persists a prompt/preset key whose job was rejected
+    as busy."""
+    del preset_key  # server-side classification only -- see set_active_prompt's docstring
     conn.execute("BEGIN IMMEDIATE")
     try:
-        row = conn.execute("SELECT MAX(version_no) AS m FROM persona_prompt").fetchone()
-        next_version = (row["m"] or 0) + 1
-        conn.execute("UPDATE persona_prompt SET is_active = 0 WHERE is_active = 1")
-        prompt_cursor = conn.execute(
-            "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
-            "VALUES (?, ?, ?, 1, ?)",
-            (next_version, body_text, model, _now()),
-        )
-        prompt_id = prompt_cursor.lastrowid
+        prompt_id = _insert_activated_persona_prompt_version(conn, body_text, model)
         job_id = _insert_full_regen_job(conn, prompt_id, entry_ids)
         conn.execute("COMMIT")
         return prompt_id, job_id
@@ -560,6 +740,85 @@ def migrate_generation_safety(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE regen_job_item ADD COLUMN request_fingerprint TEXT")
     if "baseline_result_id" not in item_columns:
         conn.execute("ALTER TABLE regen_job_item ADD COLUMN baseline_result_id INTEGER")
+
+
+# ---------------------------------------------------------------------------
+# Current-result selection compatibility (created_at -> highest successful ID)
+# ---------------------------------------------------------------------------
+
+class CurrentResultSelectionAmbiguousError(RuntimeError):
+    """Raised by verify_current_result_selection_compatibility() when v0.1's latest-created_at
+    rule and v0.2's highest-successful-ID rule disagree on "current" for some entry_commentary or
+    aggregate_report target. .conflicts lists every such target as a dict: "target" plus either
+    "ids" (a tie at the max created_at -- v0.1 has no deterministic winner) or
+    "v01_selected_id"/"highest_id" (an unambiguous mismatch, e.g. clock skew or a backdated row).
+    Changes no data; the caller must resolve the conflict explicitly."""
+
+    def __init__(self, conflicts: list[dict]):
+        self.conflicts = conflicts
+        super().__init__(
+            f"current-result selection compatibility check failed for {len(conflicts)} "
+            f"target(s): {conflicts}"
+        )
+
+
+def _check_target_result_selection_compatibility(target_label: str, rows: list[sqlite3.Row]) -> dict | None:
+    """rows: every 'ok' row for one target (.id, .created_at). None if compatible; a target with
+    no rows is trivially compatible."""
+    if not rows:
+        return None
+    max_created_at = max(r["created_at"] for r in rows)
+    tied_ids = sorted(r["id"] for r in rows if r["created_at"] == max_created_at)
+    if len(tied_ids) > 1:
+        return {"target": target_label, "reason": "tied_max_created_at", "ids": tied_ids}
+    v01_selected_id = tied_ids[0]
+    highest_id = max(r["id"] for r in rows)
+    if v01_selected_id != highest_id:
+        return {
+            "target": target_label, "reason": "mismatch",
+            "v01_selected_id": v01_selected_id, "highest_id": highest_id,
+        }
+    return None
+
+
+def verify_current_result_selection_compatibility(conn: sqlite3.Connection) -> None:
+    """Read-only, idempotent, independently callable (see migrate_bootstrap_state, the one-time
+    caller during initialization, and any later offline migration tool). For every
+    entry_commentary target and the aggregate_report target, verifies v0.1's "latest created_at"
+    and v0.2's "highest successful ID" rules agree (see CurrentResultSelectionAmbiguousError).
+    Raises listing every conflicting target, in deterministic entry_id order, so they can all be
+    resolved at once. Never writes anything. A database missing entry_commentary/aggregate_report
+    entirely (e.g. a minimal/malformed schema) has nothing to check for that table."""
+    conflicts = []
+    existing_tables = {
+        row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+
+    if "entry_commentary" in existing_tables:
+        entry_ids = [
+            row["entry_id"] for row in conn.execute(
+                "SELECT DISTINCT entry_id FROM entry_commentary WHERE status = 'ok' ORDER BY entry_id"
+            ).fetchall()
+        ]
+        for entry_id in entry_ids:
+            rows = conn.execute(
+                "SELECT id, created_at FROM entry_commentary WHERE entry_id = ? AND status = 'ok'",
+                (entry_id,),
+            ).fetchall()
+            conflict = _check_target_result_selection_compatibility(f"entry_commentary:{entry_id}", rows)
+            if conflict is not None:
+                conflicts.append(conflict)
+
+    if "aggregate_report" in existing_tables:
+        report_rows = conn.execute(
+            "SELECT id, created_at FROM aggregate_report WHERE status = 'ok'"
+        ).fetchall()
+        conflict = _check_target_result_selection_compatibility("aggregate_report", report_rows)
+        if conflict is not None:
+            conflicts.append(conflict)
+
+    if conflicts:
+        raise CurrentResultSelectionAmbiguousError(conflicts)
 
 
 # ---------------------------------------------------------------------------
@@ -923,6 +1182,7 @@ def enqueue_snapshot_regen_job(
     *,
     prompt_version_id: int | None = None,
     activate_prompt: tuple[str, str] | None = None,
+    activate_preset_key: str | None = None,
     preflight_entry_ids: list[int],
     targets: list[PreparedRegenTarget],
     owner_token: str,
@@ -938,10 +1198,12 @@ def enqueue_snapshot_regen_job(
        target generation and an apply-all job mutually exclusive on the SAME target, not merely
        "only one job system-wide");
     4. if `activate_prompt` is given (body_text, model), atomically create and activate a new
-       persona_prompt version in this SAME transaction (mirroring set_active_prompt) and use its
-       id as the job's prompt_version_id -- this is what lets apply-all activate the draft and
-       enqueue the job as one all-or-nothing unit. Otherwise `prompt_version_id` (an existing
-       version) is used unchanged. Exactly one of the two must be given.
+       persona_prompt version in this SAME transaction (see
+       _insert_activated_persona_prompt_version) and use its id as the job's prompt_version_id.
+       `activate_preset_key` is an optional caller-claimed hint (unused today, never trusted --
+       preset_key always comes from perspectives.classify_prompt(body_text)). Otherwise
+       `prompt_version_id` (an existing version) is used unchanged. Exactly one of
+       prompt_version_id/activate_prompt must be given.
     5. insert one regen_job row with its snapshot_entry_count;
     6. insert one regen_job_entry_snapshot row per entry, in the SAME order as
        preflight_entry_ids, each with an explicit ordinal;
@@ -951,7 +1213,10 @@ def enqueue_snapshot_regen_job(
     Returns (job_id, activated_prompt_id) -- the second element is None unless activate_prompt was
     given. The existing ux_regen_job_one_running partial unique index still applies (this app's
     worker/recovery model handles one running job at a time) — a second concurrently-running job
-    still raises a raw sqlite3.IntegrityError, exactly like start_regen_job."""
+    still raises a raw sqlite3.IntegrityError, exactly like start_regen_job. Any failure (busy
+    target, maintenance, archive changed, single-flight job index) rolls back the uncommitted
+    prompt/preset-key insert too -- apply-all never persists either when it rolls back."""
+    del activate_preset_key  # server-side classification only -- see docstring
     if (prompt_version_id is None) == (activate_prompt is None):
         raise ValueError("exactly one of prompt_version_id or activate_prompt must be given")
 
@@ -982,15 +1247,7 @@ def enqueue_snapshot_regen_job(
         activated_prompt_id = None
         if activate_prompt is not None:
             body_text, model = activate_prompt
-            row = conn.execute("SELECT MAX(version_no) AS m FROM persona_prompt").fetchone()
-            next_version = (row["m"] or 0) + 1
-            conn.execute("UPDATE persona_prompt SET is_active = 0 WHERE is_active = 1")
-            prompt_cur = conn.execute(
-                "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
-                "VALUES (?, ?, ?, 1, ?)",
-                (next_version, body_text, model, _now()),
-            )
-            activated_prompt_id = prompt_cur.lastrowid
+            activated_prompt_id = _insert_activated_persona_prompt_version(conn, body_text, model)
             prompt_version_id = activated_prompt_id
 
         job_cur = conn.execute(

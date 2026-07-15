@@ -220,6 +220,26 @@ async def test_enqueue_apply_all_job_activates_prompt_and_covers_every_entry_plu
     assert get_lease_by_target(conn, report_target_key()) is not None
 
 
+async def test_enqueue_apply_all_job_ignores_a_forged_activate_preset_key_hint(conn, monkeypatch):
+    """activate_preset_key is a caller-claimed hint only -- exact Analyst body text classifies
+    correctly regardless of a forged/mismatched hint."""
+    from unflincher.perspectives import get_preset
+
+    fake = _FakeCopilotClient()
+    monkeypatch.setattr(llm_module, "CopilotClient", lambda: fake)
+    analyst = get_preset("analyst")
+    _seed_entry(conn)
+
+    _job_id, activated_prompt_id = await enqueue_apply_all_job(
+        conn, persona_text=analyst.prompt, model="test-model", owner_token="owner-a",
+        activate=True, activate_preset_key="coach",
+    )
+
+    active = get_active_prompt(conn)
+    assert active["id"] == activated_prompt_id
+    assert active["preset_key"] == "analyst"
+
+
 async def test_enqueue_apply_all_job_reuses_existing_prompt_when_not_activating(conn, monkeypatch):
     fake = _FakeCopilotClient()
     monkeypatch.setattr(llm_module, "CopilotClient", lambda: fake)

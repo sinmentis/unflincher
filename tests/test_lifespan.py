@@ -7,6 +7,10 @@ proving both paths of db.recover_or_cancel_running_jobs() end-to-end at app star
 - a snapshot-LESS legacy job is cancelled and its unfinished items deleted, never resumed
   against the live archive (see the plan's Maintenance gate / archive-snapshot sections).
 """
+import asyncio
+
+import pytest
+
 import unflincher.llm as llm_module
 from unflincher.app import create_app
 from unflincher.db import (
@@ -375,3 +379,259 @@ def test_startup_and_shutdown_call_client_warm_up_and_shutdown(tmp_path, monkeyp
         assert calls == ["warm_up"]
 
     assert calls == ["warm_up", "shutdown"]
+
+
+def test_startup_seeds_exactly_one_analyst_prompt_on_a_brand_new_database(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    db_path = str(tmp_path / "fresh-seed.db")
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
+
+    async def _noop(): pass
+    monkeypatch.setattr(llm_module, "warm_up_client", _noop)
+    monkeypatch.setattr(llm_module, "shutdown_client", _noop)
+
+    app = create_app()
+    with TestClient(app) as c:
+        c.get("/healthz")
+        db = app.state.db
+        rows = db.execute("SELECT * FROM persona_prompt").fetchall()
+
+    assert len(rows) == 1
+    assert rows[0]["preset_key"] == "analyst"
+    assert rows[0]["version_no"] == 1
+    assert rows[0]["is_active"] == 1
+
+
+def test_startup_never_inserts_a_prompt_row_into_an_upgraded_empty_database(tmp_path, monkeypatch):
+    """An existing (pre-workstream-4) database whose persona_prompt table already exists but
+    happens to have zero rows (e.g. an earlier crash before the old seeder ever ran) must NEVER
+    receive a fresh Analyst seed -- see migrate_bootstrap_state's row-count-is-not-freshness
+    rationale."""
+    from fastapi.testclient import TestClient
+
+    db_path = str(tmp_path / "upgraded-empty.db")
+    seed = get_connection(db_path)
+    init_schema(seed)  # persona_prompt exists, as if from an earlier release; zero rows
+    seed.close()
+
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
+
+    async def _noop(): pass
+    monkeypatch.setattr(llm_module, "warm_up_client", _noop)
+    monkeypatch.setattr(llm_module, "shutdown_client", _noop)
+
+    app = create_app()
+    with TestClient(app) as c:
+        c.get("/healthz")
+        db = app.state.db
+        rows = db.execute("SELECT * FROM persona_prompt").fetchall()
+
+    assert rows == []  # never seeded
+
+
+def test_startup_preserves_an_existing_active_prompt_byte_for_byte(tmp_path, monkeypatch):
+    """Every field of a pre-existing active prompt row -- id, version_no, body_text, model,
+    is_active, created_at -- must survive startup completely unchanged, gaining only
+    preset_key IS NULL (see the plan's Persistence and migration section, item 2)."""
+    from fastapi.testclient import TestClient
+
+    from unflincher.db import set_active_prompt
+
+    db_path = str(tmp_path / "upgraded-populated.db")
+    seed = get_connection(db_path)
+    init_schema(seed)
+    migrate_persona_prompt_model(seed)
+    original_id = set_active_prompt(seed, "operator's own custom persona, phrased distinctly", "gpt-5.4")
+    original_row = dict(seed.execute("SELECT * FROM persona_prompt WHERE id = ?", (original_id,)).fetchone())
+    seed.close()
+
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
+
+    async def _noop(): pass
+    monkeypatch.setattr(llm_module, "warm_up_client", _noop)
+    monkeypatch.setattr(llm_module, "shutdown_client", _noop)
+
+    app = create_app()
+    with TestClient(app) as c:
+        c.get("/healthz")
+        db = app.state.db
+        rows = db.execute("SELECT * FROM persona_prompt").fetchall()
+
+    assert len(rows) == 1  # no new row inserted
+    after_row = dict(rows[0])
+    assert after_row["id"] == original_row["id"]
+    assert after_row["version_no"] == original_row["version_no"]
+    assert after_row["body_text"] == original_row["body_text"]
+    assert after_row["model"] == original_row["model"]
+    assert after_row["is_active"] == original_row["is_active"]
+    assert after_row["created_at"] == original_row["created_at"]
+    assert after_row["preset_key"] is None  # the ONLY change: additive, defaults to Custom
+
+
+def test_startup_aborts_when_current_result_selection_is_ambiguous(tmp_path, monkeypatch):
+    """A tied-max-created_at target must abort startup with a stable, explicit compatibility
+    error rather than silently switch selection rules or start the app with divergent behavior
+    (see the plan's item 10)."""
+    from unflincher.db import CurrentResultSelectionAmbiguousError, migrate_generation_safety
+
+    db_path = str(tmp_path / "ambiguous.db")
+    seed = get_connection(db_path)
+    init_schema(seed)
+    migrate_persona_prompt_model(seed)
+    migrate_generation_safety(seed)
+    prompt_id = seed.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
+        "VALUES (1, 'p', 'gpt-5.4', 1, '2026-01-01T00:00:00+00:00')"
+    ).lastrowid
+    entry_id = seed.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    same_ts = "2026-06-01T00:00:00+00:00"
+    seed.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'gpt-5.4', 'x', 'ok', ?)",
+        (entry_id, prompt_id, same_ts),
+    )
+    seed.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'gpt-5.4', 'x', 'ok', ?)",
+        (entry_id, prompt_id, same_ts),
+    )
+    seed.close()
+
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
+
+    async def _noop(): pass
+    monkeypatch.setattr(llm_module, "warm_up_client", _noop)
+    monkeypatch.setattr(llm_module, "shutdown_client", _noop)
+
+    app = create_app()
+
+    async def _start():
+        async with app.router.lifespan_context(app):
+            pass  # pragma: no cover -- must never be reached
+
+    with pytest.raises(CurrentResultSelectionAmbiguousError):
+        asyncio.run(_start())
+
+    # Changes no data: still exactly the two rows this test seeded, untouched.
+    reopened = get_connection(db_path)
+    count = reopened.execute("SELECT COUNT(*) AS n FROM entry_commentary").fetchone()["n"]
+    reopened.close()
+    assert count == 2
+
+
+def test_startup_closes_the_connection_when_initialization_aborts(tmp_path, monkeypatch):
+    """Item 7 regression: if initialize_database() raises before `yield`, the connection must
+    still be closed -- there is no shutdown path to do it otherwise."""
+    import sqlite3
+
+    from unflincher.db import CurrentResultSelectionAmbiguousError, migrate_generation_safety
+
+    db_path = str(tmp_path / "abort-closes-connection.db")
+    seed = get_connection(db_path)
+    init_schema(seed)
+    migrate_persona_prompt_model(seed)
+    migrate_generation_safety(seed)
+    prompt_id = seed.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active, created_at) "
+        "VALUES (1, 'p', 'gpt-5.4', 1, '2026-01-01T00:00:00+00:00')"
+    ).lastrowid
+    entry_id = seed.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    same_ts = "2026-06-01T00:00:00+00:00"
+    for _ in range(2):
+        seed.execute(
+            "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+            "VALUES (?, ?, 'gpt-5.4', 'x', 'ok', ?)",
+            (entry_id, prompt_id, same_ts),
+        )
+    seed.close()
+
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
+
+    async def _noop(): pass
+    monkeypatch.setattr(llm_module, "warm_up_client", _noop)
+    monkeypatch.setattr(llm_module, "shutdown_client", _noop)
+
+    import unflincher.app as app_module
+    original_get_connection = app_module.get_connection
+    captured = {}
+
+    def _capturing_get_connection(path):
+        captured["conn"] = original_get_connection(path)
+        return captured["conn"]
+
+    monkeypatch.setattr(app_module, "get_connection", _capturing_get_connection)
+
+    app = create_app()
+
+    async def _start():
+        async with app.router.lifespan_context(app):
+            pass  # pragma: no cover -- must never be reached
+
+    with pytest.raises(CurrentResultSelectionAmbiguousError):
+        asyncio.run(_start())
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        captured["conn"].execute("SELECT 1")
+
+
+def test_shutdown_client_and_connection_close_run_even_when_recovery_fails_after_warm_up(tmp_path, monkeypatch):
+    """Item 5 regression: once client warm-up has succeeded, a LATER startup failure (here,
+    recovery) must still trigger shutdown_client() and close the connection -- cleanup must not
+    depend on how far startup got before failing."""
+    import sqlite3
+
+    import unflincher.app as app_module
+
+    db_path = str(tmp_path / "post-warmup-failure.db")
+    monkeypatch.setenv("UNFLINCHER_DB", db_path)
+    monkeypatch.setenv("UNFLINCHER_REQUIRE_ACCESS_AUTH", "false")
+
+    calls = []
+
+    async def _fake_warm_up():
+        calls.append("warm_up")
+
+    async def _fake_shutdown():
+        calls.append("shutdown")
+
+    monkeypatch.setattr(llm_module, "warm_up_client", _fake_warm_up)
+    monkeypatch.setattr(llm_module, "shutdown_client", _fake_shutdown)
+
+    def _raise_recovery(conn, owner_token):
+        raise RuntimeError("simulated recovery failure")
+
+    monkeypatch.setattr(app_module, "recover_or_cancel_running_jobs", _raise_recovery)
+
+    original_get_connection = app_module.get_connection
+    captured = {}
+
+    def _capturing_get_connection(path):
+        captured["conn"] = original_get_connection(path)
+        return captured["conn"]
+
+    monkeypatch.setattr(app_module, "get_connection", _capturing_get_connection)
+
+    app = create_app()
+
+    async def _start():
+        async with app.router.lifespan_context(app):
+            pass  # pragma: no cover -- must never be reached
+
+    with pytest.raises(RuntimeError, match="simulated recovery failure"):
+        asyncio.run(_start())
+
+    assert calls == ["warm_up", "shutdown"]
+    with pytest.raises(sqlite3.ProgrammingError):
+        captured["conn"].execute("SELECT 1")

@@ -86,3 +86,19 @@ representative pages are verified, remove only the staged copy:
 rm -f "$RESTORE_TMP/unflincher.db"
 rmdir "$RESTORE_TMP"
 ```
+
+## Active-prompt preservation manifest
+
+Row counts alone do not prove the active Perspective survived a restore unchanged. Both
+`verify-unflincher-backup.py --active-prompt-manifest` and the disposable restore drill
+(`unflincher-restore-drill.sh`) additionally compare the currently active `persona_prompt` row's
+identity manifest: `id`, `version_no`, a UTF-8 SHA-256 of `body_text`, `model`, `is_active`,
+`created_at`, and `preset_key`. The manifest never includes or logs the body text itself, only its
+hash, so an owner's private reflective instructions never appear in backup/restore output. The
+restore drill fails loudly (and still cleans up its disposable resources) on any field mismatch;
+it skips the comparison entirely only when the archive itself has no active prompt at all (e.g. a
+legacy backup that predates `persona_prompt`).
+
+```bash
+python3 deploy/scripts/verify-unflincher-backup.py "$LATEST" --active-prompt-manifest
+```

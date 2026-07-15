@@ -6,7 +6,7 @@ import argparse
 import asyncio
 import sys
 
-from unflincher.db import get_connection, init_schema
+from unflincher.db import get_connection, initialize_database
 from unflincher.importer import MissingColumnsError, import_excel
 
 
@@ -31,8 +31,10 @@ def main(argv=None):
 
     if args.command == "import":
         conn = get_connection(args.db)
-        init_schema(conn)
         try:
+            # Same one deep interface app.py's lifespan uses (see db.initialize_database) -- this
+            # may be the very first process to touch the database file.
+            initialize_database(conn)
             count = import_excel(args.excel, conn)
         except MissingColumnsError as exc:
             print(f"Import failed: {exc}", file=sys.stderr)

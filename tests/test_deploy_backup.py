@@ -1,4 +1,5 @@
 import gzip
+import hashlib
 import os
 import shutil
 import sqlite3
@@ -18,21 +19,71 @@ def _write_backup_archive(tmp_path: Path, entry_count: int = 2) -> Path:
     db_path = tmp_path / "source.db"
     archive_path = tmp_path / "source.db.gz"
     conn = sqlite3.connect(db_path)
-    tables = (
-        "diary_entry",
-        "persona_prompt",
-        "entry_commentary",
-        "aggregate_report",
-        "chat_message",
-        "chat_session",
-        "regen_job",
-        "regen_job_item",
+    id_only_tables = (
+        "diary_entry", "entry_commentary", "aggregate_report",
+        "chat_message", "chat_session", "regen_job", "regen_job_item",
     )
-    for table in tables:
+    for table in id_only_tables:
         conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
         conn.executemany(
             f"INSERT INTO {table} (id) VALUES (?)",
             [(index + 1,) for index in range(entry_count)],
+        )
+    # A VALID persona_prompt schema (not just an `id` column) with every row INACTIVE -- proves
+    # active_prompt_manifest() correctly returns None ("no active row") rather than raising for a
+    # malformed schema (see item 6). Row count still matches every other table.
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, preset_key, created_at) "
+        "VALUES (?, ?, 'inactive', 'gpt-5.4', 0, NULL, '2026-01-01T00:00:00+00:00')",
+        [(index + 1, index + 1) for index in range(entry_count)],
+    )
+    conn.commit()
+    conn.close()
+    with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
+        shutil.copyfileobj(source, target)
+    return archive_path
+
+
+def _write_backup_archive_with_real_active_prompt(
+    tmp_path: Path, entry_count: int = 2, *, body_text: str, model: str, preset_key: str | None,
+    version_no: int = 1, prompt_id: int = 1, created_at: str = "2026-01-01T00:00:00+00:00",
+) -> Path:
+    """Same COUNT_TABLES shape as _write_backup_archive, except persona_prompt gets a REAL row
+    (id/version_no/body_text/model/is_active/preset_key/created_at) so the restore drill's
+    active-prompt manifest comparison has something real to compare, end to end."""
+    db_path = tmp_path / "source-with-prompt.db"
+    archive_path = tmp_path / "source-with-prompt.db.gz"
+    conn = sqlite3.connect(db_path)
+    id_only_tables = (
+        "diary_entry", "entry_commentary", "aggregate_report",
+        "chat_message", "chat_session", "regen_job", "regen_job_item",
+    )
+    for table in id_only_tables:
+        conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
+        conn.executemany(
+            f"INSERT INTO {table} (id) VALUES (?)",
+            [(index + 1,) for index in range(entry_count)],
+        )
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO persona_prompt VALUES (?, ?, ?, ?, 1, ?, ?)",
+        (prompt_id, version_no, body_text, model, preset_key, created_at),
+    )
+    # Pad with inactive filler rows so persona_prompt's row COUNT also matches entry_count, like
+    # every other table -- only the one row above (is_active=1) participates in the manifest
+    # comparison the restore drill performs.
+    for filler_id in range(entry_count - 1):
+        conn.execute(
+            "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, "
+            "preset_key, created_at) VALUES (?, ?, 'superseded', 'gpt-5.4', 0, NULL, ?)",
+            (prompt_id + filler_id + 1000, filler_id + 1, created_at),
         )
     conn.commit()
     conn.close()
@@ -79,6 +130,285 @@ def test_backup_verifier_prints_deterministic_manifest(tmp_path):
         "regen_job_item=2",
     ]
     assert result.stderr == ""
+
+
+def _write_real_schema_archive_with_active_prompt(
+    tmp_path: Path, *, body_text: str = "the owner's private instructions",
+    model: str = "gpt-5.4", preset_key: str | None = "analyst",
+    version_no: int = 1, prompt_id: int = 1, created_at: str = "2026-01-01T00:00:00+00:00",
+) -> Path:
+    """Unlike _write_backup_archive (whose tables only carry a bare `id` column, sufficient for
+    the row-count manifest), this writes a REAL persona_prompt table shape so
+    --active-prompt-manifest has real id/version_no/body_text/model/is_active/created_at/
+    preset_key fields to read."""
+    db_path = tmp_path / "with-prompt.db"
+    archive_path = tmp_path / "with-prompt.db.gz"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO persona_prompt VALUES (?, ?, ?, ?, 1, ?, ?)",
+        (prompt_id, version_no, body_text, model, preset_key, created_at),
+    )
+    conn.commit()
+    conn.close()
+    with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
+        shutil.copyfileobj(source, target)
+    return archive_path
+
+
+def test_backup_verifier_prints_active_prompt_manifest_without_the_body_text(tmp_path):
+    body_text = "the owner's private instructions, never printed anywhere"
+    archive = _write_real_schema_archive_with_active_prompt(tmp_path, body_text=body_text)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive), "--active-prompt-manifest"],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    # body_sha256 hashes the RAW UTF-8 bytes of body_text, with no synthetic trailing newline.
+    expected_sha = hashlib.sha256(body_text.encode("utf-8")).hexdigest()
+    assert result.stdout.splitlines() == [
+        "id=1",
+        "version_no=1",
+        f"body_sha256={expected_sha}",
+        "model=gpt-5.4",
+        "is_active=1",
+        "created_at=2026-01-01T00:00:00+00:00",
+        "preset_key=analyst",
+    ]
+    # The private body text itself must never appear anywhere in the output.
+    assert body_text not in result.stdout
+    assert body_text not in result.stderr
+
+
+def test_backup_verifier_active_prompt_manifest_hashes_multiline_non_ascii_body_text(tmp_path):
+    """UTF-8 correctness: a multiline body containing non-ASCII characters (CJK + an emoji, via
+    ASCII source escapes so the test file itself stays ASCII) must hash identically to Python's
+    own sha256(body_text.encode('utf-8')) -- no normalization, no line-ending rewriting, no
+    synthetic trailing newline."""
+    body_text = (
+        "\u7b2c\u4e00\u884c\u6307\u4ee4\n"
+        "\u7b2c\u4e8c\u884c,\u542b\u6709 emoji \U0001f30a \u548c\u6807\u70b9\u3002\n"
+        "\u6700\u540e\u4e00\u884c\u3002"
+    )
+    archive = _write_real_schema_archive_with_active_prompt(tmp_path, body_text=body_text)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert result.returncode == 0
+    expected_sha = hashlib.sha256(body_text.encode("utf-8")).hexdigest()
+    assert f"body_sha256={expected_sha}" in result.stdout.splitlines()
+    assert body_text not in result.stdout
+
+
+def test_backup_verifier_active_prompt_manifest_uses_null_sentinel_for_custom(tmp_path):
+    archive = _write_real_schema_archive_with_active_prompt(tmp_path, preset_key=None)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive), "--active-prompt-manifest"],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "preset_key=NULL" in result.stdout.splitlines()
+
+
+def test_backup_verifier_active_prompt_manifest_is_deterministic_and_reproducible(tmp_path):
+    archive = _write_real_schema_archive_with_active_prompt(tmp_path)
+
+    first = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+    second = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert first.stdout == second.stdout
+    assert first.returncode == second.returncode == 0
+
+
+def test_backup_verifier_active_prompt_manifest_empty_when_no_active_prompt(tmp_path):
+    db_path = tmp_path / "no-active.db"
+    archive_path = tmp_path / "no-active.db.gz"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.commit()
+    conn.close()
+    with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
+        shutil.copyfileobj(source, target)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive_path), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_backup_verifier_active_prompt_manifest_empty_when_table_absent(tmp_path):
+    db_path = tmp_path / "no-table.db"
+    archive_path = tmp_path / "no-table.db.gz"
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE diary_entry (id INTEGER PRIMARY KEY)")
+    conn.commit()
+    conn.close()
+    with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
+        shutil.copyfileobj(source, target)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive_path), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_backup_verifier_active_prompt_manifest_rejects_malformed_schema(tmp_path):
+    """A persona_prompt missing one of its original identity columns must FAIL, not silently
+    return None -- item 6 explicitly forbids treating a malformed schema the same as "no active
+    row"."""
+    db_path = tmp_path / "malformed.db"
+    archive_path = tmp_path / "malformed.db.gz"
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY)")
+    conn.execute("INSERT INTO persona_prompt (id) VALUES (1)")
+    conn.commit()
+    conn.close()
+    with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
+        shutil.copyfileobj(source, target)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive_path), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "missing required column" in result.stderr
+
+
+def test_backup_verifier_active_prompt_manifest_rejects_multiple_active_rows(tmp_path):
+    """More than one is_active=1 row violates the app's own uniqueness invariant -- the manifest
+    tool must fail loudly rather than silently pick one via LIMIT/fetchone()."""
+    db_path = tmp_path / "multi-active.db"
+    archive_path = tmp_path / "multi-active.db.gz"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, preset_key, created_at) "
+        "VALUES (?, ?, 'x', 'gpt-5.4', 1, NULL, '2026-01-01T00:00:00+00:00')",
+        [(1, 1), (2, 2)],
+    )
+    conn.commit()
+    conn.close()
+    with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
+        shutil.copyfileobj(source, target)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive_path), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "2 active rows" in result.stderr
+
+
+def test_backup_verifier_active_prompt_manifest_rejects_non_text_body(tmp_path):
+    """A malformed body_text (stored as a BLOB -- SQLite's TEXT-affinity coercion does not apply
+    to blobs, unlike numeric literals) must raise a stable BackupVerificationError, never leak an
+    AttributeError from calling .encode() on a non-str."""
+    db_path = tmp_path / "non-text-body.db"
+    archive_path = tmp_path / "non-text-body.db.gz"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, preset_key, created_at) "
+        "VALUES (1, 1, ?, 'gpt-5.4', 1, NULL, '2026-01-01T00:00:00+00:00')",
+        (b"\x00\x01raw bytes, not text",),
+    )
+    conn.commit()
+    conn.close()
+    with db_path.open("rb") as source, gzip.open(archive_path, "wb") as target:
+        shutil.copyfileobj(source, target)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive_path), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "not TEXT" in result.stderr
+    assert "AttributeError" not in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_active_prompt_manifest_does_not_mutate_the_callers_row_factory(tmp_path):
+    """active_prompt_manifest must never leave conn.row_factory changed -- it reads by explicit
+    column list and positional index, not name-based row access."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("verify_unflincher_backup", VERIFY_SCRIPT)
+    verify_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verify_module)
+
+    db_path = tmp_path / "row-factory.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY, version_no INTEGER, "
+        "body_text TEXT, model TEXT, is_active INTEGER, preset_key TEXT, created_at TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO persona_prompt (id, version_no, body_text, model, is_active, preset_key, created_at) "
+        "VALUES (1, 1, 'x', 'gpt-5.4', 1, NULL, '2026-01-01T00:00:00+00:00')"
+    )
+    conn.commit()
+
+    sentinel_factory = sqlite3.Row
+    conn.row_factory = sentinel_factory
+    manifest = verify_module.active_prompt_manifest(conn)
+
+    assert manifest is not None
+    assert conn.row_factory is sentinel_factory  # unchanged
+    conn.close()
+
+
+def test_backup_verifier_active_prompt_manifest_rejects_invalid_gzip(tmp_path):
+    archive = tmp_path / "broken.db.gz"
+    archive.write_bytes(b"not a gzip stream")
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT), str(archive), "--active-prompt-manifest"],
+        capture_output=True, text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "cannot decompress backup" in result.stderr
 
 
 def test_backup_verifier_rejects_entry_count_mismatch(tmp_path):
@@ -310,6 +640,20 @@ if [[ "$*" == *"SELECT COUNT(*) FROM "* ]]; then
   printf '%s\n' "$FAKE_RESTORED_COUNT"
 elif [[ "$*" == *"SELECT id FROM diary_entry ORDER BY id LIMIT 1;"* ]]; then
   printf '1\n'
+elif [[ "$*" == *"SELECT id FROM persona_prompt WHERE is_active=1;"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_ID:-}"
+elif [[ "$*" == *"SELECT version_no FROM persona_prompt WHERE is_active=1;"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_VERSION_NO:-}"
+elif [[ "$*" == *"SELECT model FROM persona_prompt WHERE is_active=1;"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_MODEL:-}"
+elif [[ "$*" == *"SELECT is_active FROM persona_prompt WHERE is_active=1;"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_IS_ACTIVE:-}"
+elif [[ "$*" == *"SELECT created_at FROM persona_prompt WHERE is_active=1;"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_CREATED_AT:-}"
+elif [[ "$*" == *"SELECT COALESCE(preset_key,'NULL') FROM persona_prompt WHERE is_active=1;"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_PRESET_KEY:-}"
+elif [[ "$*" == *"python3 -c"* ]]; then
+  printf '%s\n' "${FAKE_PROMPT_BODY_SHA256:-}"
 elif [[ "${1:-}" == "run" && "$*" == *" -d "* ]]; then
   printf 'fake-container-id\n'
 fi
@@ -334,7 +678,8 @@ exit 0
 
 
 def _run_restore_drill(
-    tmp_path: Path, archive: Path, restored_count: int, curl_exit: int = 0
+    tmp_path: Path, archive: Path, restored_count: int, curl_exit: int = 0,
+    prompt_fields: dict[str, str] | None = None,
 ) -> tuple[subprocess.CompletedProcess, str]:
     fake_bin = tmp_path / "restore-fake-bin"
     fake_bin.mkdir()
@@ -350,6 +695,23 @@ def _run_restore_drill(
             "UNFLINCHER_RESTORE_PORT": "18097",
         }
     )
+    if prompt_fields:
+        body_sha256 = prompt_fields.get("body_sha256")
+        if body_sha256 is None:
+            body_sha256 = hashlib.sha256(prompt_fields["body_text"].encode("utf-8")).hexdigest()
+        env.update(
+            {
+                "FAKE_PROMPT_ID": prompt_fields["id"],
+                "FAKE_PROMPT_VERSION_NO": prompt_fields["version_no"],
+                "FAKE_PROMPT_MODEL": prompt_fields["model"],
+                "FAKE_PROMPT_IS_ACTIVE": prompt_fields["is_active"],
+                "FAKE_PROMPT_CREATED_AT": prompt_fields["created_at"],
+                "FAKE_PROMPT_PRESET_KEY": prompt_fields["preset_key"],
+                # The restore drill computes the digest via `podman exec ... python3 -c ...`
+                # (see item 5) -- the fake just prints this precomputed digest for that call.
+                "FAKE_PROMPT_BODY_SHA256": body_sha256,
+            }
+        )
     result = subprocess.run(
         ["bash", str(RESTORE_SCRIPT), str(archive), "2"],
         cwd=ROOT,
@@ -404,6 +766,117 @@ def test_restore_drill_fails_count_check_and_still_cleans_up(tmp_path):
     )
     assert "rm -f unflincher-restore-drill-" in podman_log
     assert "volume rm -f unflincher-restore-drill-" in podman_log
+
+
+def test_restore_drill_passes_when_active_prompt_manifest_is_preserved(tmp_path):
+    body_text = "the owner's private reflective instructions"
+    archive = _write_backup_archive_with_real_active_prompt(
+        tmp_path, entry_count=2, body_text=body_text, model="gpt-5.4", preset_key="analyst",
+        version_no=3, prompt_id=7, created_at="2026-02-02T00:00:00+00:00",
+    )
+
+    result, podman_log = _run_restore_drill(
+        tmp_path, archive, restored_count=2,
+        prompt_fields={
+            "id": "7", "version_no": "3", "model": "gpt-5.4", "is_active": "1",
+            "created_at": "2026-02-02T00:00:00+00:00", "preset_key": "analyst",
+            "body_text": body_text,
+        },
+    )
+
+    assert result.returncode == 0
+    assert "restore drill passed: entries=2" in result.stdout
+    # The private body text itself must never appear in any drill output.
+    assert body_text not in result.stdout
+    assert body_text not in result.stderr
+    assert body_text not in podman_log
+
+
+def test_restore_drill_fails_when_active_prompt_preset_key_changes(tmp_path):
+    body_text = "the owner's private reflective instructions"
+    archive = _write_backup_archive_with_real_active_prompt(
+        tmp_path, entry_count=2, body_text=body_text, model="gpt-5.4", preset_key="analyst",
+    )
+
+    result, podman_log = _run_restore_drill(
+        tmp_path, archive, restored_count=2,
+        prompt_fields={
+            "id": "1", "version_no": "1", "model": "gpt-5.4", "is_active": "1",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "preset_key": "NULL",  # mismatch: archive says 'analyst'
+            "body_text": body_text,
+        },
+    )
+
+    assert result.returncode != 0
+    assert (
+        "active prompt manifest field mismatch: field=preset_key archive=analyst container=NULL"
+        in result.stderr
+    )
+    assert "rm -f unflincher-restore-drill-" in podman_log
+    assert "volume rm -f unflincher-restore-drill-" in podman_log
+
+
+def test_restore_drill_fails_when_active_prompt_body_hash_changes(tmp_path):
+    archive = _write_backup_archive_with_real_active_prompt(
+        tmp_path, entry_count=2, body_text="original private instructions",
+        model="gpt-5.4", preset_key=None,
+    )
+
+    result, _podman_log = _run_restore_drill(
+        tmp_path, archive, restored_count=2,
+        prompt_fields={
+            "id": "1", "version_no": "1", "model": "gpt-5.4", "is_active": "1",
+            "created_at": "2026-01-01T00:00:00+00:00", "preset_key": "NULL",
+            "body_text": "a DIFFERENT body text",  # mismatch: different hash
+        },
+    )
+
+    assert result.returncode != 0
+    assert "active prompt manifest field mismatch: field=body_sha256" in result.stderr
+
+
+def test_restore_drill_skips_active_prompt_check_when_archive_has_no_active_prompt(tmp_path):
+    # A legacy backup predating persona_prompt/Analyst seeding: the archive side has no active
+    # prompt at all, so the comparison must be skipped entirely (never fail for a genuinely
+    # prompt-less legacy backup).
+    archive = _write_backup_archive(tmp_path, entry_count=2)
+
+    result, _podman_log = _run_restore_drill(
+        tmp_path, archive, restored_count=2,
+        prompt_fields={
+            "id": "1", "version_no": "1", "model": "gpt-5.4", "is_active": "1",
+            "created_at": "2026-01-01T00:00:00+00:00", "preset_key": "analyst",
+            "body_text": "whatever the restored container happens to have",
+        },
+    )
+
+    assert result.returncode == 0
+    assert "restore drill passed: entries=2" in result.stdout
+
+
+def test_restore_drill_fails_cleanly_when_the_restored_container_lost_its_active_prompt(tmp_path):
+    """If the restored container has no active persona_prompt row at all (a real regression),
+    the in-container Python must not traceback -- it emits an empty digest, and the surrounding
+    field-by-field comparison fails cleanly with the normal mismatch message."""
+    body_text = "the owner's private reflective instructions"
+    archive = _write_backup_archive_with_real_active_prompt(
+        tmp_path, entry_count=2, body_text=body_text, model="gpt-5.4", preset_key="analyst",
+    )
+
+    result, _podman_log = _run_restore_drill(
+        tmp_path, archive, restored_count=2,
+        prompt_fields={
+            "id": "1", "version_no": "1", "model": "gpt-5.4", "is_active": "1",
+            "created_at": "2026-01-01T00:00:00+00:00", "preset_key": "analyst",
+            "body_sha256": "",  # simulates the real python3 -c printing '' for no active row
+        },
+    )
+
+    assert result.returncode != 0
+    assert "active prompt manifest field mismatch: field=body_sha256" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert "NoneType" not in result.stderr
 
 
 def test_restore_drill_has_valid_bash_syntax():

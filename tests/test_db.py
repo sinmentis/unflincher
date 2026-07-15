@@ -21,6 +21,7 @@ from unflincher.db import (
     list_report_versions,
     migrate_chat_session,
     migrate_persona_prompt_model,
+    migrate_persona_prompt_preset_key,
     rename_chat_session,
     set_active_prompt,
     set_active_prompt_and_start_regen_job,
@@ -74,6 +75,96 @@ def test_set_active_prompt_persists_model(conn):
     assert active["model"] == "gpt-5.4"
 
 
+def test_set_active_prompt_derives_preset_key_from_exact_shipped_preset_text(conn):
+    """The server derives preset identity from EXACT body text via
+    perspectives.classify_prompt(). set_active_prompt accepts an optional preset_key parameter
+    (see test_set_active_prompt_ignores_a_forged_preset_key_hint_for_exact_analyst_text), but
+    never trusts it -- a stale or forged claim can never misclassify edited text (see the plan's
+    Persistence and migration section, item 6)."""
+    from unflincher.perspectives import get_preset
+
+    analyst = get_preset("analyst")
+    pid = set_active_prompt(conn, analyst.prompt, "gpt-5.4")
+    active = get_active_prompt(conn)
+    assert active["id"] == pid
+    assert active["preset_key"] == "analyst"
+
+
+def test_set_active_prompt_persists_null_preset_key_for_arbitrary_custom_text(conn):
+    pid = set_active_prompt(conn, "my own custom instructions", "gpt-5.4")
+    active = get_active_prompt(conn)
+    assert active["id"] == pid
+    assert active["preset_key"] is None
+
+
+def test_set_active_prompt_persists_null_preset_key_for_an_edited_preset(conn):
+    """Even ONE character of drift from the shipped preset text must classify as Custom -- there
+    is no fuzzy/partial matching, only exact equality (see perspectives.classify_prompt)."""
+    from unflincher.perspectives import get_preset
+
+    analyst = get_preset("analyst")
+    edited = analyst.prompt + " (with one extra trailing sentence the owner added)"
+    pid = set_active_prompt(conn, edited, "gpt-5.4")
+    active = get_active_prompt(conn)
+    assert active["id"] == pid
+    assert active["preset_key"] is None
+
+
+def test_set_active_prompt_and_start_regen_job_also_derives_preset_key(conn):
+    entry_id = conn.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    from unflincher.perspectives import get_preset
+
+    coach = get_preset("coach")
+    prompt_id, _job_id = set_active_prompt_and_start_regen_job(
+        conn, coach.prompt, "gpt-5.4", [entry_id]
+    )
+    active = get_active_prompt(conn)
+    assert active["id"] == prompt_id
+    assert active["preset_key"] == "coach"
+
+
+def test_set_active_prompt_ignores_a_forged_preset_key_hint_for_exact_analyst_text(conn):
+    """The optional preset_key parameter is a caller-claimed hint only -- a forged/mismatched
+    claim can never override the server's own exact-text classification."""
+    from unflincher.perspectives import get_preset
+
+    analyst = get_preset("analyst")
+    pid = set_active_prompt(conn, analyst.prompt, "gpt-5.4", preset_key="coach")
+    active = get_active_prompt(conn)
+    assert active["id"] == pid
+    assert active["preset_key"] == "analyst"
+
+
+def test_set_active_prompt_ignores_a_stale_preset_key_hint_for_an_edited_preset(conn):
+    from unflincher.perspectives import get_preset
+
+    analyst = get_preset("analyst")
+    edited = analyst.prompt + " (edited by the owner)"
+    pid = set_active_prompt(conn, edited, "gpt-5.4", preset_key="analyst")
+    active = get_active_prompt(conn)
+    assert active["id"] == pid
+    assert active["preset_key"] is None
+
+
+def test_set_active_prompt_and_start_regen_job_ignores_a_forged_preset_key_hint(conn):
+    entry_id = conn.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    from unflincher.perspectives import get_preset
+
+    coach = get_preset("coach")
+    prompt_id, _job_id = set_active_prompt_and_start_regen_job(
+        conn, coach.prompt, "gpt-5.4", [entry_id], preset_key="challenger",
+    )
+    active = get_active_prompt(conn)
+    assert active["id"] == prompt_id
+    assert active["preset_key"] == "coach"
+
+
 def test_migration_is_idempotent(tmp_path):
     # Runs against a fresh DB whose persona_prompt was created WITHOUT the model column (the
     # SCHEMA's CREATE TABLE is unchanged); running the migration twice must not error and must
@@ -85,6 +176,54 @@ def test_migration_is_idempotent(tmp_path):
     migrate_persona_prompt_model(c)  # second run is a no-op, not a duplicate-column error
     model_cols = [r for r in c.execute("PRAGMA table_info(persona_prompt)") if r["name"] == "model"]
     assert len(model_cols) == 1
+    c.close()
+
+
+def test_preset_key_migration_is_idempotent_against_a_pre_workstream_table(tmp_path):
+    # Simulates a database created by code that predates the preset_key column: persona_prompt
+    # manufactured with the OLD column set (no preset_key), unlike init_schema()'s current SCHEMA
+    # which already includes it for brand-new installs.
+    c = get_connection(str(tmp_path / "old-preset.db"))
+    c.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY AUTOINCREMENT, version_no INTEGER "
+        "NOT NULL, body_text TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 0, model TEXT NOT "
+        "NULL DEFAULT 'claude-sonnet-4.6', created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+    )
+    assert "preset_key" not in {r["name"] for r in c.execute("PRAGMA table_info(persona_prompt)")}
+    migrate_persona_prompt_preset_key(c)
+    migrate_persona_prompt_preset_key(c)  # second run is a no-op, not a duplicate-column error
+    preset_key_cols = [
+        r for r in c.execute("PRAGMA table_info(persona_prompt)") if r["name"] == "preset_key"
+    ]
+    assert len(preset_key_cols) == 1
+    c.close()
+
+
+def test_preset_key_migration_backfills_null_and_touches_nothing_else(tmp_path):
+    # A pre-existing row -- even one whose body_text happens to EXACTLY equal a current shipped
+    # preset -- must receive preset_key IS NULL from this migration, never retrospectively
+    # classified (see item 6/2's "existing migrated rows are never retrospectively classified").
+    from unflincher.perspectives import get_preset
+
+    analyst = get_preset("analyst")
+    c = get_connection(str(tmp_path / "old-preset-rows.db"))
+    c.execute(
+        "CREATE TABLE persona_prompt (id INTEGER PRIMARY KEY AUTOINCREMENT, version_no INTEGER "
+        "NOT NULL, body_text TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 0, model TEXT NOT "
+        "NULL DEFAULT 'claude-sonnet-4.6', created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+    )
+    c.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, is_active, model, created_at) "
+        "VALUES (1, ?, 1, 'gpt-5.4', '2025-01-01T00:00:00+00:00')",
+        (analyst.prompt,),
+    )
+    migrate_persona_prompt_preset_key(c)
+    row = c.execute("SELECT * FROM persona_prompt WHERE version_no = 1").fetchone()
+    assert row["preset_key"] is None  # never retrospectively classified
+    assert row["body_text"] == analyst.prompt  # byte-for-byte unchanged
+    assert row["is_active"] == 1
+    assert row["model"] == "gpt-5.4"
+    assert row["created_at"] == "2025-01-01T00:00:00+00:00"
     c.close()
 
 

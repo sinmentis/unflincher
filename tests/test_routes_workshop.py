@@ -41,7 +41,7 @@ def test_workshop_page_shows_active_prompt_and_entry_dropdown(client, monkeypatc
     response = client.get("/workshop")
 
     assert response.status_code == 200
-    assert "人生导师" in response.text  # default persona prompt text
+    assert "Use the Analyst perspective." in response.text  # fresh-install Analyst seed
     assert "日记0" in response.text and "日记1" in response.text
 
 

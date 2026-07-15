@@ -46,6 +46,15 @@ while IFS='=' read -r table count; do
 done <<< "$MANIFEST"
 ARCHIVE_COUNT="${ARCHIVE_COUNTS[diary_entry]}"
 
+# Active-prompt preservation manifest: id, version_no, a UTF-8 SHA-256 of body_text, model,
+# is_active, created_at, preset_key -- captured from the archive now, compared against the
+# restored container's active prompt once healthy, below. Never includes body_text itself.
+BEFORE_PROMPT_MANIFEST="$(python3 "$VERIFY_SCRIPT" "$BACKUP" --active-prompt-manifest)"
+declare -A BEFORE_PROMPT=()
+while IFS='=' read -r field value; do
+  [[ -n "$field" ]] && BEFORE_PROMPT["$field"]="$value"
+done <<< "$BEFORE_PROMPT_MANIFEST"
+
 gunzip -c "$BACKUP" > "$TMP_DIR/unflincher.db"
 
 podman volume create "$VOLUME" >/dev/null
@@ -98,6 +107,46 @@ for table in "${COUNT_TABLES[@]}"; do
     exit 1
   fi
 done
+
+# Compare the active prompt's preservation manifest field-by-field, without ever printing the
+# private body text -- only skipped when the ARCHIVE itself had no active prompt at all (e.g. a
+# legacy backup predating persona_prompt or its Analyst seed), never when the container side is
+# what's missing.
+if [[ -n "${BEFORE_PROMPT[id]:-}" ]]; then
+  AFTER_PROMPT_ID="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT id FROM persona_prompt WHERE is_active=1;")"
+  AFTER_PROMPT_VERSION_NO="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT version_no FROM persona_prompt WHERE is_active=1;")"
+  AFTER_PROMPT_MODEL="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT model FROM persona_prompt WHERE is_active=1;")"
+  AFTER_PROMPT_IS_ACTIVE="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT is_active FROM persona_prompt WHERE is_active=1;")"
+  AFTER_PROMPT_CREATED_AT="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT created_at FROM persona_prompt WHERE is_active=1;")"
+  AFTER_PROMPT_PRESET_KEY="$(podman exec "$CONTAINER" sqlite3 /data/unflincher.db "SELECT COALESCE(preset_key,'NULL') FROM persona_prompt WHERE is_active=1;")"
+  # Compute the raw digest inside Python (the image is Python 3.12), matching
+  # active_prompt_manifest()'s sha256(body_text.encode('utf-8')) exactly -- no synthetic
+  # newline, and body_text itself is never printed, only the digest.
+  AFTER_PROMPT_SHA="$(
+    podman exec "$CONTAINER" python3 -c "
+import hashlib, sqlite3
+conn = sqlite3.connect('/data/unflincher.db')
+row = conn.execute('SELECT body_text FROM persona_prompt WHERE is_active = 1').fetchone()
+print(hashlib.sha256(row[0].encode('utf-8')).hexdigest() if row else '')
+"
+  )"
+
+  declare -A AFTER_PROMPT=(
+    [id]="$AFTER_PROMPT_ID"
+    [version_no]="$AFTER_PROMPT_VERSION_NO"
+    [body_sha256]="$AFTER_PROMPT_SHA"
+    [model]="$AFTER_PROMPT_MODEL"
+    [is_active]="$AFTER_PROMPT_IS_ACTIVE"
+    [created_at]="$AFTER_PROMPT_CREATED_AT"
+    [preset_key]="$AFTER_PROMPT_PRESET_KEY"
+  )
+  for field in id version_no body_sha256 model is_active created_at preset_key; do
+    if [[ "${BEFORE_PROMPT[$field]}" != "${AFTER_PROMPT[$field]}" ]]; then
+      echo "restore drill failed: active prompt manifest field mismatch: field=$field archive=${BEFORE_PROMPT[$field]} container=${AFTER_PROMPT[$field]}" >&2
+      exit 1
+    fi
+  done
+fi
 
 FIRST_ENTRY_ID="$(
   podman exec "$CONTAINER" sqlite3 /data/unflincher.db \
