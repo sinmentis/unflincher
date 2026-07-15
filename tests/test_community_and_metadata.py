@@ -54,7 +54,7 @@ def test_changelog_and_release_notes_freeze_v0_2_0():
     notes = (ROOT / "docs" / "release-notes-v0.2.0.md").read_text(encoding="utf-8")
     assert changelog.index("0.2.0 (2026-07-16)") < changelog.index("0.1.0")
     assert "0.2.0" in notes
-    assert "Prepared: 2026-07-16. Not published." in notes
+    assert "Released: 2026-07-16." in notes
     assert "An existing v0.1 database must use the fail-locked procedure" in notes
     assert "[upgrade-v0.2.md](upgrade-v0.2.md)" in notes
     for phrase in (
