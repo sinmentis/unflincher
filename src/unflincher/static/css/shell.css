@@ -35,17 +35,20 @@
 }
 .app-topbar svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 
-.topbar-start { display: flex; align-items: center; justify-self: start; min-width: 0; }
+.topbar-start { display: flex; align-items: center; justify-self: start; width: 100%; min-width: 0; }
 .topbar-back {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
   color: var(--prose);
   font-size: var(--text-sm);
   text-decoration: none;
 }
 .topbar-back:hover { color: var(--text); }
-.topbar-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-back svg { flex: 0 0 auto; }
+.topbar-back span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .brand-lockup { justify-self: center; display: inline-flex; align-items: center; color: var(--text); text-decoration: none; }
 .brand-wordmark { font-weight: 700; letter-spacing: 0.18em; font-size: var(--text-sm); }

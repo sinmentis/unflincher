@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,14 @@ from unflincher.app import create_app
 from unflincher.templates_env import get_ui_state
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "src" / "unflincher" / "templates"
+SHELL_CSS = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "unflincher"
+    / "static"
+    / "css"
+    / "shell.css"
+)
 
 
 @pytest.mark.parametrize(
@@ -77,6 +86,19 @@ def test_topbar_back_link_follows_page_context(client):
     assert 'class="topbar-back"' not in client.get("/").text
     assert 'class="topbar-back" href="/"' in client.get("/new").text
     assert 'class="topbar-back" href="/chat"' in client.get("/chat/new").text
+
+
+def test_topbar_back_link_can_shrink_without_overlapping_centered_brand():
+    css = SHELL_CSS.read_text()
+
+    def declarations(selector):
+        match = re.search(rf"{re.escape(selector)}\s*\{{(?P<body>[^}}]+)\}}", css)
+        assert match is not None
+        return match.group("body")
+
+    assert "width: 100%;" in declarations(".topbar-start")
+    assert "max-width: 100%;" in declarations(".topbar-back")
+    assert "min-width: 0;" in declarations(".topbar-back span")
 
 
 def test_html_404_is_branded_but_json_404_keeps_api_shape(client):
