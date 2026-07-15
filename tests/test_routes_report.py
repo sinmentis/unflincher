@@ -243,3 +243,97 @@ def test_generate_report_uses_canonical_archive_order_for_same_date_entries(clie
     client.post("/report/generate")
 
     assert captured["user_content"].index("B在后") < captured["user_content"].index("A在前")
+
+
+# ---------------------------------------------------------------------------
+# Perspective indicator (Task: perspective indicators). Life Report shows "Perspective: <name>"
+# for whichever report version is displayed (current or historical) using that version's joined
+# prompt-version preset_key.
+# ---------------------------------------------------------------------------
+
+def test_report_page_has_no_perspective_indicator_when_no_report_exists(client):
+    body = client.get("/report").text
+    assert 'data-role="perspective-indicator"' not in body
+
+
+def test_report_page_shows_perspective_for_current_report(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'p', 'test-model', 'analyst', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO aggregate_report "
+        "(prompt_version_id, model, body_text, covered_entry_count, status) "
+        "VALUES (?, 'test-model', 'body', 1, 'ok')",
+        (prompt_id,),
+    )
+
+    body = client.get("/report").text
+
+    assert "Perspective: Analyst" in body
+
+
+def test_report_page_shows_custom_for_null_preset_key(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO aggregate_report "
+        "(prompt_version_id, model, body_text, covered_entry_count, status) "
+        "VALUES (?, 'test-model', 'body', 1, 'ok')",
+        (prompt_id,),
+    )
+
+    body = client.get("/report").text
+
+    assert "Perspective: Custom" in body
+
+
+def test_view_historical_report_version_shows_its_own_perspective(client):
+    db = client.app.state.db
+    old_prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'old', 'test-model', 'coach', 0)"
+    ).lastrowid
+    new_prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (3, 'new', 'test-model', 'challenger', 0)"
+    ).lastrowid
+    old_id = db.execute(
+        "INSERT INTO aggregate_report "
+        "(prompt_version_id, model, body_text, covered_entry_count, status, created_at) "
+        "VALUES (?, 'test-model', 'old body', 1, 'ok', '2026-01-01T00:00:00')",
+        (old_prompt_id,),
+    ).lastrowid
+    db.execute(
+        "INSERT INTO aggregate_report "
+        "(prompt_version_id, model, body_text, covered_entry_count, status, created_at) "
+        "VALUES (?, 'test-model', 'new body', 1, 'ok', '2026-01-02T00:00:00')",
+        (new_prompt_id,),
+    )
+
+    body = client.get(f"/report/{old_id}").text
+
+    assert "Perspective: Coach" in body
+    assert "Perspective: Challenger" not in body
+
+
+def test_report_page_shows_custom_for_unknown_historical_preset_key(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'p', 'test-model', 'retired-preset', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO aggregate_report "
+        "(prompt_version_id, model, body_text, covered_entry_count, status) "
+        "VALUES (?, 'test-model', 'body', 1, 'ok')",
+        (prompt_id,),
+    )
+
+    body = client.get("/report").text
+
+    assert "Perspective: Custom" in body

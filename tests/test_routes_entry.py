@@ -586,3 +586,208 @@ def test_commentary_status_route_returns_refresh_signal_once_done(client):
     assert response.status_code == 204
     assert response.headers["HX-Refresh"] == "true"
     assert response.text == ""
+
+
+# ---------------------------------------------------------------------------
+# Perspective indicator (Task: perspective indicators). Entry Reflection shows
+# "Perspective: <name>" for whichever commentary version is displayed (current or historical),
+# and the follow-up composer always shows "Perspective for the next response: <name>" for the
+# globally active Perspective -- never the version being viewed.
+# ---------------------------------------------------------------------------
+
+def _insert_entry(db, title="t"):
+    return db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES (?, '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')",
+        (title,),
+    ).lastrowid
+
+
+def test_entry_detail_shows_perspective_for_current_commentary(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'p', 'test-model', 'companion', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    )
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert "Perspective: Companion" in body
+
+
+def test_entry_detail_shows_custom_for_null_preset_key(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    )
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert "Perspective: Custom" in body
+
+
+def test_entry_detail_shows_custom_for_unknown_historical_preset_key(client):
+    """A removed/historical preset key must render as Custom, never crash or leave a blank name."""
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'p', 'test-model', 'retired-preset', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    )
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert "Perspective: Custom" in body
+
+
+def test_entry_detail_has_no_perspective_indicator_when_no_commentary_exists(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert 'data-role="perspective-indicator"' not in body.split('id="chat-section"')[0]
+    # The composer's "next response" indicator is independent and always shows the active
+    # (fresh-install default) Perspective, even with no commentary yet.
+    assert "Perspective for the next response: Analyst" in body
+
+
+def test_entry_detail_composer_always_shows_the_globally_active_perspective(client):
+    """The composer's indicator reflects the GLOBALLY active prompt, not whatever preset key is
+    attached to the currently displayed commentary version."""
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'p', 'test-model', 'challenger', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    )
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert "Perspective: Challenger" in body
+    # Fresh install seeds Analyst active -- the composer must show that, not Challenger.
+    assert "Perspective for the next response: Analyst" in body
+
+
+def test_view_specific_historical_commentary_version_shows_its_own_perspective(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    old_prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'old', 'test-model', 'coach', 0)"
+    ).lastrowid
+    new_prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (3, 'new', 'test-model', 'analyst', 0)"
+    ).lastrowid
+    old_id = db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', 'old text', 'ok', '2026-01-01T00:00:00')",
+        (entry_id, old_prompt_id),
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', 'new text', 'ok', '2026-01-02T00:00:00')",
+        (entry_id, new_prompt_id),
+    )
+
+    body = client.get(f"/entry/{entry_id}/commentary/{old_id}").text
+
+    assert "Perspective: Coach" in body
+    # The old version's own Perspective shows -- not the current commentary's Analyst.
+    assert "Perspective: Analyst" not in body
+
+
+def test_entry_detail_perspective_indicator_translates(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
+        "VALUES (2, 'p', 'test-model', 'companion', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    )
+    client.cookies.set("unflincher_lang", "de")
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert "Perspektive: Begleiter" in body
+    assert "Perspektive für die nächste Antwort: Analyst" in body
+
+
+# ---------------------------------------------------------------------------
+# Generation action naming (Task 6): "Generate reflection" the first time, "Regenerate
+# reflection" once an Entry Reflection already exists.
+# ---------------------------------------------------------------------------
+
+def test_run_commentary_button_says_generate_when_no_reflection_exists_yet(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert ">Generate reflection<" in body
+    assert ">Regenerate reflection<" not in body
+
+
+def test_run_commentary_button_says_regenerate_once_a_reflection_exists(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    )
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert ">Regenerate reflection<" in body
+    assert ">Generate reflection<" not in body
+
+
+def test_historical_commentary_view_also_shows_regenerate_label(client):
+    db = client.app.state.db
+    entry_id = _insert_entry(db)
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    old_id = db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    ).lastrowid
+
+    body = client.get(f"/entry/{entry_id}/commentary/{old_id}").text
+
+    assert ">Regenerate reflection<" in body

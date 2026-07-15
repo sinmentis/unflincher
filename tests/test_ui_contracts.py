@@ -437,3 +437,36 @@ def test_legacy_css_tokens_are_removed():
     ):
         assert f"var(--{legacy})" not in css
         assert f"--{legacy}:" not in tokens
+
+
+def test_perspective_indicator_is_one_shared_partial_reused_by_all_three_surfaces():
+    """Entry Reflection, Life Report, and Conversation composers must share ONE partial/CSS
+    class for the active/historical Perspective indicator rather than three ad-hoc labels."""
+    partial = (TEMPLATES / "partials" / "perspective_indicator.html").read_text()
+    assert 'data-role="perspective-indicator"' in partial
+    assert 'class="perspective-indicator"' in partial
+
+    entry_detail = (TEMPLATES / "entry_detail.html").read_text()
+    report = (TEMPLATES / "report.html").read_text()
+    composer = (TEMPLATES / "partials" / "conversation_composer.html").read_text()
+    for source in (entry_detail, report, composer):
+        assert 'partials/perspective_indicator.html' in source
+
+    css = "\n".join(
+        path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))
+    )
+    assert ".perspective-indicator" in css
+    # Declared exactly once -- one shared rule, not per-surface duplicates.
+    assert css.count(".perspective-indicator {") == 1
+
+
+def test_conversation_messages_never_carry_per_turn_perspective_badges():
+    """Non-goal: no per-message Perspective badges or historical message labels -- only the
+    composer shows a forward-looking indicator, and only Entry Reflection/Life Report show a
+    per-version indicator. Individual conversation-message turns must stay unlabeled."""
+    for name in ("entry_detail.html", "chat_session.html"):
+        source = (TEMPLATES / name).read_text()
+        message_loop_start = source.index("conversation-message")
+        message_loop_end = source.index("{% endfor %}", message_loop_start)
+        turn_markup = source[message_loop_start:message_loop_end]
+        assert "perspective" not in turn_markup.lower()

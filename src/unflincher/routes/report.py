@@ -15,10 +15,12 @@ from unflincher.db import (
     release_lease,
     report_target_key,
 )
+from unflincher.i18n import t
+from unflincher.perspectives import display_name_key
 from unflincher.routes.errors import generation_safety_http_exception
 from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
-from unflincher.templates_env import templates
+from unflincher.templates_env import get_current_language, templates
 
 router = APIRouter()
 
@@ -26,12 +28,14 @@ router = APIRouter()
 @router.get("/report")
 async def report_page(request: Request):
     db = request.app.state.db
+    current_lang = get_current_language(request)
     report = get_current_report(db)
     versions = list_report_versions(db)
     context = {
         "report_html": None,
         "report_status": None,
         "report_error": None,
+        "report_perspective_name": None,
         "versions": versions,
         "viewing_version_id": None,
     }
@@ -40,6 +44,7 @@ async def report_page(request: Request):
             "report_html": render_ai_markdown(report["body_text"], heading_offset=1),
             "report_status": report["status"],
             "report_error": report["error"],
+            "report_perspective_name": t(current_lang, display_name_key(report["prompt_preset_key"])),
             "covered_count": report["covered_entry_count"],
             "covered_from": report["covered_from_date"],
             "covered_to": report["covered_to_date"],
@@ -55,6 +60,7 @@ async def view_report_version(request: Request, report_id: int):
     report = get_report_by_id(db, report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="not found")
+    current_lang = get_current_language(request)
     versions = list_report_versions(db)
     return templates.TemplateResponse(
         request,
@@ -67,6 +73,7 @@ async def view_report_version(request: Request, report_id: int):
             ),
             "report_status": report["status"],
             "report_error": report["error"],
+            "report_perspective_name": t(current_lang, display_name_key(report["prompt_preset_key"])),
             "covered_count": report["covered_entry_count"],
             "covered_from": report["covered_from_date"],
             "covered_to": report["covered_to_date"],

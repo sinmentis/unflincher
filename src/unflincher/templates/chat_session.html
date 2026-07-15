@@ -29,7 +29,8 @@
     <div class="conversation-dock" data-role="composer">
       {% with composer_id="general-chat-composer", input_id="chat-input", send_id="chat-send",
         placeholder=t("chat.input_placeholder"), input_aria=t("chat.input_aria"),
-        send_label=t("chat.send"), endpoint=message_endpoint, stream_target_id="chat-stream" %}
+        send_label=t("chat.send"), endpoint=message_endpoint, stream_target_id="chat-stream",
+        perspective_label=t("perspective.next_response_label", name=next_response_perspective_name) %}
         {% include "partials/conversation_composer.html" %}
       {% endwith %}
     </div>

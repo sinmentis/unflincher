@@ -18,6 +18,11 @@
     <section class="commentary-panel" id="commentary-section" data-role="ai-commentary"
              aria-labelledby="commentary-heading">
       <h2 class="rail-heading" id="commentary-heading">{{ t("entry.toc_commentary") }}</h2>
+      {% if commentary_perspective_name %}
+        {% with label=t("perspective.historical_label", name=commentary_perspective_name) %}
+          {% include "partials/perspective_indicator.html" %}
+        {% endwith %}
+      {% endif %}
       {% if commentary_html %}
       <div class="analysis-prose" id="ai-commentary">{{ commentary_html | safe }}</div>
       {% else %}
@@ -37,7 +42,7 @@
         </section>
       {% else %}
         <button id="run-commentary" class="button" type="button"
-                data-endpoint="/entry/{{ entry.id }}/commentary">{{ t("entry.run_commentary_button") }}</button>
+                data-endpoint="/entry/{{ entry.id }}/commentary">{{ t("entry.regenerate_commentary_button") if commentary_perspective_name else t("entry.run_commentary_button") }}</button>
       {% endif %}
     </section>
 
@@ -58,7 +63,8 @@
     <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
     {% with composer_id="entry-chat-composer", input_id="chat-input", send_id="chat-send",
       placeholder=t("entry.chat_input_placeholder"), input_aria=t("entry.chat_input_aria"),
-      send_label=t("common.send"), endpoint="/entry/" ~ entry.id ~ "/chat", stream_target_id="chat-stream" %}
+      send_label=t("common.send"), endpoint="/entry/" ~ entry.id ~ "/chat", stream_target_id="chat-stream",
+      perspective_label=t("perspective.next_response_label", name=next_response_perspective_name) %}
       {% include "partials/conversation_composer.html" %}
     {% endwith %}
   </section>

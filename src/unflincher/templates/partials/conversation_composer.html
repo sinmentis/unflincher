@@ -1,5 +1,11 @@
 {# conversation_composer.html:
-   composer_id, input_id, send_id, placeholder, input_aria, send_label, endpoint, stream_target_id #}
+   composer_id, input_id, send_id, placeholder, input_aria, send_label, endpoint, stream_target_id,
+   perspective_label (optional, already-composed "Perspective for the next response: X" string --
+   see partials/perspective_indicator.html). Only the NEXT reply uses the active Perspective; past
+   messages above the composer are never relabeled or rewritten when it changes. #}
+{% if perspective_label %}
+  {% with label=perspective_label %}{% include "partials/perspective_indicator.html" %}{% endwith %}
+{% endif %}
 <form id="{{ composer_id }}" class="conversation-composer"
       data-endpoint="{{ endpoint }}" data-stream-target="{{ stream_target_id }}">
   <label class="visually-hidden" for="{{ input_id }}">{{ input_aria }}</label>

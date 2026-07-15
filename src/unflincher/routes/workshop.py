@@ -26,7 +26,7 @@ from unflincher.db import (
 )
 from unflincher.i18n import SUPPORTED_LANGUAGE_CODES, t
 from unflincher.llm import UnsupportedModelError
-from unflincher.perspectives import PERSPECTIVE_KEYS, list_presets
+from unflincher.perspectives import PERSPECTIVE_KEYS, display_name_key, list_presets
 from unflincher.routes.errors import generation_safety_http_exception
 from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
@@ -150,9 +150,10 @@ async def workshop_page(request: Request):
     raw_preset_key = active_prompt["preset_key"] if active_prompt else None
     active_preset_key = raw_preset_key if raw_preset_key in PERSPECTIVE_KEYS else None
     custom_name = t(current_lang, "perspective.custom.name")
-    active_perspective_name = next(
-        (preset["name"] for preset in presets if preset["key"] == active_preset_key), custom_name,
-    )
+    # display_name_key folds the same NULL/unknown-is-Custom rule used by the entry/report/chat
+    # Perspective indicators (see perspectives.display_name_key) -- one shared resolution instead
+    # of two separate "is this key Custom" implementations.
+    active_perspective_name = t(current_lang, display_name_key(raw_preset_key))
     # Client-side data blob (Task: Workshop) -- workshop.js reads exact preset text/names from
     # here so it never reconstructs prompt text itself (see workshop.js's preset-fill handler).
     # "custom" has no prompt text: selecting it never overwrites the textarea.

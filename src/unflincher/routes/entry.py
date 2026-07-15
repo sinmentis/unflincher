@@ -19,13 +19,21 @@ from unflincher.db import (
     list_commentary_versions,
     release_lease,
 )
+from unflincher.i18n import t
+from unflincher.perspectives import display_name_key
 from unflincher.routes.errors import generation_safety_http_exception
 from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
-from unflincher.templates_env import templates
+from unflincher.templates_env import get_current_language, templates
 from unflincher.worker import BatchWorker
 
 router = APIRouter()
+
+
+def _perspective_name(lang: str, preset_key: str | None) -> str:
+    """Resolve the localized Perspective display name for a joined `preset_key` (NULL or an
+    unrecognized/historical key both render as Custom -- see perspectives.display_name_key)."""
+    return t(lang, display_name_key(preset_key))
 
 
 @router.get("/entry/{entry_id}")
@@ -35,8 +43,16 @@ async def entry_detail(request: Request, entry_id: int):
     if entry is None:
         raise HTTPException(status_code=404, detail="entry not found")
 
+    current_lang = get_current_language(request)
     commentary = get_current_commentary(db, entry_id)
     commentary_html = render_ai_markdown(commentary["body_text"]) if commentary else None
+    commentary_perspective_name = (
+        _perspective_name(current_lang, commentary["prompt_preset_key"]) if commentary else None
+    )
+    active_prompt = get_active_prompt(db)
+    next_response_perspective_name = _perspective_name(
+        current_lang, active_prompt["preset_key"] if active_prompt else None
+    )
     chat_history = db.execute(
         "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
         (entry_id,),
@@ -65,6 +81,8 @@ async def entry_detail(request: Request, entry_id: int):
         {
             "entry": entry,
             "commentary_html": commentary_html,
+            "commentary_perspective_name": commentary_perspective_name,
+            "next_response_perspective_name": next_response_perspective_name,
             "chat_history": chat_history,
             "versions": versions,
             "viewing_version_id": commentary["id"] if commentary else None,
@@ -81,6 +99,13 @@ async def view_commentary_version(request: Request, entry_id: int, commentary_id
     commentary = get_commentary_by_id(db, commentary_id)
     if entry is None or commentary is None or commentary["entry_id"] != entry_id:
         raise HTTPException(status_code=404, detail="not found")
+
+    current_lang = get_current_language(request)
+    commentary_perspective_name = _perspective_name(current_lang, commentary["prompt_preset_key"])
+    active_prompt = get_active_prompt(db)
+    next_response_perspective_name = _perspective_name(
+        current_lang, active_prompt["preset_key"] if active_prompt else None
+    )
 
     # The chat thread is keyed by entry_id alone and stays grounded in the latest ok
     # commentary; browsing an old version only swaps the displayed commentary, nothing else.
@@ -104,6 +129,8 @@ async def view_commentary_version(request: Request, entry_id: int, commentary_id
         {
             "entry": entry,
             "commentary_html": render_ai_markdown(commentary["body_text"]) if commentary["status"] == "ok" else None,
+            "commentary_perspective_name": commentary_perspective_name,
+            "next_response_perspective_name": next_response_perspective_name,
             "chat_history": chat_history,
             "versions": versions,
             "viewing_version_id": commentary_id,

@@ -7,6 +7,11 @@
       metadata=t("report.coverage", count=covered_count, range=(covered_from or "")[:10] ~ " — " ~ (covered_to or "")[:10]) if report_html else none %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
+    {% if report_perspective_name %}
+      {% with label=t("perspective.historical_label", name=report_perspective_name) %}
+        {% include "partials/perspective_indicator.html" %}
+      {% endwith %}
+    {% endif %}
     {% if report_html %}
     <div class="analysis-prose report-prose" id="report-body">{{ report_html | safe }}</div>
     {% elif report_status == "failed" %}

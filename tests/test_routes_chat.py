@@ -482,3 +482,77 @@ def test_existing_session_message_uses_canonical_archive_order_for_same_date_ent
     client.post(f"/chat/{session_id}/message", json={"message": "继续"})
 
     assert captured["system_content"].index("B在后") < captured["system_content"].index("A在前")
+
+
+# ---------------------------------------------------------------------------
+# Perspective indicator (Task: perspective indicators). Conversation composers show the currently
+# active Perspective as "Perspective for the next response" -- never a per-message badge, and a
+# Perspective change never relabels past messages.
+# ---------------------------------------------------------------------------
+
+def test_chat_new_shows_the_active_perspective_for_the_next_response(client):
+    # Fresh install seeds Analyst active.
+    body = client.get("/chat/new").text
+    assert "Perspective for the next response: Analyst" in body
+
+
+def test_chat_session_view_shows_the_active_perspective_for_the_next_response(client):
+    from unflincher.db import set_active_prompt
+    from unflincher.perspectives import get_preset
+
+    db = client.app.state.db
+    set_active_prompt(db, get_preset("companion").prompt, "test-model")
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('t')").lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', 'hi')",
+        (session_id,),
+    )
+
+    body = client.get(f"/chat/{session_id}").text
+
+    assert "Perspective for the next response: Companion" in body
+    # Non-goal: no per-message Perspective badges on individual turns.
+    assert body.count("Perspective for the next response") == 1
+
+
+def test_chat_session_view_shows_custom_for_a_non_preset_active_prompt(client):
+    from unflincher.db import set_active_prompt
+
+    db = client.app.state.db
+    set_active_prompt(db, "my own custom instructions", "test-model")
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('t')").lastrowid
+
+    body = client.get(f"/chat/{session_id}").text
+
+    assert "Perspective for the next response: Custom" in body
+
+
+def test_changing_active_perspective_does_not_relabel_or_alter_past_messages(client):
+    from unflincher.db import set_active_prompt
+    from unflincher.perspectives import get_preset
+
+    db = client.app.state.db
+    set_active_prompt(db, get_preset("coach").prompt, "test-model")
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('t')").lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', 'hi')",
+        (session_id,),
+    )
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'assistant', 'reply under Coach')",
+        (session_id,),
+    )
+
+    before = client.get(f"/chat/{session_id}").text
+    assert "Perspective for the next response: Coach" in before
+    assert "reply under Coach" in before
+
+    set_active_prompt(db, get_preset("challenger").prompt, "test-model")
+    after = client.get(f"/chat/{session_id}").text
+
+    # Only the composer's forward-looking label changes...
+    assert "Perspective for the next response: Challenger" in after
+    # ...the existing message content is untouched and unlabeled.
+    assert "reply under Coach" in after
+    assert "Coach</div>" not in after
+    assert "Challenger</div>" not in after

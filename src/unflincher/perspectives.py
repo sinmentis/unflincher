@@ -75,3 +75,15 @@ def classify_prompt(prompt: str) -> str | None:
         if prompt == preset.prompt:
             return preset.key
     return None
+
+
+def display_name_key(preset_key: str | None) -> str:
+    """The i18n name key for a persisted `preset_key` value (e.g. a joined
+    `persona_prompt.preset_key`), folding NULL and any unrecognized value -- a removed/historical
+    preset, a stale/forged claim, or anything else outside PERSPECTIVE_KEYS -- into
+    "perspective.custom.name". This is the ONE place that rule lives, so entry/report/chat
+    Perspective-indicator rendering and Workshop's own active-preset resolution can share it
+    instead of each re-deriving "NULL or unknown is Custom" separately."""
+    if preset_key in PERSPECTIVE_KEYS:
+        return f"perspective.{preset_key}.name"
+    return "perspective.custom.name"

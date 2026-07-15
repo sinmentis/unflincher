@@ -42,3 +42,27 @@ def test_entry_detail_translates(client):
     res = client.get(f"/entry/{entry_id}")
     assert "Noch keine Reflexion." in res.text
     assert "Eintragsreflexion" in res.text
+
+
+def test_entry_detail_regenerate_button_translates(client):
+    import sqlite3
+
+    conn: sqlite3.Connection = client.app.state.db
+    entry_id = conn.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, entry_date, source) "
+        "VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2024-01-01T00:00:00', 'manual')"
+    ).lastrowid
+    prompt_id = conn.execute(
+        "SELECT id FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["id"]
+    conn.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'text', 'ok')",
+        (entry_id, prompt_id),
+    )
+    conn.commit()
+    client.cookies.set("unflincher_lang", "de")
+
+    res = client.get(f"/entry/{entry_id}")
+
+    assert "Reflexion neu erstellen" in res.text

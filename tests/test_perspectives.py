@@ -74,6 +74,19 @@ def test_unknown_preset_key_is_rejected():
         perspectives.get_preset("therapist")
 
 
+@pytest.mark.parametrize("key", EXPECTED_KEYS)
+def test_display_name_key_resolves_each_shipped_preset(key):
+    assert perspectives.display_name_key(key) == f"perspective.{key}.name"
+
+
+@pytest.mark.parametrize("preset_key", (None, "", "retired-preset", "therapist"))
+def test_display_name_key_folds_null_and_unknown_keys_to_custom(preset_key):
+    """NULL, an empty string, and any historical/removed/forged key must all resolve to Custom
+    -- never raise, and never silently match a real preset by accident."""
+    assert perspectives.display_name_key(preset_key) == "perspective.custom.name"
+
+
+
 def test_prompts_avoid_false_intimacy_and_identity_attacks():
     forbidden = (
         "I love you",

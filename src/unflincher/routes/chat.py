@@ -38,10 +38,12 @@ from unflincher.db import (
     rename_chat_session,
     touch_chat_session,
 )
+from unflincher.i18n import t
+from unflincher.perspectives import display_name_key
 from unflincher.routes.errors import generation_safety_http_exception
 from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
-from unflincher.templates_env import templates
+from unflincher.templates_env import get_current_language, templates
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,15 @@ _TITLE_MODEL = "gpt-5.4-mini"
 
 def _date_title() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _next_response_perspective_name(request: Request, db) -> str:
+    """The Perspective that will answer the NEXT turn on this thread -- always the globally
+    active prompt's, never a per-thread/per-message one (see plan: "Perspective for the next
+    response" applies to future generation only)."""
+    active_prompt = get_active_prompt(db)
+    preset_key = active_prompt["preset_key"] if active_prompt else None
+    return t(get_current_language(request), display_name_key(preset_key))
 
 
 def _render_history(rows):
@@ -112,7 +123,10 @@ async def chat_new(request: Request):
     sessions = list_chat_sessions(db)
     return templates.TemplateResponse(
         request, "chat_session.html",
-        {"sessions": sessions, "active_session_id": None, "active_session_title": None, "history": []},
+        {
+            "sessions": sessions, "active_session_id": None, "active_session_title": None,
+            "history": [], "next_response_perspective_name": _next_response_perspective_name(request, db),
+        },
     )
 
 
@@ -133,6 +147,7 @@ async def chat_session_view(request: Request, session_id: int):
             "active_session_id": session_id,
             "active_session_title": session["title"],
             "history": _render_history(history_rows),
+            "next_response_perspective_name": _next_response_perspective_name(request, db),
         },
     )
 

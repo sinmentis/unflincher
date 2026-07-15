@@ -1,0 +1,6 @@
+{# perspective_indicator.html: label (an already-localized, already-composed string such as
+   t("perspective.historical_label", name=...) or t("perspective.next_response_label", name=...)).
+   Shared by Entry Reflection, Life Report, and Conversation surfaces (see entry_detail.html,
+   report.html, and conversation_composer.html) so the active/historical Perspective always reads
+   with the same markup and styling instead of three separate ad-hoc labels. #}
+<p class="perspective-indicator" data-role="perspective-indicator">{{ label }}</p>

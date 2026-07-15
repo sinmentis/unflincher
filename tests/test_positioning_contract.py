@@ -74,6 +74,7 @@ def test_application_uses_the_canonical_english_product_language():
         "entry.toc_chat": "Conversation",
         "entry.no_commentary_yet": "No reflection yet.",
         "entry.run_commentary_button": "Generate reflection",
+        "entry.regenerate_commentary_button": "Regenerate reflection",
         "chat.heading": "Conversations",
         "workshop.heading": "Prompt Workshop",
         "common.mentor": "Unflincher",
