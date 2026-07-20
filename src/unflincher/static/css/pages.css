@@ -54,6 +54,11 @@
 .version-ledger a { display: grid; grid-template-columns: 2.5rem 1fr auto; gap: var(--space-2); font-size: 0.6875rem; }
 .entry-margin-index a.is-active, .entry-margin-index a[aria-current="true"] { color: var(--text); border-left: 3px solid var(--muted); padding-left: var(--space-2); }
 
+/* Mobile-only sticky section tab strip (Structured Studio); shares its jump links and
+   IntersectionObserver-driven active state with .entry-margin-index (see entry_toc_links.html
+   and entry.js) but stays hidden at desktop width, where the margin index alone covers jumping. */
+.entry-mobile-tabs { display: none; }
+
 /* Commentary rail (secondary). Children -- the commentary panel and the quiet index -- are
    separated by rules, never nested as cards. */
 .entry-commentary-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); }
@@ -93,24 +98,70 @@
 /* Composer sits at the foot of the conversation column in normal flow (never floats over content). */
 .conversation-workspace .conversation-dock { margin-top: auto; }
 
-/* Timeline: life archive index (Task 6) */
-.timeline-layout { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--space-7); }
-.timeline-year-index { position: sticky; top: calc(var(--bar-height) + var(--space-6)); align-self: start; }
+/* Timeline: dense archive index (Structured Studio). The year-chip strip is a horizontal,
+   sticky filter bar (never a side column); the archive itself reads like a real data table --
+   thead labels, tabular numerals, alternating row shading -- so a decade of entries can be
+   scanned at a glance instead of paged through as oversized rows. */
+.timeline-layout { display: block; }
+.timeline-year-index {
+  position: sticky;
+  top: calc(var(--bar-height) + var(--space-4));
+  z-index: 5;
+  display: flex;
+  overflow-x: auto;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+}
+.timeline-year-index > nav { display: flex; flex-wrap: nowrap; gap: var(--space-2); min-width: max-content; }
 .timeline-document .page-heading h1 { font-size: clamp(1.375rem, 2.4vw, 1.875rem); font-weight: 500; }
-.year-index-button { width: 100%; display: grid; grid-template-columns: 3rem 1fr auto; align-items: center; gap: var(--space-2); min-height: 2.75rem; border: 0; border-top: 1px solid var(--muted); background: transparent; color: var(--prose); text-align: left; }
-.year-index-button.is-active { color: var(--text); }
-.year-density { height: 2px; background: var(--muted); transform-origin: left; }
-.year-density[data-density="1"] { transform: scaleX(0.2); }
-.year-density[data-density="2"] { transform: scaleX(0.4); }
-.year-density[data-density="3"] { transform: scaleX(0.6); }
-.year-density[data-density="4"] { transform: scaleX(0.8); }
-.year-density[data-density="5"] { transform: scaleX(1); }
-.archive-index { border-top: 3px solid var(--text); }
-.archive-year { margin: var(--space-6) 0 var(--space-2); color: var(--prose); font-size: 0.75rem; letter-spacing: 0.12em; }
-.archive-row { display: grid; grid-template-columns: 7rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); min-height: 4.25rem; border-bottom: 1px solid var(--rule); color: var(--text); text-decoration: none; }
-.archive-row:hover { background: var(--soft-surface); }
-.archive-row time { color: var(--prose); font-size: 0.6875rem; }
-.archive-title { overflow: hidden; font-size: 1.0625rem; text-overflow: ellipsis; white-space: nowrap; }
+.year-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--muted);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--label);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.year-chip:hover { border-color: var(--muted); color: var(--text); }
+.year-chip:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
+.year-chip.is-active { border-color: var(--accent-teal); color: var(--accent-teal-text); }
+.year-chip b { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tertiary); }
+.archive-index { border-top: 0; }
+.archive-thead {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr) 3rem auto;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--rule);
+  color: var(--label);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.archive-year { display: none; }
+.archive-row {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr) 3rem auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.25rem;
+  padding: 0 var(--space-2);
+  color: var(--text);
+  text-decoration: none;
+}
+.archive-row:nth-child(even) { background: var(--soft-surface); }
+.archive-row:hover { background: var(--accent-teal-soft); }
+.archive-row time { color: var(--label); font-size: 0.75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.archive-title { overflow: hidden; font-size: 0.8125rem; text-overflow: ellipsis; white-space: nowrap; }
+.archive-words { color: var(--tertiary); font-size: 0.75rem; font-variant-numeric: tabular-nums; text-align: right; }
+.archive-row .status-mark { white-space: nowrap; }
 
 /* Timeline onboarding: compact three-step start panel shown only for the data-derived
    READY_TO_REFLECT stage (see onboarding.py) -- entries exist but nothing has generated
@@ -145,6 +196,7 @@
 .report-toc { display: grid; }
 .report-toc a { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--prose); font-size: 0.75rem; text-decoration: none; }
 .report-toc a:hover { color: var(--text); }
+.report-mobile-tabs { display: none; }
 
 /* Write: focused writing desk (Task 8) */
 .writing-desk { max-width: 64rem; margin-inline: auto; }
@@ -170,56 +222,91 @@
   .writing-editor::before { display: none; }
 }
 
-/* Prompt Workshop: Choose -> Tune -> Preview -> Apply workflow. A single primary column of flat
-   ruled stages -- no cards. The prompt editor is the dominant work surface; the test selector,
-   action, and preview read as one stage; apply-and-regenerate-all is bounded as a consequential
-   action by a muted-or-stronger rule rather than a bright accent. */
-.workshop-layout { display: flex; flex-direction: column; gap: var(--space-7); max-width: 54rem; }
-.workshop-stage { min-width: 0; padding-top: var(--space-5); border-top: 3px solid var(--text); }
-.workshop-stage header { display: flex; gap: var(--space-3); align-items: baseline; color: var(--prose); }
-.workshop-stage h2 { color: var(--text); font: 600 1rem/1.2 var(--font-ui); text-transform: uppercase; }
-.workshop-editor { width: 100%; min-height: 24rem; margin-top: var(--space-4); }
-.workshop-model-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
+/* Prompt Workshop: Split Workspace (Structured Studio). A persistent sidebar (perspective, model,
+   language) sits beside a two-panel main column (editor, test preview); a docked action bar spans
+   the full width below for Apply / Apply-and-regenerate. Flat rules throughout -- no boxed cards,
+   matching the rest of the app's visual language. */
+.workshop-layout {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  align-items: start;
+  max-width: 62rem;
+  border-top: 1px solid var(--rule);
+}
+.workshop-side { padding: var(--space-5) var(--space-5) var(--space-5) 0; border-right: 1px solid var(--rule); }
+.workshop-side-group + .workshop-side-group { margin-top: var(--space-6); }
+.workshop-side-label {
+  margin: 0 0 var(--space-3);
+  color: var(--prose);
+  font: 600 var(--text-xs)/1.2 var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.workshop-main { min-width: 0; padding: var(--space-5) 0 var(--space-5) var(--space-5); }
+.workshop-panel + .workshop-panel { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
+.workshop-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.workshop-panel-head h2 { color: var(--text); font: 600 1rem/1.2 var(--font-ui); text-transform: uppercase; }
+.workshop-panel-meta { color: var(--prose); font-size: var(--text-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.workshop-editor { width: 100%; min-height: 22rem; }
+.workshop-model-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+.workshop-model-row .button { justify-self: start; padding: var(--space-2) var(--space-3); font-size: var(--text-xs); }
 .workshop-test-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); margin-top: var(--space-4); }
 .workshop-test-controls label { grid-column: 1 / -1; }
 /* Selects size to their widest <option> by default; a long entry title or model name would floor
    the grid track and force horizontal overflow (worst on mobile). min-width:0 lets the select
    shrink to its track so real long content wraps/clips instead of overflowing. */
 .workshop-model-row select, .workshop-test-controls select { min-width: 0; }
-.workshop-commit-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-5); margin-top: var(--space-4); }
+.workshop-actionbar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+.workshop-commit-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-5); }
 .workshop-apply-all { padding-left: var(--space-4); border-left: 3px solid var(--muted); }
-.workshop-commit-hint { margin-top: var(--space-4); color: var(--prose); font-size: var(--text-sm); }
-.workshop-settings { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-7); padding-top: var(--space-4); border-top: 1px solid var(--rule); color: var(--prose); font-size: 0.75rem; }
+.workshop-commit-hint { color: var(--prose); font-size: var(--text-sm); }
+.workshop-progress-holder { grid-column: 1 / -1; }
+.workshop-progress-holder:empty { display: none; }
 /* Regen progress reuses the shared .progress-rail component (components.css). The workshop only
-   sets it off from the commit actions with a top rule and renders each failed item as a ruled row,
+   sets it off from the action bar with a top rule and renders each failed item as a ruled row,
    keeping every count, status, and retry control -- a flat progress track, not stacked cards. */
-.workshop-stage .progress-rail { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--rule); }
-.workshop-stage .progress-failures li { align-items: baseline; padding: var(--space-3) 0; border-top: 1px solid var(--rule); }
-.workshop-stage .progress-failure-detail { min-width: 0; color: var(--prose); }
+.workshop-progress-holder .progress-rail { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--rule); }
+.workshop-progress-holder .progress-failures li { align-items: baseline; padding: var(--space-3) 0; border-top: 1px solid var(--rule); }
+.workshop-progress-holder .progress-failure-detail { min-width: 0; color: var(--prose); }
+/* The shared confirmation-dialog component (components.css) has no grid-column of its own --
+   every parent grid that embeds it must opt it into spanning, same as chat_sidebar.html does
+   for .session-row. Without this it only fills the layout's first (15rem) column. */
+.workshop-layout .confirmation-dialog { grid-column: 1 / -1; margin-top: var(--space-4); border-top: 1px solid var(--rule); }
 
-/* Perspective picker (Choose stage): native radio inputs styled as flat ruled rows, matching the
-   workshop's existing "no cards" rule rather than boxed/shadowed cards. Real <input type="radio">
+/* Perspective picker (sidebar): each option is a discrete, roundly-highlighted row rather than a
+   ruled list -- the active perspective gains a teal border/tint, matching the same accent used for
+   the active nav pill and active year chip elsewhere in Structured Studio. Real <input type="radio">
    + <label for> keeps arrow-key and screen-reader semantics entirely native -- no custom widget,
    no extra JS beyond reading which one ended up checked. */
-.workshop-active-perspective { margin-top: var(--space-3); color: var(--text); font-weight: 600; }
-.workshop-perspective-scope-note { margin-top: var(--space-2); color: var(--prose); font-size: var(--text-sm); }
-.perspective-picker { display: grid; gap: var(--space-3); margin: var(--space-5) 0 0; padding: 0; border: 0; }
+.workshop-active-perspective { margin-top: var(--space-2); color: var(--text); font-weight: 600; font-size: var(--text-sm); }
+.workshop-perspective-scope-note { margin-top: var(--space-3); color: var(--prose); font-size: var(--text-xs); }
+.perspective-picker { display: grid; gap: var(--space-1); margin: var(--space-4) 0 0; padding: 0; border: 0; }
 .perspective-option {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: start;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--rule);
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
 }
-.perspective-option:first-child { border-top: 0; }
-.perspective-radio { margin-top: 0.2em; accent-color: var(--text); }
+.perspective-radio { margin-top: 0.2em; accent-color: var(--accent-teal); }
 .perspective-option-label { display: flex; flex-direction: column; gap: var(--space-1); cursor: pointer; }
-.perspective-option-name { color: var(--text); font-weight: 600; }
-.perspective-option-description { color: var(--prose); font-size: var(--text-sm); }
+.perspective-option-name { color: var(--text); font-weight: 600; font-size: var(--text-sm); }
+.perspective-option-description { color: var(--prose); font-size: var(--text-xs); line-height: 1.5; }
 /* has() lets the whole row read as "selected" via CSS alone -- purely a visual affordance, the
    input's own :checked state (native) remains the single source of truth. */
-.perspective-option:has(.perspective-radio:checked) .perspective-option-name { color: var(--text); text-decoration: underline; text-underline-offset: 0.2em; }
+.perspective-option:has(.perspective-radio:checked) { border-color: var(--accent-teal); background: var(--accent-teal-soft); }
+.perspective-option:has(.perspective-radio:checked) .perspective-option-name { color: var(--accent-teal-text); }
 
 /* Responsive page layout (Task 10). One mobile breakpoint collapses the six principal layouts to a
    single column. The DOM already emits each region in the intended reading order, so the collapse
@@ -231,7 +318,6 @@
 
 @media (max-width: 43.75rem) {
   .entry-layout,
-  .timeline-layout,
   .report-layout,
   .chat-layout,
   .writing-desk,
@@ -241,23 +327,10 @@
     gap: var(--space-6);
   }
 
-  /* Timeline: the year filter becomes a horizontal strip above the archive (it is first in the
-     DOM, so it stacks on top without `order`); the archive rows wrap long titles instead of
-     truncating them. */
-  .timeline-year-index { position: static; overflow-x: auto; }
-  .timeline-year-index > nav { display: flex; min-width: max-content; gap: var(--space-4); }
-  .archive-row { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3) var(--space-4); }
-  .archive-row time { grid-column: 1; grid-row: 1; }
-  .archive-title { grid-column: 1; grid-row: 2; overflow: visible; text-overflow: clip; white-space: normal; }
-  .archive-row .status-mark { grid-column: 2; grid-row: 1 / span 2; }
-  .archive-row .status-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
+  /* Timeline: the dense table and sticky year-chip strip already read as a single column at
+     every width (see the base .timeline-layout/.archive-row rules); mobile only tightens the
+     grid tracks so the four columns keep breathing room on a narrow phone. */
+  .archive-thead, .archive-row { grid-template-columns: 4rem minmax(0, 1fr) 2.25rem auto; gap: var(--space-2); }
 
   /* Entry + report reading planes: tighten padding and drop the decorative baseline and sticky
      rail so nothing pins or overflows on a narrow viewport. */
@@ -268,6 +341,53 @@
   .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }
   .entry-follow-up .conversation-composer { max-width: none; }
 
+  /* Entry: the sticky tab strip takes over jump-navigation on mobile (was buried below the
+     reflection in the sidebar); hide the sidebar's own copy of the same links so they are not
+     doubled, but keep its version ledger visible in place. */
+  .entry-mobile-tabs {
+    position: sticky;
+    top: var(--bar-height);
+    z-index: 5;
+    display: flex;
+    border-bottom: 1px solid var(--rule);
+    background: var(--bg);
+  }
+  .entry-mobile-tabs a {
+    flex: 1;
+    padding: var(--space-3) var(--space-2);
+    text-align: center;
+    color: var(--prose);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+  }
+  .entry-mobile-tabs a.is-active { color: var(--accent-teal-text); border-bottom-color: var(--accent-teal); }
+  .entry-margin-index nav { display: none; }
+
+  /* Report: the same sticky-tab pattern -- "Report" and "History" jump between the document and
+     the rail (version ledger + in-report table of contents), which the mobile collapse already
+     stacks directly below it in one column. */
+  .report-mobile-tabs {
+    position: sticky;
+    top: var(--bar-height);
+    z-index: 5;
+    display: flex;
+    border-bottom: 1px solid var(--rule);
+    background: var(--bg);
+  }
+  .report-mobile-tabs a {
+    flex: 1;
+    padding: var(--space-3) var(--space-2);
+    text-align: center;
+    color: var(--prose);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+  }
+  .report-mobile-tabs a.is-active { color: var(--accent-teal-text); border-bottom-color: var(--accent-teal); }
+
   /* Conversations: the ledger fills the single column, so its desktop right divider becomes a stray edge;
      an open conversation collapses the ledger entirely. */
   .chat-layout { min-height: auto; }
@@ -276,13 +396,15 @@
   .conversation-workspace { min-height: calc(100dvh - var(--bar-height)); padding: 0; }
   [data-page="chat-session"] .conversation-workspace { animation: mobile-ledger-enter var(--duration-default) ease-out both; }
 
-  /* Writing desk + workshop: stack controls and shorten the body so the editor stays reachable. */
+  /* Writing desk + workshop: stack controls and shorten the body so the editor stays reachable.
+     The sidebar's right divider becomes a bottom divider once it stacks above the main column. */
   .writing-ledger { align-items: flex-start; flex-direction: column; }
   .writing-body { min-height: 55dvh; }
+  .workshop-side { padding: 0 0 var(--space-5); border-right: 0; border-bottom: 1px solid var(--rule); }
+  .workshop-main { padding: var(--space-5) 0; }
   .workshop-test-controls, .session-inline-form { grid-template-columns: minmax(0, 1fr); }
   .workshop-model-row { grid-template-columns: minmax(0, 1fr); }
   .workshop-commit-actions { align-items: stretch; flex-direction: column; }
   .workshop-apply-all { width: 100%; padding-left: 0; border-left: 0; }
   .workshop-commit-actions .button { width: 100%; }
-  .workshop-settings { align-items: flex-start; flex-direction: column; }
 }

@@ -11,7 +11,7 @@ router = APIRouter()
 async def timeline(request: Request):
     db = request.app.state.db
     rows = db.execute(
-        "SELECT id, title, entry_date FROM diary_entry ORDER BY entry_date DESC"
+        "SELECT id, title, entry_date, content_text FROM diary_entry ORDER BY entry_date DESC"
     ).fetchall()
     active_job_entry_ids = get_entries_with_active_commentary_job(db)
     entries = []
@@ -23,17 +23,14 @@ async def timeline(request: Request):
             "id": row["id"], "title": row["title"], "entry_date": row["entry_date"],
             "year": year, "has_commentary": commentary is not None,
             "is_generating": row["id"] in active_job_entry_ids,
+            "word_count": len(row["content_text"].split()),
         })
         year_counts[year] = year_counts.get(year, 0) + 1
     # dict preserves insertion order (Python 3.7+); rows are already newest-first, so the first
     # time a year is seen is also its correct sidebar position (newest year first).
     total_entries = len(entries)
     years = [
-        {
-            "year": year,
-            "count": count,
-            "density": min(5, max(1, round((count / total_entries) * 5))),
-        }
+        {"year": year, "count": count}
         for year, count in year_counts.items()
     ] if total_entries else []
     # Lightweight, data-derived onboarding (see onboarding.py's module docstring and the plan's

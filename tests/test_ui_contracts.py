@@ -147,12 +147,12 @@ def test_report_generation_action_sits_beside_the_page_title():
     assert "justify-content: space-between" in heading_row_css
 
 
-def test_chat_session_relies_on_global_contextual_back_navigation():
+def test_chat_session_relies_on_persistent_chat_nav_pill():
     source = (TEMPLATES / "chat_session.html").read_text()
     topbar = (TEMPLATES / "partials" / "command_navigation.html").read_text()
     assert "mobile-chat-back" not in source
-    assert 'page_id == "chat-session"' in topbar
-    assert 'back_href = "/chat"' in topbar
+    assert "topbar-back" not in topbar
+    assert 'data-nav="chat"' in topbar
 
 
 def test_conversation_turns_are_flat_and_unnumbered():
@@ -273,7 +273,6 @@ def test_mobile_layouts_collapse_in_source_order():
     mobile = _media_block(css, MOBILE_QUERY)
     for selector in (
         ".entry-layout",
-        ".timeline-layout",
         ".report-layout",
         ".chat-layout",
         ".writing-desk",
@@ -282,6 +281,31 @@ def test_mobile_layouts_collapse_in_source_order():
         body = _rule_body(mobile, selector)
         assert "grid-template-columns: 1fr" in body
         assert not re.search(r"(?m)^\s*order\s*:", body)
+
+
+def test_timeline_layout_is_a_single_column_at_every_width():
+    """Timeline dropped its sidebar/document two-column grid entirely (Structured Studio's dense
+    archive table has nothing to collapse at mobile width -- the year-chip strip and the archive
+    are already stacked, single-column content at every viewport)."""
+    css = PAGES_CSS.read_text()
+    body = _rule_body(css, ".timeline-layout")
+    assert "display: block" in body
+
+
+def test_report_mobile_tabs_mirror_entry_sticky_tab_pattern():
+    """Life Report's mobile "Report"/"History" tabs are the same sticky jump-link pattern as
+    Entry Detail's mobile tabs: hidden at desktop, a sticky flex strip with a teal active
+    underline once the single-breakpoint media query collapses the two-column layout."""
+    css = PAGES_CSS.read_text()
+    assert "display: none" in _rule_body(css, ".report-mobile-tabs")
+
+    mobile = _media_block(css, MOBILE_QUERY)
+    tabs_body = _rule_body(mobile, ".report-mobile-tabs")
+    assert "position: sticky" in tabs_body
+    assert "display: flex" in tabs_body
+    active_body = _rule_body(mobile, ".report-mobile-tabs a.is-active")
+    assert "var(--accent-teal-text)" in active_body
+    assert "var(--accent-teal)" in active_body
 
 
 def test_workshop_select_grids_can_shrink_below_option_width():
@@ -355,12 +379,12 @@ def _contrast_ratio(first: str, second: str) -> float:
 
 
 def test_approved_text_and_control_pairings_meet_wcag_aa():
-    surfaces = ("#1d1e1d", "#222322", "#202220", "#232523", "#2c2e2c")
-    for foreground in ("#e0ddd6", "#c7c2ba"):
+    surfaces = ("#17191c", "#1a1d20", "#1d2024", "#14161a")
+    for foreground in ("#e4e7ea", "#c7cbce"):
         for background in surfaces:
             assert _contrast_ratio(foreground, background) >= 4.5
     for background in surfaces:
-        assert _contrast_ratio("#85827b", background) >= 3.0
+        assert _contrast_ratio("#868d94", background) >= 3.0
 
     css = "\n".join(
         path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))

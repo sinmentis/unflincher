@@ -1,8 +1,6 @@
 <aside class="entry-margin-index">
   <nav aria-label="{{ t('entry.toc_aria') }}">
-    <a data-jump href="#diary-text" class="is-active">{{ t("entry.toc_body") }}</a>
-    {% if commentary_html %}<a data-jump href="#ai-commentary">{{ t("entry.toc_commentary") }}</a>{% endif %}
-    <a data-jump href="#chat-section">{{ t("entry.toc_chat") }}</a>
+    {% include "partials/entry_toc_links.html" %}
   </nav>
   {% if versions %}
   <ol class="version-ledger">

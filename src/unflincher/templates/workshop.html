@@ -5,80 +5,100 @@
   {% include "partials/page_heading.html" %}
 {% endwith %}
 <div class="workshop-layout" data-role="primary-task">
-  <section class="workshop-stage" data-workshop-stage="choose">
-    <header><span>01</span><h2>{{ t("workshop.choose_perspective_heading") }}</h2></header>
-    <p class="workshop-active-perspective" data-role="active-perspective" aria-live="polite">
-      {{ t("perspective.active_label", name=active_perspective_name) }}
-    </p>
-    <p class="workshop-perspective-scope-note">{{ t("perspective.future_scope") }}</p>
-    <fieldset class="perspective-picker">
-      <legend class="visually-hidden">{{ t("workshop.choose_perspective_heading") }}</legend>
-      {% for preset in presets %}
-      <div class="perspective-option">
-        <input type="radio" name="perspective-choice" id="perspective-{{ preset.key }}"
-               value="{{ preset.key }}" class="perspective-radio"
-               {% if active_preset_key == preset.key %}checked{% endif %}>
-        <label for="perspective-{{ preset.key }}" class="perspective-option-label">
-          <span class="perspective-option-name">{{ preset.name }}</span>
-          <span class="perspective-option-description">{{ preset.description }}</span>
-        </label>
-      </div>
-      {% endfor %}
-      <div class="perspective-option">
-        <input type="radio" name="perspective-choice" id="perspective-custom"
-               value="custom" class="perspective-radio"
-               {% if not active_preset_key %}checked{% endif %}>
-        <label for="perspective-custom" class="perspective-option-label">
-          <span class="perspective-option-name">{{ custom_name }}</span>
-          <span class="perspective-option-description">{{ custom_description }}</span>
-        </label>
-      </div>
-    </fieldset>
-    <script id="perspective-data" type="application/json">{{ perspective_data | tojson }}</script>
-  </section>
+  <aside class="workshop-side">
+    <section class="workshop-side-group" data-workshop-stage="choose">
+      <p class="workshop-side-label">{{ t("workshop.choose_perspective_heading") }}</p>
+      <p class="workshop-active-perspective" data-role="active-perspective" aria-live="polite">
+        {{ t("perspective.active_label", name=active_perspective_name) }}
+      </p>
+      <fieldset class="perspective-picker">
+        <legend class="visually-hidden">{{ t("workshop.choose_perspective_heading") }}</legend>
+        {% for preset in presets %}
+        <div class="perspective-option">
+          <input type="radio" name="perspective-choice" id="perspective-{{ preset.key }}"
+                 value="{{ preset.key }}" class="perspective-radio"
+                 {% if active_preset_key == preset.key %}checked{% endif %}>
+          <label for="perspective-{{ preset.key }}" class="perspective-option-label">
+            <span class="perspective-option-name">{{ preset.name }}</span>
+            <span class="perspective-option-description">{{ preset.description }}</span>
+          </label>
+        </div>
+        {% endfor %}
+        <div class="perspective-option">
+          <input type="radio" name="perspective-choice" id="perspective-custom"
+                 value="custom" class="perspective-radio"
+                 {% if not active_preset_key %}checked{% endif %}>
+          <label for="perspective-custom" class="perspective-option-label">
+            <span class="perspective-option-name">{{ custom_name }}</span>
+            <span class="perspective-option-description">{{ custom_description }}</span>
+          </label>
+        </div>
+      </fieldset>
+      <script id="perspective-data" type="application/json">{{ perspective_data | tojson }}</script>
+      <p class="workshop-perspective-scope-note">{{ t("perspective.future_scope") }}</p>
+    </section>
 
-  <section class="workshop-stage" data-workshop-stage="draft">
-    <header><span>02</span><h2>{{ t("workshop.tune_instructions_heading") }}</h2></header>
-    <textarea id="prompt-draft" class="workshop-editor" aria-label="{{ t('workshop.persona_label') }}">{{ active_prompt }}</textarea>
-    <div class="workshop-model-row">
-      <label for="model-select">{{ t("workshop.model_label") }}</label>
+    <section class="workshop-side-group">
+      <label for="model-select" class="workshop-side-label">{{ t("workshop.model_label") }}</label>
+      <div class="workshop-model-row">
+        {% if models_error %}
+        <input type="hidden" id="model-select" value="{{ active_model }}">
+        {% else %}
+        <select id="model-select" aria-label="{{ t('workshop.model_select_aria') }}">
+          {% for model_id, model_name in models %}
+          <option value="{{ model_id }}"{% if model_id == active_model %} selected{% endif %}>{{ model_name }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+        <button type="button" id="refresh-models" class="button">{{ t("workshop.refresh_models") }}</button>
+      </div>
       {% if models_error %}
-      <input type="hidden" id="model-select" value="{{ active_model }}">
+        {% with notice_id="model-notice", tone="failed", message=t("workshop.model_load_error", error=models_error), hidden=false, live="polite" %}
+          {% include "partials/inline_notice.html" %}
+        {% endwith %}
       {% else %}
-      <select id="model-select" aria-label="{{ t('workshop.model_select_aria') }}">
-        {% for model_id, model_name in models %}
-        <option value="{{ model_id }}"{% if model_id == active_model %} selected{% endif %}>{{ model_name }}</option>
+        {% with notice_id="model-notice", tone="failed", message="", hidden=true, live="polite" %}
+          {% include "partials/inline_notice.html" %}
+        {% endwith %}
+      {% endif %}
+    </section>
+
+    <section class="workshop-side-group">
+      <label for="lang-select" class="workshop-side-label">{{ t("workshop.language_label") }}</label>
+      <select id="lang-select">
+        {% for code, display_name in supported_languages %}
+        <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ display_name }}</option>
         {% endfor %}
       </select>
-      {% endif %}
-      <button type="button" id="refresh-models" class="button">{{ t("workshop.refresh_models") }}</button>
-    </div>
-    {% if models_error %}
-      {% with notice_id="model-notice", tone="failed", message=t("workshop.model_load_error", error=models_error), hidden=false, live="polite" %}
-        {% include "partials/inline_notice.html" %}
-      {% endwith %}
-    {% else %}
-      {% with notice_id="model-notice", tone="failed", message="", hidden=true, live="polite" %}
-        {% include "partials/inline_notice.html" %}
-      {% endwith %}
-    {% endif %}
-  </section>
+    </section>
+  </aside>
 
-  <section class="workshop-stage" data-workshop-stage="test">
-    <header><span>03</span><h2>{{ t("workshop.preview_label") }}</h2></header>
-    <div class="workshop-test-controls">
-      <label for="test-entry">{{ t("workshop.test_run_label") }}</label>
-      <select id="test-entry"{% if not entries %} disabled{% endif %}>
-        {% for entry in entries %}<option value="{{ entry.id }}">{{ entry.title }}</option>{% endfor %}
-      </select>
-      <button id="run-test" class="button" type="button"{% if not entries %} disabled{% endif %}>{{ t("workshop.test_run_button") }}</button>
-    </div>
-    {% if not entries %}<p class="notice">{{ t("timeline.empty_state") }}</p>{% endif %}
-    <div id="preview-stream" class="stream-surface" data-role="test-preview" hidden aria-live="polite"></div>
-  </section>
+  <div class="workshop-main">
+    <section class="workshop-panel" data-workshop-stage="draft">
+      <div class="workshop-panel-head">
+        <h2>{{ t("workshop.tune_instructions_heading") }}</h2>
+        <span class="workshop-panel-meta">{{ t("workshop.draft_word_count", count=(active_prompt | wordcount), perspective=active_perspective_name) }}</span>
+      </div>
+      <textarea id="prompt-draft" class="workshop-editor" aria-label="{{ t('workshop.persona_label') }}">{{ active_prompt }}</textarea>
+    </section>
 
-  <section class="workshop-stage" data-workshop-stage="commit">
-    <header><span>04</span><h2>{{ t("workshop.apply_section_label") }}</h2></header>
+    <section class="workshop-panel" data-workshop-stage="test">
+      <div class="workshop-panel-head">
+        <h2>{{ t("workshop.preview_label") }}</h2>
+      </div>
+      <div class="workshop-test-controls">
+        <label for="test-entry">{{ t("workshop.test_run_label") }}</label>
+        <select id="test-entry"{% if not entries %} disabled{% endif %}>
+          {% for entry in entries %}<option value="{{ entry.id }}">{{ entry.title }}</option>{% endfor %}
+        </select>
+        <button id="run-test" class="button" type="button"{% if not entries %} disabled{% endif %}>{{ t("workshop.test_run_button") }}</button>
+      </div>
+      {% if not entries %}<p class="notice">{{ t("timeline.empty_state") }}</p>{% endif %}
+      <div id="preview-stream" class="stream-surface" data-role="test-preview" hidden aria-live="polite"></div>
+    </section>
+  </div>
+
+  <div class="workshop-actionbar" data-workshop-stage="commit">
     <div class="workshop-commit-actions">
       <button id="apply-btn" class="button button--accent" type="button"
               data-saved-label="{{ t('workshop.saved') }}">{{ t("workshop.apply_button") }}</button>
@@ -90,22 +110,14 @@
     {% with notice_id="workshop-notice", tone="saved", message="", hidden=true, live="polite" %}
       {% include "partials/inline_notice.html" %}
     {% endwith %}
-    {% with confirmation_id="apply-all-confirmation", title=t("workshop.apply_all_button"),
-      body=t("workshop.apply_hint"), confirm_label=t("workshop.apply_all_button"),
-      cancel_label=t("common.cancel") %}
-      {% include "partials/destructive_confirmation.html" %}
-    {% endwith %}
-    <template id="loading-state-template">{% include "partials/loading_state.html" %}</template>
-    <div id="regen-progress-holder"></div>
-  </section>
+  </div>
+  {% with confirmation_id="apply-all-confirmation", title=t("workshop.apply_all_button"),
+    body=t("workshop.apply_hint"), confirm_label=t("workshop.apply_all_button"),
+    cancel_label=t("common.cancel") %}
+    {% include "partials/destructive_confirmation.html" %}
+  {% endwith %}
+  <template id="loading-state-template">{% include "partials/loading_state.html" %}</template>
+  <div id="regen-progress-holder" class="workshop-progress-holder"></div>
 </div>
-<aside class="workshop-settings">
-  <label for="lang-select">{{ t("workshop.language_label") }}</label>
-  <select id="lang-select">
-    {% for code, display_name in supported_languages %}
-    <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ display_name }}</option>
-    {% endfor %}
-  </select>
-</aside>
 {% endblock %}
 {% block scripts %}<script src="/static/js/workshop.js" defer></script>{% endblock %}

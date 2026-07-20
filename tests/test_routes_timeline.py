@@ -80,18 +80,15 @@ def test_timeline_tags_each_entry_row_with_its_year(client):
     assert 'data-year="2024"' in body
 
 
-def test_timeline_year_density_is_bounded(client):
+def test_timeline_shows_word_count_per_entry(client):
     db = client.app.state.db
-    for title, date in (("a", "2024-03-01"), ("b", "2024-08-01"), ("c", "2023-01-01")):
-        db.execute(
-            "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-            "entry_date, source) VALUES (?, '<p>x</p>', '<p>x</p>', 'x', ?, 'import')",
-            (title, date),
-        )
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>x</p>', '<p>x</p>', 'five little words right here', "
+        "'2024-03-01', 'import')"
+    )
     body = client.get("/").text
-    assert 'data-density="3"' in body
-    assert 'data-density="2"' in body
-    assert "--dot-scale" not in body
+    assert 'class="archive-words">5</span>' in body
 
 
 def test_timeline_shows_generating_badge_for_entry_with_active_job(client):

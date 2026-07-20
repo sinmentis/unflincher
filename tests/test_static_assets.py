@@ -22,21 +22,21 @@ def test_pinned_ibm_plex_assets_match_expected_hashes():
         assert hashlib.sha256(content).hexdigest() == expected
 
 
-def test_balanced_graphite_stylesheets_use_approved_tokens_and_system_font():
+def test_structured_studio_stylesheets_use_approved_tokens_and_system_font():
     for name in ("tokens.css", "base.css", "shell.css", "components.css", "pages.css"):
         assert (STATIC / "css" / name).is_file()
 
     tokens = (STATIC / "css" / "tokens.css").read_text()
     for declaration in (
-        "--bg: #1d1e1d",
-        "--chrome: #222322",
-        "--entry-plane: #202220",
-        "--commentary-plane: #232523",
-        "--text: #e0ddd6",
-        "--prose: #c7c2ba",
-        "--muted: #85827b",
-        "--rule: #444744",
-        "--soft-surface: #2c2e2c",
+        "--bg: #17191c",
+        "--chrome: #17191c",
+        "--entry-plane: #1a1d20",
+        "--commentary-plane: #1d2024",
+        "--text: #e4e7ea",
+        "--prose: #c7cbce",
+        "--muted: #868d94",
+        "--rule: #2c3136",
+        "--soft-surface: #1a1d20",
     ):
         assert declaration in tokens
 
@@ -49,7 +49,7 @@ def test_balanced_graphite_stylesheets_use_approved_tokens_and_system_font():
     assert "tabular-nums" in css
 
 
-def test_balanced_graphite_components_are_flat_and_stateful():
+def test_structured_studio_components_are_flat_and_stateful():
     css = (STATIC / "css" / "components.css").read_text()
     for selector in (
         ".page-heading",

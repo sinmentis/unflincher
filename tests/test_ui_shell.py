@@ -38,14 +38,13 @@ def test_get_ui_state(path, active_nav, page_id):
     assert get_ui_state(path) == (active_nav, page_id)
 
 
-def test_base_document_has_balanced_graphite_metadata_and_landmarks(client):
+def test_base_document_has_structured_studio_metadata_and_landmarks(client):
     body = client.get("/").text
-    assert '<meta name="theme-color" content="#1d1e1d">' in body
+    assert '<meta name="theme-color" content="#17191c">' in body
     assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in body
     assert 'class="skip-link" href="#main-content"' in body
     assert 'class="app-topbar"' in body
-    assert 'class="quiet-nav"' in body
-    assert 'class="quiet-nav-panel"' in body
+    assert 'class="primary-nav"' in body
     assert 'id="main-content"' in body
     assert 'data-page="timeline"' in body
     assert 'data-nav="timeline"' in body
@@ -74,21 +73,40 @@ def test_ui_messages_json_carries_context_too_large_keys_for_streamInto(client):
     assert messages["streamInterrupted"]
 
 
-def test_quiet_menu_exposes_each_destination_once(client):
+def test_primary_nav_exposes_each_destination_once(client):
     body = client.get("/chat").text
     for key in ("timeline", "report", "chat", "new_entry", "workshop"):
         assert body.count(f'data-nav="{key}"') == 1
-    assert body.count('class="quiet-nav-panel"') == 1
+    assert body.count('class="primary-nav"') == 1
     assert 'data-page="chat-list"' in body
 
 
-def test_topbar_back_link_follows_page_context(client):
-    assert 'class="topbar-back"' not in client.get("/").text
-    assert 'class="topbar-back" href="/"' in client.get("/new").text
-    assert 'class="topbar-back" href="/chat"' in client.get("/chat/new").text
+def test_mobile_back_link_targets_the_right_hub_on_every_non_timeline_page(client):
+    # Below 700px, every page but Timeline swaps the pill nav for one contextual link (CSS
+    # handles the swap; both elements always render server-side). Chat sessions point back to
+    # the chat list, everything else points to Timeline -- the same two targets the old
+    # per-page back link used, just CSS-scoped to mobile now instead of removed outright.
+    timeline_body = client.get("/").text
+    assert "topbar-back" not in timeline_body
+    assert "topbar-mobile-back" not in timeline_body
+    assert 'class="primary-nav"' in timeline_body
+
+    for path, expected_href in (
+        ("/new", "/"),
+        ("/report", "/"),
+        ("/workshop", "/"),
+        ("/chat", "/"),
+        ("/chat/new", "/chat"),
+    ):
+        body = client.get(path).text
+        assert "topbar-back" not in body
+        assert f'class="topbar-mobile-back" href="{expected_href}"' in body
+        assert 'class="primary-nav"' in body
+        for key in ("timeline", "report", "chat", "new_entry", "workshop"):
+            assert f'data-nav="{key}"' in body
 
 
-def test_topbar_back_link_can_shrink_without_overlapping_centered_brand():
+def test_app_topbar_stacks_brand_above_a_wrapping_pill_nav():
     css = SHELL_CSS.read_text()
 
     def declarations(selector):
@@ -96,9 +114,10 @@ def test_topbar_back_link_can_shrink_without_overlapping_centered_brand():
         assert match is not None
         return match.group("body")
 
-    assert "width: 100%;" in declarations(".topbar-start")
-    assert "max-width: 100%;" in declarations(".topbar-back")
-    assert "min-width: 0;" in declarations(".topbar-back span")
+    topbar = declarations(".app-topbar")
+    assert "flex-direction: column" in topbar
+    nav = declarations(".primary-nav")
+    assert "flex-wrap: wrap" in nav
 
 
 def test_html_404_is_branded_but_json_404_keeps_api_shape(client):

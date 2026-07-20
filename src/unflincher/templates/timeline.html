@@ -12,6 +12,12 @@
       {% include "partials/onboarding_start_panel.html" %}
     {% endif %}
     <div class="archive-index" id="timeline-entries" data-role="archive-index" data-entry-count="{{ entry_count }}">
+      <div class="archive-thead" aria-hidden="true">
+        <span>{{ t("timeline.column_date") }}</span>
+        <span>{{ t("timeline.column_entry") }}</span>
+        <span>{{ t("timeline.column_words") }}</span>
+        <span>{{ t("timeline.column_status") }}</span>
+      </div>
       {% set ns = namespace(last_year=none) %}
       {% for entry in entries %}
         {% if entry.year != ns.last_year %}
@@ -21,6 +27,7 @@
         <a class="archive-row" href="/entry/{{ entry.id }}" data-role="entry-row" data-year="{{ entry.year }}">
           <time datetime="{{ entry.entry_date }}">{{ entry.entry_date[:10] }}</time>
           <span class="archive-title">{{ entry.title }}</span>
+          <span class="archive-words">{{ entry.word_count }}</span>
           {% if entry.is_generating %}
             {% with status="generating", label=t("timeline.badge_generating") %}{% include "partials/status_mark.html" %}{% endwith %}
           {% elif entry.has_commentary %}

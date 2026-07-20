@@ -34,6 +34,25 @@ function initReportPage(doc = document) {
       trigger.disabled = false;
     });
   });
+
+  // Mobile-only sticky tab strip (hidden at desktop, see pages.css): "Report" and "History" stay
+  // in sync with whichever stacked section is in view, same IntersectionObserver pattern as
+  // entry.js's Body/Reflection/Conversation tabs.
+  const tabs = doc.querySelector(".report-mobile-tabs");
+  if (tabs && "IntersectionObserver" in window) {
+    const sections = ["report-document", "report-history"]
+      .map((id) => doc.getElementById(id))
+      .filter(Boolean);
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        tabs.querySelectorAll("[data-jump]").forEach((link) => {
+          link.classList.toggle("is-active", link.hash === `#${entry.target.id}`);
+        });
+      }
+    }, {rootMargin: "-35% 0px -55% 0px"});
+    sections.forEach((section) => observer.observe(section));
+  }
 }
 if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => initReportPage(document));

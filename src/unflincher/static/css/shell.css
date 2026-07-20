@@ -17,99 +17,74 @@
 }
 .skip-link:focus { transform: translateY(0); }
 
-/* Quiet top bar: a static 3-column shell (back link / centered wordmark / menu) on a flat
-   chrome plane with a single subtle bottom rule. No shadow, no bright active line, no numbered
-   commands, and no bottom strip -- the menu is one native <details> dropdown. */
+/* Structured Studio top bar: brand on its own row, a persistent pill nav wrapping on the row
+   below -- always visible at desktop widths, never hidden behind a menu. Below 700px, every
+   page except Timeline itself swaps that row for a single compact "back to X" link instead
+   (see .topbar-mobile-back below): five wrapped pills cost two full lines of chrome on a phone,
+   which the mobile Entry/Report mockups avoid by going back to one contextual link, matching
+   how deep pages already behaved before this redesign. */
 .app-topbar {
   position: sticky;
   z-index: var(--layer-header);
   top: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
   min-height: var(--bar-height);
-  padding-inline: max(var(--space-5), calc((100vw - var(--content-max)) / 2));
+  padding: var(--space-3) max(var(--space-5), calc((100vw - var(--content-max)) / 2));
   background: var(--chrome);
   border-bottom: 1px solid var(--rule);
 }
-.app-topbar svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 
-.topbar-start { display: flex; align-items: center; justify-self: start; width: 100%; min-width: 0; }
-.topbar-back {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  max-width: 100%;
-  color: var(--prose);
-  font-size: var(--text-sm);
-  text-decoration: none;
-}
-.topbar-back:hover { color: var(--text); }
-.topbar-back svg { flex: 0 0 auto; }
-.topbar-back span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.brand-lockup { justify-self: center; display: inline-flex; align-items: center; color: var(--text); text-decoration: none; }
+.brand-lockup { display: inline-flex; align-items: center; color: var(--text); text-decoration: none; }
 .brand-wordmark { font-weight: 700; letter-spacing: 0.18em; font-size: var(--text-sm); }
 
-/* Native menu. The panel is absolutely positioned from the right edge so opening the
-   <details> never shifts the bar. The <summary> marker is removed but stays keyboard-toggleable. */
-.quiet-nav { position: relative; justify-self: end; }
-.quiet-nav-toggle {
+.primary-nav { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.primary-nav a {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
-  color: var(--prose);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
+  padding: 0.24rem 0.55rem;
+  border-radius: var(--radius-pill);
+  color: var(--label);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.quiet-nav-toggle::-webkit-details-marker { display: none; }
-.quiet-nav-toggle::marker { content: ""; }
-.quiet-nav-toggle:hover { color: var(--text); }
-.quiet-nav[open] .quiet-nav-toggle { color: var(--text); }
+.primary-nav a:hover { color: var(--text); }
+.primary-nav a:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.primary-nav a[aria-current="page"] { background: var(--accent-teal-soft); color: var(--accent-teal-text); }
 
-.quiet-nav-panel {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  z-index: var(--layer-header);
-  display: flex;
-  flex-direction: column;
-  min-width: 13rem;
-  padding: var(--space-2);
-  background: var(--chrome);
-  border: 1px solid var(--muted);
-  border-radius: var(--radius-md);
-}
-.quiet-nav-panel a {
-  display: flex;
+.topbar-mobile-back {
+  display: none;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
-  color: var(--prose);
-  font-size: var(--text-sm);
+  gap: 0.2rem;
+  color: var(--label);
+  font-size: 0.7rem;
+  font-weight: 600;
   text-decoration: none;
 }
-.quiet-nav-panel a:hover { background: var(--soft-surface); color: var(--text); }
-.quiet-nav-panel a[aria-current="page"] { background: var(--soft-surface); color: var(--text); }
-.quiet-nav-panel svg { color: var(--prose); }
-.quiet-nav-panel a:hover svg,
-.quiet-nav-panel a[aria-current="page"] svg { color: inherit; }
+.topbar-mobile-back:hover { color: var(--text); }
+.topbar-mobile-back:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 .error-document { max-width: 48rem; padding-block: var(--space-8); }
-.error-document > .brand-lockup { justify-self: start; margin-bottom: var(--space-7); }
+.error-document > .brand-lockup { margin-bottom: var(--space-7); }
 .error-document .page-eyebrow { color: var(--prose); font-variant-numeric: tabular-nums; letter-spacing: 0.1em; }
 .error-document h1 { margin-bottom: var(--space-5); }
 .error-document > p:not(.page-eyebrow) { max-width: 48ch; color: var(--prose); font-size: var(--text-lg); line-height: var(--leading-body); }
 
-/* At 700px and below, abbreviate the bar's spacing but keep the same three-column shell. */
+/* At 700px and below, tighten the bar's padding, and on every page but Timeline, replace the
+   pill nav with the single mobile back-link rendered alongside it (see command_navigation.html).
+   Timeline keeps the full nav (it has nowhere to "back" to) but wrapping five pills costs two
+   full lines on a phone, so it scrolls horizontally on one line instead, the same idiom the
+   Timeline year-chip strip itself uses. */
 @media (max-width: 43.75rem) {
-  .app-topbar { gap: var(--space-2); padding-inline: var(--space-4); }
+  .app-topbar { padding: var(--space-3) var(--space-4); }
   .brand-wordmark { letter-spacing: 0.12em; }
-  .quiet-nav-toggle { padding-inline: var(--space-2); }
+  .has-mobile-back .primary-nav { display: none; }
+  .has-mobile-back .topbar-mobile-back { display: inline-flex; }
+  .primary-nav { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
   .page-shell { padding: var(--space-6) var(--space-4) var(--space-7); }
 }

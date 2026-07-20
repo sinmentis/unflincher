@@ -2,6 +2,9 @@
 {% block title %}{{ entry.title }}{% endblock %}
 {% block content %}
 <div class="entry-layout" data-role="primary-task" data-entry-source="{{ entry.source }}">
+  <nav class="entry-mobile-tabs" aria-label="{{ t('entry.toc_aria') }}">
+    {% include "partials/entry_toc_links.html" %}
+  </nav>
   <article class="entry-record">
     {% with heading=entry.title %}
       {% include "partials/page_heading.html" %}

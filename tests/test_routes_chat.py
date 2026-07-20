@@ -101,7 +101,7 @@ def test_chat_session_has_editorial_messages_and_multiline_composer(client):
     assert 'data-role="composer"' in body
     assert 'class="conversation-message is-user"' in body
     assert 'id="chat-input"' in body and "<textarea" in body
-    assert 'class="topbar-back" href="/chat"' in body
+    assert 'data-nav="chat" aria-current="page"' in body
     assert 'class="mobile-chat-back"' not in body
 
 

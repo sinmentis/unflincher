@@ -36,6 +36,17 @@ def test_report_page_uses_balanced_report_structure(client):
     assert 'src="/static/js/report.js"' in body
 
 
+def test_report_page_has_mobile_report_history_tabs(client):
+    """Mobile-only sticky tab strip (Structured Studio): "Report" and "History" jump to the
+    document and rail, mirroring Entry Detail's Body/Reflection/Conversation tabs."""
+    body = client.get("/report").text
+    assert 'class="report-mobile-tabs"' in body
+    assert 'href="#report-document"' in body
+    assert 'href="#report-history"' in body
+    assert 'id="report-document"' in body
+    assert 'id="report-history"' in body
+
+
 def test_failed_historical_report_renders_failed_state(client):
     db = client.app.state.db
     prompt_id = db.execute(

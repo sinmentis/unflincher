@@ -102,12 +102,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { border-color
 .confirmation-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .session-row .confirmation-dialog { grid-column: 1 / -1; border-top: 1px solid var(--rule); }
 
-/* Status marks: a small dot plus label, not a badge. */
+/* Status marks: a small dot plus label, not a badge. The dot color is a semantic accent
+   (teal/amber/danger) matching Structured Studio's status language across Timeline, Workshop,
+   and Life Report; the label text stays the single source of truth, never color alone. */
 .status-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
 .status-glyph { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--muted); }
-.status-mark[data-status="done"] .status-glyph { background: var(--text); }
-.status-mark[data-status="generating"] .status-glyph { background: var(--prose); animation: status-pulse 1.2s ease-in-out infinite; }
-.status-mark[data-status="failed"] .status-glyph { background: var(--text); }
+.status-mark[data-status="done"] .status-glyph { background: var(--accent-teal); }
+.status-mark[data-status="generating"] .status-glyph { background: var(--warn); animation: status-pulse 1.2s ease-in-out infinite; }
+.status-mark[data-status="failed"] .status-glyph { background: var(--danger-text); }
 
 /* Session rows: a flat ledger of links with rename/delete controls. */
 .session-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; border-bottom: 1px solid var(--rule); }
@@ -174,22 +176,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { border-color
 /* Forced-colors (Windows High Contrast): let the meaningful accent surfaces keep their fill, and
    give the color-only active nav state a non-color outline so "current page" survives (Task 10). */
 @media (forced-colors: active) {
-  .button--accent, .status-glyph, .year-density, .progress-track span {
+  .button--accent, .status-glyph, .progress-track span {
     forced-color-adjust: auto;
   }
-  .quiet-nav-panel a[aria-current="page"] {
+  .primary-nav a[aria-current="page"] {
     outline: 2px solid currentColor;
     outline-offset: -2px;
   }
 }
 
 /* Coarse pointer (touch): guarantee a 44px (2.75rem) minimum target on every interactive control,
-   including the compact ledger/version links that are otherwise sized for a mouse (Task 10). */
+   including the compact ledger/version links that are otherwise sized for a mouse (Task 10). The
+   persistent nav pills and year-filter chips are deliberately compact (Structured Studio's
+   dense-chip language); nav pills are plain links so the generic `button` rule below never
+   touches them, but `.year-chip` is a real <button>, so it needs an explicit override to opt back
+   out of the 44px floor. */
 @media (pointer: coarse) {
-  .brand-lockup, .topbar-back, .quiet-nav-toggle, .quiet-nav-panel a,
-  .session-link, .session-action, .year-index-button,
+  .brand-lockup, .topbar-mobile-back,
+  .session-link, .session-action,
   .entry-margin-index a, .report-version-index a, .report-toc a,
   button, input, select, textarea, summary {
     min-height: 2.75rem;
   }
+  .year-chip { min-height: 0; }
 }

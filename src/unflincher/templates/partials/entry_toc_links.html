@@ -1,0 +1,8 @@
+{# entry_toc_links.html: the Body / Entry Reflection / Conversation jump links shared by the
+   desktop margin index (entry_margin_index.html) and the mobile sticky tab strip
+   (entry_detail.html's .entry-mobile-tabs) -- same three targets, same static default, so
+   entry.js's single IntersectionObserver keeps every copy in sync. Needs commentary_html and t()
+   from the calling template's context. #}
+<a data-jump href="#diary-text" class="is-active">{{ t("entry.toc_body") }}</a>
+{% if commentary_html %}<a data-jump href="#ai-commentary">{{ t("entry.toc_commentary") }}</a>{% endif %}
+<a data-jump href="#chat-section">{{ t("entry.toc_chat") }}</a>

@@ -49,16 +49,21 @@ function initEntryPage(doc = document) {
     });
   }
 
-  const toc = doc.querySelector(".entry-margin-index");
-  if (toc && "IntersectionObserver" in window) {
+  // Two containers share the same jump links: the desktop margin index and the mobile sticky
+  // tab strip (only one is ever visible at a given width -- see pages.css). Both stay in sync
+  // off the same observer so whichever one is showing already reflects the active section.
+  const tocs = Array.from(doc.querySelectorAll(".entry-margin-index, .entry-mobile-tabs"));
+  if (tocs.length && "IntersectionObserver" in window) {
     const sections = ["diary-text", "ai-commentary", "chat-section"]
       .map((id) => doc.getElementById(id))
       .filter(Boolean);
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
-        toc.querySelectorAll("[data-jump]").forEach((link) => {
-          link.classList.toggle("is-active", link.hash === `#${entry.target.id}`);
+        tocs.forEach((toc) => {
+          toc.querySelectorAll("[data-jump]").forEach((link) => {
+            link.classList.toggle("is-active", link.hash === `#${entry.target.id}`);
+          });
         });
       }
     }, {rootMargin: "-35% 0px -55% 0px"});

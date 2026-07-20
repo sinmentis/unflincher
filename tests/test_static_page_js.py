@@ -388,6 +388,7 @@ const fakeDoc = {
     return null;
   },
   querySelector() { return null; },
+  querySelectorAll() { return []; },
 };
 initEntryPage(fakeDoc);
 """
