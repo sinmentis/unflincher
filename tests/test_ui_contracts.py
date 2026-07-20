@@ -125,10 +125,16 @@ def test_report_history_follows_report_body_in_source_order():
     )
 
 
-def test_report_generation_action_follows_the_reading_body():
+def test_report_generation_action_sits_beside_the_page_title():
     source = (TEMPLATES / "report.html").read_text()
-    assert source.index('id="report-body"') < source.index('id="report-stream"')
-    assert source.index('id="report-stream"') < source.index('id="run-report"')
+    heading_row = re.search(
+        r'<div class="report-heading-row">(.*?)</div>',
+        source,
+        re.DOTALL,
+    )
+    assert heading_row is not None
+    assert heading_row.group(1).index("<h1") < heading_row.group(1).index('id="run-report"')
+    assert source.index('id="run-report"') < source.index('id="report-body"')
     button = re.search(
         r'<button[^>]*\bid="run-report"[^>]*>',
         source,
@@ -136,6 +142,9 @@ def test_report_generation_action_follows_the_reading_body():
     )
     assert button is not None
     assert "button--accent" not in button.group(0)
+    heading_row_css = _rule_body(PAGES_CSS.read_text(), ".report-heading-row")
+    assert "display: flex" in heading_row_css
+    assert "justify-content: space-between" in heading_row_css
 
 
 def test_chat_session_relies_on_global_contextual_back_navigation():

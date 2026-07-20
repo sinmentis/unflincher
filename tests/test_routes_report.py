@@ -172,6 +172,29 @@ def test_report_coverage_dates_render_as_calendar_dates_not_timestamps(client):
     assert "06:46:57" not in body
 
 
+def test_report_coverage_shows_how_many_archive_entries_are_not_covered(client):
+    db = client.app.state.db
+    prompt_id = db.execute(
+        "SELECT id FROM persona_prompt WHERE is_active = 1"
+    ).fetchone()["id"]
+    for index, entry_date in enumerate(("2026-01-01", "2026-02-01", "2026-03-01"), start=1):
+        db.execute(
+            "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+            "entry_date, source) VALUES (?, '<p>entry</p>', '<p>entry</p>', 'entry', ?, 'manual')",
+            (f"Entry {index}", entry_date),
+        )
+    report_id = db.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "covered_from_date, covered_to_date, status) "
+        "VALUES (?, 'm', 'Report body', 2, '2026-01-01', '2026-02-01', 'ok')",
+        (prompt_id,),
+    ).lastrowid
+
+    for path in ("/report", f"/report/{report_id}"):
+        body = client.get(path).text
+        assert "Covers 2 entries · 2026-01-01 — 2026-02-01 · 1 behind" in body
+
+
 def test_view_specific_historical_report_version(client):
     db = client.app.state.db
     # is_active=0: the startup lifespan already seeds an active default persona and the

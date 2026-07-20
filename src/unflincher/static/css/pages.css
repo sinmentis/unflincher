@@ -133,7 +133,9 @@
 .report-layout { display: grid; grid-template-columns: minmax(0, 7fr) minmax(15rem, 3fr); gap: var(--space-8); align-items: start; }
 .report-document { min-width: 0; padding: var(--space-8) var(--space-7); background-color: var(--entry-plane); }
 .report-document .page-heading h1 { font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: 500; }
-.report-document > .button { margin-top: var(--space-7); }
+.report-heading-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.report-heading-row h1 { text-wrap: balance; }
+.report-heading .page-metadata { font-variant-numeric: tabular-nums; }
 .report-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); position: sticky; top: calc(var(--bar-height) + var(--space-6)); align-self: start; }
 .report-rail > * + * { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
 .report-version-index ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }

@@ -31,11 +31,13 @@ async def report_page(request: Request):
     current_lang = get_current_language(request)
     report = get_current_report(db)
     versions = list_report_versions(db)
+    archive_entry_count = len(get_ordered_entry_ids(db))
     context = {
         "report_html": None,
         "report_status": None,
         "report_error": None,
         "report_perspective_name": None,
+        "behind_count": 0,
         "versions": versions,
         "viewing_version_id": None,
         "has_any_successful_report": report is not None,
@@ -49,6 +51,7 @@ async def report_page(request: Request):
             "covered_count": report["covered_entry_count"],
             "covered_from": report["covered_from_date"],
             "covered_to": report["covered_to_date"],
+            "behind_count": max(archive_entry_count - report["covered_entry_count"], 0),
             "versions": versions,
             "viewing_version_id": report["id"],
             "has_any_successful_report": True,
@@ -64,6 +67,7 @@ async def view_report_version(request: Request, report_id: int):
         raise HTTPException(status_code=404, detail="not found")
     current_lang = get_current_language(request)
     versions = list_report_versions(db)
+    archive_entry_count = len(get_ordered_entry_ids(db))
     # Independent of which historical version is being VIEWED here (which may itself be
     # 'failed') -- the generate button's wording reflects whether the Life Report has EVER
     # succeeded anywhere (see onboarding.py's same ok-status-only rule for get_current_report).
@@ -83,6 +87,7 @@ async def view_report_version(request: Request, report_id: int):
             "covered_count": report["covered_entry_count"],
             "covered_from": report["covered_from_date"],
             "covered_to": report["covered_to_date"],
+            "behind_count": max(archive_entry_count - report["covered_entry_count"], 0),
             "versions": versions,
             "viewing_version_id": report_id,
             "has_any_successful_report": has_any_successful_report,
