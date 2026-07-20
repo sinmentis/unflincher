@@ -11,7 +11,6 @@ from unflincher.db import (
     PreparedRegenTarget,
     TargetBusyError,
     get_active_prompt,
-    get_commentary_by_id,
     get_connection,
     get_current_commentary,
     get_current_report,
@@ -19,13 +18,13 @@ from unflincher.db import (
     init_schema,
     initialize_database,
     initialize_upgrade_database,
-    list_commentary_versions,
     list_report_versions,
     migrate_bootstrap_state,
     migrate_chat_session,
     migrate_generation_safety,
     migrate_persona_prompt_model,
     migrate_persona_prompt_preset_key,
+    migrate_prune_entry_commentary_history,
     seed_analyst_prompt_if_fresh_install,
     set_active_prompt,
     set_maintenance_locked,
@@ -72,6 +71,75 @@ def _insert_report(conn, prompt_id, *, created_at, status="ok", model="test-mode
         (prompt_id, model, status, created_at),
     )
     return cur.lastrowid
+
+
+# ---------------------------------------------------------------------------
+# migrate_prune_entry_commentary_history
+# ---------------------------------------------------------------------------
+
+def test_migrate_prune_entry_commentary_history_keeps_only_the_latest_ok_row(conn):
+    entry_id = _seed_entry(conn)
+    prompt_id = set_active_prompt(conn, "p", "test-model")
+    _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00")
+    _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-02T00:00:00+00:00")
+    newest_id = _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-03T00:00:00+00:00")
+
+    migrate_prune_entry_commentary_history(conn)
+
+    rows = conn.execute("SELECT id FROM entry_commentary WHERE entry_id = ?", (entry_id,)).fetchall()
+    assert [r["id"] for r in rows] == [newest_id]
+
+
+def test_migrate_prune_entry_commentary_history_prefers_the_latest_ok_row_over_a_later_failed_one(conn):
+    # The highest id is a failed attempt with no successful text; the migration keeps the LATEST
+    # OK row (matching get_current_commentary's own selection rule), never a failed row over a
+    # usable one, so an entry never loses its displayed commentary to a later failed regen.
+    entry_id = _seed_entry(conn)
+    prompt_id = set_active_prompt(conn, "p", "test-model")
+    ok_id = _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00")
+    _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-02T00:00:00+00:00", status="failed")
+
+    migrate_prune_entry_commentary_history(conn)
+
+    rows = conn.execute("SELECT id FROM entry_commentary WHERE entry_id = ?", (entry_id,)).fetchall()
+    assert [r["id"] for r in rows] == [ok_id]
+
+
+def test_migrate_prune_entry_commentary_history_keeps_the_only_row_when_none_succeeded(conn):
+    entry_id = _seed_entry(conn)
+    prompt_id = set_active_prompt(conn, "p", "test-model")
+    only_id = _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00", status="failed")
+
+    migrate_prune_entry_commentary_history(conn)
+
+    rows = conn.execute("SELECT id FROM entry_commentary WHERE entry_id = ?", (entry_id,)).fetchall()
+    assert [r["id"] for r in rows] == [only_id]
+
+
+def test_migrate_prune_entry_commentary_history_is_idempotent(conn):
+    entry_id = _seed_entry(conn)
+    prompt_id = set_active_prompt(conn, "p", "test-model")
+    _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00")
+    newest_id = _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-02T00:00:00+00:00")
+
+    migrate_prune_entry_commentary_history(conn)
+    migrate_prune_entry_commentary_history(conn)  # second run must be a no-op
+
+    rows = conn.execute("SELECT id FROM entry_commentary WHERE entry_id = ?", (entry_id,)).fetchall()
+    assert [r["id"] for r in rows] == [newest_id]
+
+
+def test_migrate_prune_entry_commentary_history_never_touches_aggregate_report(conn):
+    entry_id = _seed_entry(conn)
+    prompt_id = set_active_prompt(conn, "p", "test-model")
+    _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00")
+    _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-02T00:00:00+00:00")
+    _insert_report(conn, prompt_id, created_at="2026-01-01T00:00:00+00:00")
+    _insert_report(conn, prompt_id, created_at="2026-01-02T00:00:00+00:00")
+
+    migrate_prune_entry_commentary_history(conn)
+
+    assert conn.execute("SELECT COUNT(*) AS n FROM aggregate_report").fetchone()["n"] == 2
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +264,40 @@ def test_application_initialization_rejects_missing_maintenance_row_without_recr
         initialize_database(c)
 
     assert c.execute("SELECT COUNT(*) AS n FROM maintenance_control").fetchone()["n"] == 0
+    c.close()
+
+
+def test_initialize_database_prunes_entry_commentary_history_on_an_already_bootstrapped_restart(
+    tmp_path,
+):
+    """Regression test: an ordinary app restart against an already-bootstrapped database (the
+    "routine" deploy path in docs/deployment.md, used for every deploy after the one-time v0.1
+    bootstrap) takes initialize_database's early-return branch, which never calls
+    _migrate_database_schema again. migrate_prune_entry_commentary_history is a data cleanup, not
+    a schema change, so it must still run on that branch -- otherwise entries that accumulated
+    history before this feature shipped would never collapse to their latest row, unlike entries
+    regenerated after this feature ships (which are pruned by complete_job_item itself)."""
+    db_path = str(tmp_path / "restart-prune.db")
+    c = get_connection(db_path)
+    initialize_database(c)  # first boot: fresh install, seeds bootstrap_state + Analyst prompt
+
+    entry_id = _seed_entry(c)
+    prompt_id = set_active_prompt(c, "p", "test-model")
+    _insert_commentary(c, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00")
+    newest_id = _insert_commentary(c, entry_id, prompt_id, created_at="2026-01-02T00:00:00+00:00")
+    assert (
+        c.execute(
+            "SELECT COUNT(*) AS n FROM entry_commentary WHERE entry_id = ?", (entry_id,)
+        ).fetchone()["n"]
+        == 2
+    )
+
+    initialize_database(c)  # simulated restart: already bootstrapped, early-return branch
+
+    rows = c.execute(
+        "SELECT id FROM entry_commentary WHERE entry_id = ?", (entry_id,)
+    ).fetchall()
+    assert [r["id"] for r in rows] == [newest_id]
     c.close()
 
 
@@ -485,18 +587,14 @@ def test_get_current_report_exposes_prompt_version_and_preset_key(conn):
     assert current["prompt_preset_key"] == "coach"
 
 
-def test_list_and_single_lookup_queries_also_expose_the_join_aliases(conn):
-    entry_id = _seed_entry(conn)
+def test_report_version_queries_also_expose_the_join_aliases(conn):
     prompt_id = set_active_prompt(conn, "custom text", "gpt-5.4")
-    commentary_id = _insert_commentary(conn, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00")
     report_id = _insert_report(conn, prompt_id, created_at="2026-01-01T00:00:00+00:00")
 
-    versions = list_commentary_versions(conn, entry_id)
-    single = get_commentary_by_id(conn, commentary_id)
     report_versions = list_report_versions(conn)
     single_report = get_report_by_id(conn, report_id)
 
-    for row in (*versions, single, *report_versions, single_report):
+    for row in (*report_versions, single_report):
         assert row["prompt_version_no"] == 1
         assert row["prompt_preset_key"] is None  # "custom text" matches no shipped preset
 

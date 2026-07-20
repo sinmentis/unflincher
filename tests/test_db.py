@@ -9,7 +9,6 @@ from unflincher.db import (
     fail_job_item,
     get_active_prompt,
     get_chat_session,
-    get_commentary_by_id,
     get_connection,
     get_current_commentary,
     get_entries_with_active_commentary_job,
@@ -17,7 +16,6 @@ from unflincher.db import (
     get_report_by_id,
     init_schema,
     list_chat_sessions,
-    list_commentary_versions,
     list_report_versions,
     migrate_chat_session,
     migrate_persona_prompt_model,
@@ -350,45 +348,69 @@ def test_complete_job_item_is_atomic(conn):
     assert commentary["body_text"] == "generated"
 
 
-def test_list_commentary_versions_newest_first_excludes_nothing(conn):
+def test_complete_job_item_prunes_older_entry_commentary_rows(conn):
+    """Entries only ever keep their latest reflection -- completing a new entry_commentary job
+    item must delete every OTHER row for that entry_id in the same transaction."""
     entry_id = conn.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
     ).lastrowid
-    prompt_id = set_active_prompt(conn, "p", "test-model")
-    conn.execute(
-        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
-        "VALUES (?, ?, 'm', 'v1', 'ok', '2026-01-01T00:00:00')", (entry_id, prompt_id),
-    )
-    conn.execute(
-        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
-        "VALUES (?, ?, 'm', 'v2-failed', 'failed', '2026-01-02T00:00:00')", (entry_id, prompt_id),
-    )
-    conn.execute(
-        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
-        "VALUES (?, ?, 'm', 'v3', 'ok', '2026-01-03T00:00:00')", (entry_id, prompt_id),
-    )
-
-    versions = list_commentary_versions(conn, entry_id)
-
-    # unlike get_current_commentary, the history view shows failed attempts too (so the owner
-    # can see "this regen failed on this date") — but ordered newest first.
-    assert [v["body_text"] for v in versions] == ["v3", "v2-failed", "v1"]
-
-
-def test_get_commentary_by_id_returns_a_specific_old_version(conn):
-    entry_id = conn.execute(
-        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'manual')"
-    ).lastrowid
-    prompt_id = set_active_prompt(conn, "p", "test-model")
+    prompt_id = set_active_prompt(conn, "persona", "test-model")
     old_id = conn.execute(
-        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
-        "VALUES (?, ?, 'm', 'old take', 'ok')", (entry_id, prompt_id),
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', 'old take', 'ok', '2026-01-01T00:00:00')", (entry_id, prompt_id),
     ).lastrowid
 
-    row = get_commentary_by_id(conn, old_id)
-    assert row["body_text"] == "old take"
+    job_id = start_regen_job(conn, prompt_id, entry_ids=[entry_id])
+    item_id = conn.execute(
+        "SELECT id FROM regen_job_item WHERE job_id = ? AND entry_id = ?", (job_id, entry_id)
+    ).fetchone()["id"]
+    complete_job_item(
+        conn, item_id, "entry_commentary",
+        {
+            "entry_id": entry_id, "prompt_version_id": prompt_id, "model": "test-model",
+            "body_text": "new take", "status": "ok", "created_at": "2026-01-02T00:00:00",
+        },
+    )
+
+    rows = conn.execute(
+        "SELECT id, body_text FROM entry_commentary WHERE entry_id = ?", (entry_id,)
+    ).fetchall()
+    assert [r["body_text"] for r in rows] == ["new take"]
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM entry_commentary WHERE id = ?", (old_id,)
+    ).fetchone()["n"] == 0
+
+
+def test_complete_job_item_never_prunes_aggregate_report(conn):
+    """Unlike entry_commentary, aggregate_report keeps its full version history -- completing a
+    new report job item must never delete a prior report row."""
+    prompt_id = set_active_prompt(conn, "persona", "test-model")
+    old_id = conn.execute(
+        "INSERT INTO aggregate_report (prompt_version_id, model, body_text, covered_entry_count, "
+        "status, created_at) VALUES (?, 'm', 'old report', 1, 'ok', '2026-01-01T00:00:00')",
+        (prompt_id,),
+    ).lastrowid
+
+    job_id = start_regen_job(conn, prompt_id, entry_ids=[])
+    item_id = conn.execute(
+        "SELECT id FROM regen_job_item WHERE job_id = ? AND target_type = 'aggregate_report'",
+        (job_id,),
+    ).fetchone()["id"]
+    complete_job_item(
+        conn, item_id, "aggregate_report",
+        {
+            "prompt_version_id": prompt_id, "model": "test-model", "body_text": "new report",
+            "covered_entry_count": 0, "covered_from_date": None, "covered_to_date": None,
+            "status": "ok", "created_at": "2026-01-02T00:00:00",
+        },
+    )
+
+    rows = conn.execute("SELECT id, body_text FROM aggregate_report ORDER BY id").fetchall()
+    assert [r["body_text"] for r in rows] == ["old report", "new report"]
+    assert conn.execute(
+        "SELECT COUNT(*) AS n FROM aggregate_report WHERE id = ?", (old_id,)
+    ).fetchone()["n"] == 1
 
 
 def test_list_and_get_report_versions(conn):

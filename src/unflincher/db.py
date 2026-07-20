@@ -5,6 +5,9 @@ Design invariants enforced here (see plan Global Constraints):
 - Only one regen_job may be status='running' at a time (partial unique index).
 - "Current" commentary/report = latest row WHERE status='ok' (never plain latest-by-date).
 - complete_job_item() writes the result row and flips the job item to 'ok' in ONE transaction.
+- entry_commentary keeps only its latest row per entry_id (older rows are pruned the moment a new
+  one is written); aggregate_report keeps its full version history unchanged. See
+  complete_job_item() and migrate_prune_entry_commentary_history().
 
 Generation-safety invariants added alongside the maintenance gate / lease / snapshot foundations
 (see the plan's Maintenance gate and Context budget and failure contract sections):
@@ -769,6 +772,7 @@ def _migrate_database_schema(conn: sqlite3.Connection) -> None:
     migrate_persona_prompt_preset_key(conn)
     migrate_chat_session(conn)
     migrate_generation_safety(conn)
+    migrate_prune_entry_commentary_history(conn)
 
 
 def initialize_database(conn: sqlite3.Connection) -> None:
@@ -797,6 +801,9 @@ def initialize_database(conn: sqlite3.Connection) -> None:
     if bootstrap_state is not None:
         require_v02_operational_schema(conn)
         enable_wal_mode(conn)
+        # Pure data cleanup, not a schema change: safe to run on every ordinary startup (unlike
+        # the rest of _migrate_database_schema, which only runs once via the bootstrap path above).
+        migrate_prune_entry_commentary_history(conn)
         return
     enable_wal_mode(conn)
     _migrate_database_schema(conn)
@@ -1107,27 +1114,6 @@ def get_current_report(conn: sqlite3.Connection) -> sqlite3.Row | None:
     ).fetchone()
 
 
-def list_commentary_versions(conn: sqlite3.Connection, entry_id: int) -> list[sqlite3.Row]:
-    # Unlike get_current_commentary, the history view keeps failed rows too, so the owner can
-    # see that a regen failed on a given date. Newest first (by created_at -- history ordering is
-    # a display concern, not the "current" selection rule above).
-    return conn.execute(
-        "SELECT ec.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
-        "FROM entry_commentary ec JOIN persona_prompt pp ON pp.id = ec.prompt_version_id "
-        "WHERE ec.entry_id = ? ORDER BY ec.created_at DESC",
-        (entry_id,),
-    ).fetchall()
-
-
-def get_commentary_by_id(conn: sqlite3.Connection, commentary_id: int) -> sqlite3.Row | None:
-    return conn.execute(
-        "SELECT ec.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
-        "FROM entry_commentary ec JOIN persona_prompt pp ON pp.id = ec.prompt_version_id "
-        "WHERE ec.id = ?",
-        (commentary_id,),
-    ).fetchone()
-
-
 def list_report_versions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return conn.execute(
         "SELECT ar.*, pp.version_no AS prompt_version_no, pp.preset_key AS prompt_preset_key "
@@ -1264,7 +1250,13 @@ def get_latest_commentary_job_item(conn: sqlite3.Connection, entry_id: int) -> s
 
 def complete_job_item(conn: sqlite3.Connection, item_id: int, result_table: str, result_row: dict) -> None:
     """Insert the generated commentary/report row and mark the job item 'ok' atomically.
-    result_table must be 'entry_commentary' or 'aggregate_report'."""
+    result_table must be 'entry_commentary' or 'aggregate_report'.
+
+    entry_commentary keeps only its latest row per entry -- once the new row is in, every OTHER
+    entry_commentary row for the same entry_id is deleted in this SAME transaction. aggregate_report
+    is never pruned; it keeps its full version history. Safe with respect to staleness/retry
+    checks: those compare against the CURRENT (highest-id) result id for a target, which this
+    prune never changes -- it only removes rows that were already superseded."""
     if result_table not in ("entry_commentary", "aggregate_report"):
         raise ValueError(f"invalid result_table: {result_table}")
     columns = ", ".join(result_row.keys())
@@ -1276,6 +1268,11 @@ def complete_job_item(conn: sqlite3.Connection, item_id: int, result_table: str,
             tuple(result_row.values()),
         )
         result_id = cur.lastrowid
+        if result_table == "entry_commentary":
+            conn.execute(
+                "DELETE FROM entry_commentary WHERE entry_id = ? AND id != ?",
+                (result_row["entry_id"], result_id),
+            )
         conn.execute(
             "UPDATE regen_job_item SET status = 'ok', result_id = ?, updated_at = ? WHERE id = ?",
             (result_id, _now(), item_id),
@@ -1339,6 +1336,41 @@ def migrate_generation_safety(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE regen_job_item ADD COLUMN request_fingerprint TEXT")
     if "baseline_result_id" not in item_columns:
         conn.execute("ALTER TABLE regen_job_item ADD COLUMN baseline_result_id INTEGER")
+
+
+def migrate_prune_entry_commentary_history(conn: sqlite3.Connection) -> None:
+    """Collapse every entry's entry_commentary rows down to just the one it would already show as
+    "current", deleting the rest. One-time cleanup for databases created before complete_job_item()
+    started pruning older rows itself (see its docstring) -- entries only ever need their latest
+    reflection; unlike migrate_persona_prompt_model's ALTER TABLE, this is a data prune, not a
+    schema change, but it is just as idempotent and safe to run on every startup: a database
+    already collapsed to one row per entry_id is a no-op.
+
+    "Current" here is the SAME rule get_current_commentary()/_current_result_id_for_target() use:
+    the highest-id row with status='ok'. If an entry somehow has no 'ok' row at all (never produced
+    by this app's own write path -- complete_job_item only ever inserts status='ok' -- but possible
+    from historical data), the highest-id row of any status is kept instead, so a prune never
+    discards an entry's only row. aggregate_report is never touched by this function."""
+    entry_ids = [
+        row["entry_id"] for row in conn.execute(
+            "SELECT DISTINCT entry_id FROM entry_commentary ORDER BY entry_id"
+        ).fetchall()
+    ]
+    for entry_id in entry_ids:
+        keep_row = conn.execute(
+            "SELECT id FROM entry_commentary WHERE entry_id = ? AND status = 'ok' "
+            "ORDER BY id DESC LIMIT 1",
+            (entry_id,),
+        ).fetchone()
+        if keep_row is None:
+            keep_row = conn.execute(
+                "SELECT id FROM entry_commentary WHERE entry_id = ? ORDER BY id DESC LIMIT 1",
+                (entry_id,),
+            ).fetchone()
+        conn.execute(
+            "DELETE FROM entry_commentary WHERE entry_id = ? AND id != ?",
+            (entry_id, keep_row["id"]),
+        )
 
 
 # ---------------------------------------------------------------------------

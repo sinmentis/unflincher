@@ -311,7 +311,28 @@ def test_entry_chat_413_releases_lease_and_writes_no_message(client, monkeypatch
     assert get_lease_by_target(db, entry_thread_key(entry_id)) is None
 
 
-def test_view_specific_historical_commentary_version(client):
+def test_commentary_version_route_no_longer_exists(client):
+    """Entries only keep their latest reflection now -- there is nothing to browse, so the old
+    per-version route is gone entirely rather than degraded."""
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    commentary_id = db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
+        "VALUES (?, ?, 'm', '最新版本内容', 'ok', '2026-01-02T00:00:00')", (entry_id, prompt_id),
+    ).lastrowid
+
+    response = client.get(f"/entry/{entry_id}/commentary/{commentary_id}")
+
+    assert response.status_code == 404
+
+
+def test_entry_detail_only_ever_shows_the_latest_commentary_row(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -322,21 +343,20 @@ def test_view_specific_historical_commentary_version(client):
     prompt_id = db.execute(
         "INSERT INTO persona_prompt (version_no, body_text, model, is_active) VALUES (2, 'p', 'test-model', 0)"
     ).lastrowid
-    old_id = db.execute(
+    db.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
         "VALUES (?, ?, 'm', '旧版本内容', 'ok', '2026-01-01T00:00:00')", (entry_id, prompt_id),
-    ).lastrowid
+    )
     db.execute(
         "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
         "VALUES (?, ?, 'm', '最新版本内容', 'ok', '2026-01-02T00:00:00')", (entry_id, prompt_id),
     )
 
-    response = client.get(f"/entry/{entry_id}/commentary/{old_id}")
+    body = client.get(f"/entry/{entry_id}").text
 
-    assert response.status_code == 200
-    assert "旧版本内容" in response.text
-    # browsing an old version must not affect the chat thread's own independent context —
-    # this route only swaps the commentary display, per Global Constraints.
+    assert "最新版本内容" in body
+    assert "旧版本内容" not in body
+    assert 'class="version-ledger"' not in body
 
 
 def test_entry_detail_uses_balanced_graphite_reading_layout(client):
@@ -399,7 +419,7 @@ def test_entry_detail_uses_quiet_record_metadata_without_ledger_numbering(client
     assert body.index('class="record-metadata"') < body.index('id="diary-text"')
 
 
-def test_entry_detail_preserves_generation_and_version_hooks(client):
+def test_entry_detail_preserves_generation_hooks(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -409,46 +429,16 @@ def test_entry_detail_preserves_generation_and_version_hooks(client):
         "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
         "VALUES (2, 'p', 'test-model', 0)"
     ).lastrowid
-    ok_id = db.execute(
+    db.execute(
         "INSERT INTO entry_commentary "
         "(entry_id, prompt_version_id, model, body_text, status, created_at) "
         "VALUES (?, ?, 'test-model', 'current', 'ok', '2026-01-02T00:00:00')",
-        (entry_id, prompt_id),
-    ).lastrowid
-    db.execute(
-        "INSERT INTO entry_commentary "
-        "(entry_id, prompt_version_id, model, body_text, status, error, created_at) "
-        "VALUES (?, ?, 'test-model', '', 'failed', 'boom', '2026-01-01T00:00:00')",
         (entry_id, prompt_id),
     )
     body = client.get(f"/entry/{entry_id}").text
     assert 'id="ai-commentary"' in body
     assert 'data-role="ai-commentary"' in body
-    assert f'href="/entry/{entry_id}/commentary/{ok_id}"' in body
     assert 'id="run-commentary"' in body or 'id="retry-commentary"' in body
-
-
-def test_failed_historical_commentary_shows_local_failure_state(client):
-    db = client.app.state.db
-    entry_id = db.execute(
-        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
-    ).lastrowid
-    prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
-        "VALUES (2, 'p', 'test-model', 0)"
-    ).lastrowid
-    failed_id = db.execute(
-        "INSERT INTO entry_commentary "
-        "(entry_id, prompt_version_id, model, body_text, status, error) "
-        "VALUES (?, ?, 'test-model', '', 'failed', 'boom')",
-        (entry_id, prompt_id),
-    ).lastrowid
-
-    body = client.get(f"/entry/{entry_id}/commentary/{failed_id}").text
-
-    assert 'id="commentary-error"' in body
-    assert "boom" in body
 
 
 def test_entry_detail_has_toc_anchors_and_sidebar(client):
@@ -692,35 +682,6 @@ def test_entry_detail_composer_always_shows_the_globally_active_perspective(clie
     assert "Perspective for the next response: Analyst" in body
 
 
-def test_view_specific_historical_commentary_version_shows_its_own_perspective(client):
-    db = client.app.state.db
-    entry_id = _insert_entry(db)
-    old_prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
-        "VALUES (2, 'old', 'test-model', 'coach', 0)"
-    ).lastrowid
-    new_prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, model, preset_key, is_active) "
-        "VALUES (3, 'new', 'test-model', 'analyst', 0)"
-    ).lastrowid
-    old_id = db.execute(
-        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
-        "VALUES (?, ?, 'm', 'old text', 'ok', '2026-01-01T00:00:00')",
-        (entry_id, old_prompt_id),
-    ).lastrowid
-    db.execute(
-        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status, created_at) "
-        "VALUES (?, ?, 'm', 'new text', 'ok', '2026-01-02T00:00:00')",
-        (entry_id, new_prompt_id),
-    )
-
-    body = client.get(f"/entry/{entry_id}/commentary/{old_id}").text
-
-    assert "Perspective: Coach" in body
-    # The old version's own Perspective shows -- not the current commentary's Analyst.
-    assert "Perspective: Analyst" not in body
-
-
 def test_entry_detail_perspective_indicator_translates(client):
     db = client.app.state.db
     entry_id = _insert_entry(db)
@@ -773,21 +734,3 @@ def test_run_commentary_button_says_regenerate_once_a_reflection_exists(client):
 
     assert ">Regenerate reflection<" in body
     assert ">Generate reflection<" not in body
-
-
-def test_historical_commentary_view_also_shows_regenerate_label(client):
-    db = client.app.state.db
-    entry_id = _insert_entry(db)
-    prompt_id = db.execute(
-        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
-        "VALUES (2, 'p', 'test-model', 0)"
-    ).lastrowid
-    old_id = db.execute(
-        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
-        "VALUES (?, ?, 'm', 'text', 'ok')",
-        (entry_id, prompt_id),
-    ).lastrowid
-
-    body = client.get(f"/entry/{entry_id}/commentary/{old_id}").text
-
-    assert ">Regenerate reflection<" in body

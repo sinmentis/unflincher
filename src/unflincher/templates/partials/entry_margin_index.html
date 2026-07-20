@@ -2,18 +2,4 @@
   <nav aria-label="{{ t('entry.toc_aria') }}">
     {% include "partials/entry_toc_links.html" %}
   </nav>
-  {% if versions %}
-  <ol class="version-ledger">
-    {% for version in versions %}
-    <li>
-      <a href="/entry/{{ entry.id }}/commentary/{{ version.id }}"
-         {% if version.id == viewing_version_id %}aria-current="true"{% endif %}>
-        <span>V{{ "%02d" % (versions|length - loop.index0) }}</span>
-        <time>{{ version.created_at[:10] }}</time>
-        {% if version.status == "failed" %}<span>{{ t("entry.version_failed_suffix") }}</span>{% endif %}
-      </a>
-    </li>
-    {% endfor %}
-  </ol>
-  {% endif %}
 </aside>

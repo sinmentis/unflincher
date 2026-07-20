@@ -47,11 +47,9 @@
 .diary-prose img, .analysis-prose img { display: block; margin: 2rem 0; border: 1px solid var(--rule); }
 .diary-prose :is(h2, h3, h4), .analysis-prose :is(h2, h3, h4) { margin: 2em 0 0.6em; line-height: 1.1; }
 .entry-margin-index { align-self: start; }
-.entry-margin-index nav, .entry-margin-index .version-ledger { display: grid; margin: 0; padding: 0; list-style: none; }
-.entry-margin-index .version-ledger { margin-top: var(--space-4); }
+.entry-margin-index nav { display: grid; margin: 0; padding: 0; list-style: none; }
 .entry-margin-index a { display: block; padding: var(--space-2) 0; color: var(--prose); font-size: 0.75rem; text-decoration: none; }
 .entry-margin-index a:hover { color: var(--text); }
-.version-ledger a { display: grid; grid-template-columns: 2.5rem 1fr auto; gap: var(--space-2); font-size: 0.6875rem; }
 .entry-margin-index a.is-active, .entry-margin-index a[aria-current="true"] { color: var(--text); border-left: 3px solid var(--muted); padding-left: var(--space-2); }
 
 /* Mobile-only sticky section tab strip (Structured Studio); shares its jump links and
