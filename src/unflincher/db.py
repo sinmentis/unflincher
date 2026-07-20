@@ -801,9 +801,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
     if bootstrap_state is not None:
         require_v02_operational_schema(conn)
         enable_wal_mode(conn)
-        # Pure data cleanup, not a schema change: safe to run on every ordinary startup (unlike
-        # the rest of _migrate_database_schema, which only runs once via the bootstrap path above).
-        migrate_prune_entry_commentary_history(conn)
         return
     enable_wal_mode(conn)
     _migrate_database_schema(conn)
@@ -1342,9 +1339,18 @@ def migrate_prune_entry_commentary_history(conn: sqlite3.Connection) -> None:
     """Collapse every entry's entry_commentary rows down to just the one it would already show as
     "current", deleting the rest. One-time cleanup for databases created before complete_job_item()
     started pruning older rows itself (see its docstring) -- entries only ever need their latest
-    reflection; unlike migrate_persona_prompt_model's ALTER TABLE, this is a data prune, not a
-    schema change, but it is just as idempotent and safe to run on every startup: a database
-    already collapsed to one row per entry_id is a no-op.
+    reflection. Idempotent: a database already collapsed to one row per entry_id is a no-op.
+
+    Registered in _migrate_database_schema() for symmetry with the other migrations (so a fresh
+    install, which starts with zero entry_commentary rows anyway, stays a true no-op there), but
+    deliberately NOT invoked from initialize_database()'s already-bootstrapped fast path the way a
+    schema-only migration would be: unlike an ALTER TABLE, this mutates row counts, and the
+    "routine" deploy's restore drill (see unflincher-restore-drill.sh) asserts every table's row
+    count is IDENTICAL before and after a plain restart against a restored backup, to catch
+    accidental data loss. Running this automatically on every restart would trip that invariant
+    (and rightly so -- from the drill's point of view it can't tell "intentional prune" from "bug").
+    Applying this to an already-live database is therefore a deliberate, separate, manual step
+    (see docs/deployment.md), not something a routine code deploy triggers by itself.
 
     "Current" here is the SAME rule get_current_commentary()/_current_result_id_for_target() use:
     the highest-id row with status='ok'. If an entry somehow has no 'ok' row at all (never produced

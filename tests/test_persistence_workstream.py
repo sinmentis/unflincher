@@ -267,37 +267,34 @@ def test_application_initialization_rejects_missing_maintenance_row_without_recr
     c.close()
 
 
-def test_initialize_database_prunes_entry_commentary_history_on_an_already_bootstrapped_restart(
+def test_initialize_database_never_prunes_entry_commentary_on_an_already_bootstrapped_restart(
     tmp_path,
 ):
-    """Regression test: an ordinary app restart against an already-bootstrapped database (the
-    "routine" deploy path in docs/deployment.md, used for every deploy after the one-time v0.1
-    bootstrap) takes initialize_database's early-return branch, which never calls
-    _migrate_database_schema again. migrate_prune_entry_commentary_history is a data cleanup, not
-    a schema change, so it must still run on that branch -- otherwise entries that accumulated
-    history before this feature shipped would never collapse to their latest row, unlike entries
-    regenerated after this feature ships (which are pruned by complete_job_item itself)."""
-    db_path = str(tmp_path / "restart-prune.db")
+    """Regression guard for the routine deploy's restore drill (see
+    unflincher-restore-drill.sh), which asserts every table's row count is IDENTICAL before and
+    after a plain restart against a restored backup, to catch accidental data loss. An ordinary
+    app restart against an already-bootstrapped database takes initialize_database's early-return
+    branch, which must NOT call migrate_prune_entry_commentary_history (or anything else that
+    changes row counts) -- that migration is a deliberate, separate, manual step (see
+    docs/deployment.md and migrate_prune_entry_commentary_history's own docstring), never
+    something a routine restart triggers by itself."""
+    db_path = str(tmp_path / "restart-no-prune.db")
     c = get_connection(db_path)
     initialize_database(c)  # first boot: fresh install, seeds bootstrap_state + Analyst prompt
 
     entry_id = _seed_entry(c)
     prompt_id = set_active_prompt(c, "p", "test-model")
     _insert_commentary(c, entry_id, prompt_id, created_at="2026-01-01T00:00:00+00:00")
-    newest_id = _insert_commentary(c, entry_id, prompt_id, created_at="2026-01-02T00:00:00+00:00")
+    _insert_commentary(c, entry_id, prompt_id, created_at="2026-01-02T00:00:00+00:00")
+
+    initialize_database(c)  # simulated restart: already bootstrapped, early-return branch
+
     assert (
         c.execute(
             "SELECT COUNT(*) AS n FROM entry_commentary WHERE entry_id = ?", (entry_id,)
         ).fetchone()["n"]
         == 2
     )
-
-    initialize_database(c)  # simulated restart: already bootstrapped, early-return branch
-
-    rows = c.execute(
-        "SELECT id FROM entry_commentary WHERE entry_id = ?", (entry_id,)
-    ).fetchall()
-    assert [r["id"] for r in rows] == [newest_id]
     c.close()
 
 
