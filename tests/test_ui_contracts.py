@@ -225,7 +225,7 @@ def test_reading_surfaces_keep_a_comfortable_measure():
     assert "--measure: 46rem" in tokens
     assert "--leading-reading: 1.82" in tokens
     assert "max-width: 80rem" in _rule_body(pages, ".diary-prose")
-    assert "max-width: var(--measure)" in _rule_body(pages, ".report-prose")
+    assert "max-width: 80rem" in _rule_body(pages, ".report-prose")
     assert "minmax(0, var(--measure))" in _rule_body(components, ".conversation-message")
 
 
@@ -332,6 +332,20 @@ def test_entry_layout_uses_the_removed_rail_space_for_reading():
     source = (TEMPLATES / "entry_detail.html").read_text()
     assert "entry-context" not in source
     assert "entry-adjacent" not in source
+
+
+def test_report_and_writing_layouts_use_the_full_desktop_workspace():
+    css = PAGES_CSS.read_text()
+    for selector in (".report-layout", ".writing-desk-frame"):
+        body = _rule_body(css, selector)
+        assert "width: 100%" in body
+        assert "max-width" not in body
+        assert "margin-inline" not in body
+
+    assert "max-width: 80rem" in _rule_body(css, ".report-prose")
+    assert "max-width: 80rem" in _rule_body(css, ".writing-title")
+    assert "max-width: 80rem" in _rule_body(css, ".writing-body")
+    assert "max-width: 80rem" in _rule_body(css, ".entry-word-count")
 
 
 def test_conversation_titles_wrap_instead_of_truncating():

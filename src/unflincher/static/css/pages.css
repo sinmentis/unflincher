@@ -328,10 +328,9 @@
 /* Life Report */
 .report-layout {
   display: grid;
+  width: 100%;
   grid-template-columns: minmax(0, 1fr) 19rem;
   gap: var(--space-5);
-  max-width: 88rem;
-  margin-inline: auto;
   align-items: start;
 }
 .report-document {
@@ -357,7 +356,7 @@
 .report-stat { display: flex; flex-direction: column; gap: var(--space-1); }
 .report-stat-value { color: var(--text); font-size: 1.25rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; }
 .report-stat-label { color: var(--label); font-size: 0.6875rem; letter-spacing: 0.04em; text-transform: uppercase; }
-.report-prose { max-width: var(--measure); font-size: 1.0625rem; line-height: var(--leading-reading); }
+.report-prose { max-width: 80rem; font-size: 1.0625rem; line-height: var(--leading-reading); }
 .report-rail {
   position: sticky;
   top: var(--space-6);
@@ -408,7 +407,7 @@
 .report-mobile-tabs { display: none; }
 
 /* Write */
-.writing-desk-frame { max-width: 72rem; margin-inline: auto; }
+.writing-desk-frame { width: 100%; }
 .writing-desk {
   display: grid;
   grid-template-columns: 13rem minmax(0, 1fr);
@@ -433,7 +432,7 @@
 .ledger-date-group input { width: 100%; }
 .entry-day-of-week { color: var(--prose); font-size: var(--text-sm); text-transform: none; }
 .entry-recency-note { margin: var(--space-2) 0 0; color: var(--tertiary); font-size: var(--text-xs); line-height: 1.5; }
-.entry-word-count { margin: var(--space-4) 0 0; color: var(--label); font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-align: right; text-transform: uppercase; }
+.entry-word-count { max-width: 80rem; margin: var(--space-4) 0 0; color: var(--label); font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-align: right; text-transform: uppercase; }
 .writing-editor {
   position: relative;
   isolation: isolate;
@@ -458,6 +457,7 @@
 }
 .writing-title {
   width: 100%;
+  max-width: 80rem;
   margin: 0;
   padding: 0 0 var(--space-4);
   border: 0;
@@ -470,6 +470,7 @@
 }
 .writing-body {
   width: 100%;
+  max-width: 80rem;
   min-height: calc(100dvh - 15rem);
   margin-top: var(--space-5);
   padding: 0;
