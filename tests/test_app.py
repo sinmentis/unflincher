@@ -7,7 +7,7 @@ def test_healthz_returns_ok(client):
     assert response.json() == {
         "status": "ok",
         "revision": "development",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "generation_locked": False,
     }
 
