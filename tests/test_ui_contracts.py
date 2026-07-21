@@ -272,7 +272,6 @@ def test_mobile_layouts_collapse_in_source_order():
     assert not re.search(r"(?m)^\s*order\s*:", css)
     mobile = _media_block(css, MOBILE_QUERY)
     for selector in (
-        ".entry-layout",
         ".report-layout",
         ".chat-layout",
         ".writing-desk",
@@ -292,10 +291,19 @@ def test_timeline_layout_is_a_single_column_at_every_width():
     assert "display: block" in body
 
 
+def test_entry_layout_is_a_single_column_at_every_width():
+    """Entry Detail's segmented control (Body/Reflection/Conversation) swaps panels in place
+    instead of collapsing a sidebar rail, so .entry-layout is a single block column at every
+    width, same as .timeline-layout -- nothing to collapse in the mobile media query."""
+    css = PAGES_CSS.read_text()
+    body = _rule_body(css, ".entry-layout")
+    assert "display: block" in body
+
+
 def test_report_mobile_tabs_mirror_entry_sticky_tab_pattern():
-    """Life Report's mobile "Report"/"History" tabs are the same sticky jump-link pattern as
-    Entry Detail's mobile tabs: hidden at desktop, a sticky flex strip with a teal active
-    underline once the single-breakpoint media query collapses the two-column layout."""
+    """Life Report's mobile "Report"/"History" tabs are a sticky jump-link strip: hidden at
+    desktop, a sticky flex row with a teal active underline once the single-breakpoint media
+    query collapses the two-column layout."""
     css = PAGES_CSS.read_text()
     assert "display: none" in _rule_body(css, ".report-mobile-tabs")
 

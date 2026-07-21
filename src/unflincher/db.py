@@ -1841,6 +1841,27 @@ def get_ordered_entry_ids(conn: sqlite3.Connection) -> list[int]:
     return [r["id"] for r in rows]
 
 
+def get_adjacent_entries(
+    conn: sqlite3.Connection, entry_id: int, entry_date: str
+) -> tuple[sqlite3.Row | None, sqlite3.Row | None]:
+    """The chronologically previous and next entries relative to (entry_date, entry_id), using the
+    canonical Journal Archive order (entry_date ASC, id ASC -- see get_ordered_entry_ids). Powers
+    Entry Detail's Prev/Next navigation; either side is None at the start/end of the archive."""
+    prev_row = conn.execute(
+        "SELECT id, title, entry_date FROM diary_entry "
+        "WHERE entry_date < ? OR (entry_date = ? AND id < ?) "
+        "ORDER BY entry_date DESC, id DESC LIMIT 1",
+        (entry_date, entry_date, entry_id),
+    ).fetchone()
+    next_row = conn.execute(
+        "SELECT id, title, entry_date FROM diary_entry "
+        "WHERE entry_date > ? OR (entry_date = ? AND id > ?) "
+        "ORDER BY entry_date ASC, id ASC LIMIT 1",
+        (entry_date, entry_date, entry_id),
+    ).fetchone()
+    return prev_row, next_row
+
+
 def get_entry_year_counts(conn: sqlite3.Connection) -> list[dict]:
     """Entry counts grouped by calendar year (from entry_date's first 4 characters), newest year
     first. Shared by the Timeline year filter chips (routes/timeline.py) and the Life Report

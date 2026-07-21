@@ -49,25 +49,59 @@ function initEntryPage(doc = document) {
     });
   }
 
-  // Two containers share the same jump links: the desktop margin index and the mobile sticky
-  // tab strip (only one is ever visible at a given width -- see pages.css). Both stay in sync
-  // off the same observer so whichever one is showing already reflects the active section.
-  const tocs = Array.from(doc.querySelectorAll(".entry-margin-index, .entry-mobile-tabs"));
-  if (tocs.length && "IntersectionObserver" in window) {
-    const sections = ["diary-text", "ai-commentary", "chat-section"]
-      .map((id) => doc.getElementById(id))
-      .filter(Boolean);
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        tocs.forEach((toc) => {
-          toc.querySelectorAll("[data-jump]").forEach((link) => {
-            link.classList.toggle("is-active", link.hash === `#${entry.target.id}`);
-          });
-        });
-      }
-    }, {rootMargin: "-35% 0px -55% 0px"});
-    sections.forEach((section) => observer.observe(section));
+  // Segmented control (Body / Reflection / Conversation): a real ARIA tablist with roving
+  // tabindex. Each tab shows exactly one panel -- replaces the former single long-scroll layout
+  // and its IntersectionObserver-driven jump links, so switching sections is instant instead of
+  // a scroll position guess.
+  const tabs = Array.from(doc.querySelectorAll(".entry-segmented-tab"));
+  const thumb = doc.querySelector(".entry-segmented-thumb");
+  if (tabs.length && thumb) {
+    const panelFor = (tab) => doc.getElementById(tab.getAttribute("aria-controls"));
+
+    const positionThumb = (tab) => {
+      thumb.style.width = `${tab.offsetWidth}px`;
+      thumb.style.transform = `translateX(${tab.offsetLeft}px)`;
+    };
+
+    const activate = (tab, {focus = false} = {}) => {
+      tabs.forEach((other) => {
+        const isActive = other === tab;
+        other.setAttribute("aria-selected", String(isActive));
+        other.tabIndex = isActive ? 0 : -1;
+        const panel = panelFor(other);
+        if (panel) panel.hidden = !isActive;
+        panel?.classList.toggle("is-active", isActive);
+      });
+      positionThumb(tab);
+      if (focus) tab.focus();
+    };
+
+    tabs.forEach((tab, index) => {
+      tab.tabIndex = tab.getAttribute("aria-selected") === "true" ? 0 : -1;
+      tab.addEventListener("click", () => activate(tab));
+      tab.addEventListener("keydown", (event) => {
+        let target = null;
+        if (event.key === "ArrowRight") target = tabs[(index + 1) % tabs.length];
+        else if (event.key === "ArrowLeft") target = tabs[(index - 1 + tabs.length) % tabs.length];
+        else if (event.key === "Home") target = tabs[0];
+        else if (event.key === "End") target = tabs[tabs.length - 1];
+        if (!target) return;
+        event.preventDefault();
+        activate(target, {focus: true});
+      });
+    });
+
+    if (typeof window !== "undefined" && "requestAnimationFrame" in window) {
+      const repositionActiveThumb = () => {
+        const selected = tabs.find((tab) => tab.getAttribute("aria-selected") === "true") || tabs[0];
+        positionThumb(selected);
+      };
+      window.requestAnimationFrame(repositionActiveThumb);
+      // Each tab's width/offset is layout-dependent (equal thirds of the row), so a window
+      // resize (or rotation) without a click must resnap the thumb -- otherwise it's left at a
+      // stale pixel position from before the resize.
+      window.addEventListener("resize", () => window.requestAnimationFrame(repositionActiveThumb));
+    }
   }
 }
 

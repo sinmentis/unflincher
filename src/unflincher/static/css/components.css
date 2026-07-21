@@ -198,7 +198,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { border-color
 @media (pointer: coarse) {
   .brand-lockup, .topbar-mobile-back,
   .session-link, .session-action,
-  .entry-margin-index a, .report-version-index a, .report-toc a,
+  .entry-adjacent-link, .report-version-index a, .report-toc a,
   button, input, select, textarea, summary {
     min-height: 2.75rem;
   }

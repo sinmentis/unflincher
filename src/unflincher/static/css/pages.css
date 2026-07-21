@@ -5,39 +5,23 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Entry detail: Balanced Graphite reading reference (Task 4). Diary is the primary reading plane;
-   the commentary rail is secondary; the follow-up thread is last in the DOM and in the mobile
-   single-column flow. Unscoped like its .report-layout sibling so the responsive collapse wins. */
+/* Entry detail: Apple HIG-inspired reading reference (Task 4b). A single capped-width column
+   (shared --reading-max standard, matching Report/Chat/Workshop) holds the title, metadata, and a
+   three-way segmented control (Body / Reflection / Conversation) that swaps panels in place --
+   no sidebar rail, no separate mobile tab strip, because the segmented control already works
+   identically at every width. */
 .entry-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(18rem, 3fr);
-  gap: var(--space-8);
-  align-items: start;
+  display: block;
 }
 
-/* Primary reading plane. The 48px baseline texture is a faint decorative ::before painted above
-   the plane and below the text; it is removed at narrow width and in forced colours. */
 .entry-record {
-  position: relative;
-  isolation: isolate;
-  min-width: 0;
-  padding: var(--space-8) var(--space-7);
-  background-color: var(--entry-plane);
-}
-.entry-record::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.1;
-  background-image: repeating-linear-gradient(
-    to bottom, var(--rule) 0, var(--rule) 1px, transparent 1px, transparent 48px);
+  width: min(100%, var(--reading-max));
+  margin-inline: auto;
 }
 .entry-record .page-heading { margin-bottom: var(--space-3); padding-bottom: 0; border-bottom: 0; }
-.entry-record .page-heading h1 { max-width: 20ch; font-size: clamp(1.875rem, 4vw, 3.25rem); font-weight: 500; line-height: 1.12; letter-spacing: -0.02em; }
-.record-metadata { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-7); color: var(--prose); font-size: 0.75rem; }
-.diary-prose, .analysis-prose { max-width: var(--reading-max); font-size: clamp(1.0625rem, 1.4vw, 1.1875rem); line-height: 1.95; text-wrap: pretty; }
+.entry-record .page-heading h1 { font-size: clamp(1.875rem, 4vw, 3.25rem); font-weight: 500; line-height: 1.12; letter-spacing: -0.02em; }
+.record-metadata { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-5); color: var(--prose); font-size: 0.75rem; }
+.diary-prose, .analysis-prose { font-size: clamp(1.0625rem, 1.4vw, 1.1875rem); line-height: 1.95; text-wrap: pretty; }
 .diary-prose > :first-child, .analysis-prose > :first-child { margin-top: 0; }
 .diary-prose > :last-child, .analysis-prose > :last-child { margin-bottom: 0; }
 .diary-prose p, .analysis-prose p { margin: 0 0 1.25em; }
@@ -46,35 +30,67 @@
 .diary-prose a, .analysis-prose a { color: var(--text); text-decoration-color: var(--muted); text-underline-offset: 0.2em; }
 .diary-prose img, .analysis-prose img { display: block; margin: 2rem 0; border: 1px solid var(--rule); }
 .diary-prose :is(h2, h3, h4), .analysis-prose :is(h2, h3, h4) { margin: 2em 0 0.6em; line-height: 1.1; }
-.entry-margin-index { align-self: start; }
-.entry-margin-index nav { display: grid; margin: 0; padding: 0; list-style: none; }
-.entry-margin-index a { display: block; padding: var(--space-2) 0; color: var(--prose); font-size: 0.75rem; text-decoration: none; }
-.entry-margin-index a:hover { color: var(--text); }
-.entry-margin-index a.is-active, .entry-margin-index a[aria-current="true"] { color: var(--text); border-left: 3px solid var(--muted); padding-left: var(--space-2); }
 
-/* Mobile-only sticky section tab strip (Structured Studio); shares its jump links and
-   IntersectionObserver-driven active state with .entry-margin-index (see entry_toc_links.html
-   and entry.js) but stays hidden at desktop width, where the margin index alone covers jumping. */
-.entry-mobile-tabs { display: none; }
+/* Adjacent-entry navigation: quiet text links, not buttons -- these are real page navigations to
+   a different URL, so they stay <a> elements (work without JS, keep normal link semantics). */
+.entry-adjacent-nav { display: flex; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+.entry-adjacent-link { display: inline-flex; align-items: center; gap: 0.3rem; padding: var(--space-2) 0; color: var(--prose); font: 600 0.8rem/1 var(--font-ui); text-decoration: none; }
+.entry-adjacent-link:hover { color: var(--text); }
+.entry-adjacent-link--next { margin-left: auto; }
 
-/* Commentary rail (secondary). Children -- the commentary panel and the quiet index -- are
-   separated by rules, never nested as cards. */
-.entry-commentary-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); }
-.entry-commentary-rail > * + * { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
-.commentary-panel { display: grid; gap: var(--space-4); }
-.commentary-panel .analysis-prose { max-width: none; font-size: 0.9375rem; line-height: 1.75; }
-.rail-heading { margin: 0; color: var(--prose); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; }
-
-/* Follow-up thread (last). Full width beneath both planes, separated by a rule; never sticky. */
-.entry-follow-up { grid-column: 1 / -1; min-width: 0; padding-top: var(--space-7); border-top: 1px solid var(--rule); }
-.follow-up-heading { margin: 0; color: var(--prose); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; }
-.entry-follow-up .conversation-thread { padding-top: var(--space-4); }
-.entry-follow-up .conversation-composer { max-width: var(--reading-max); }
-
-/* The decorative baseline texture is purely cosmetic; drop it where system colours are enforced. */
-@media (forced-colors: active) {
-  .entry-record::before { display: none; }
+/* Segmented control -- one of several equally-weighted, mutually exclusive views. A filled
+   track, a sliding thumb, equal-width segments. Flat throughout (see components.css) -- the
+   thumb reads via a plain lightness step against the track instead of a dropped shadow. */
+.entry-segmented {
+  position: relative;
+  display: flex;
+  padding: 3px;
+  margin-bottom: var(--space-6);
+  background: var(--soft-surface);
+  border-radius: var(--radius-sm);
 }
+.entry-segmented-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: var(--rule);
+  transition: transform var(--transition-fast), width var(--transition-fast);
+  will-change: transform;
+}
+.entry-segmented-tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  color: var(--label);
+  font: 600 0.8rem/1 var(--font-ui);
+  cursor: pointer;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+.entry-segmented-tab:active { transform: scale(0.96); }
+.entry-segmented-tab[aria-selected="true"] { color: var(--text); }
+.entry-segmented-badge { padding: 0.02rem 0.4rem; border-radius: var(--radius-pill); background: var(--rule); color: var(--label); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+.entry-segmented-tab[aria-selected="true"] .entry-segmented-badge { color: var(--accent-teal-text); }
+
+/* Panels cross-fade with a slight rise via the shared page-enter keyframe (pages.css top); an
+   inactive panel is [hidden] (base.css already forces display:none !important on it). */
+.entry-panel.is-active { animation: page-enter var(--duration-default) ease-out both; }
+.entry-panel .conversation-thread { padding-top: var(--space-4); }
+/* The Reflection panel stacks several independent states (perspective indicator, body/empty
+   notice, failure notice, generate/retry button) as direct children -- grid+gap keeps them
+   evenly spaced instead of flush against each other (each individually carries its own
+   border-left, so with no gap two adjacent states visually fuse into one long rule). */
+#commentary-section { display: grid; gap: var(--space-4); }
+
 
 /* General chat: session ledger + conversation workspace (Task 5). The shared conversation row,
    session row, and composer chrome live in components.css; this page only sets the two-column
@@ -191,6 +207,7 @@
 .report-stat-label { color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.04em; text-transform: uppercase; }
 .report-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); position: sticky; top: calc(var(--bar-height) + var(--space-6)); align-self: start; }
 .report-rail > * + * { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
+.rail-heading { margin: 0; color: var(--prose); font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .report-rail .rail-heading { margin-bottom: var(--space-3); }
 .report-density-list { margin: 0; padding: 0; list-style: none; }
 .report-density-row { display: grid; grid-template-columns: 3rem 1fr 2rem; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; color: var(--prose); font-size: 0.6875rem; font-variant-numeric: tabular-nums; }
@@ -254,7 +271,7 @@
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr);
   align-items: start;
-  max-width: 62rem;
+  max-width: var(--reading-max);
   border-top: 1px solid var(--rule);
 }
 .workshop-side { padding: var(--space-5) var(--space-5) var(--space-5) 0; border-right: 1px solid var(--rule); }
@@ -354,7 +371,6 @@
 }
 
 @media (max-width: 43.75rem) {
-  .entry-layout,
   .report-layout,
   .chat-layout,
   .writing-desk,
@@ -369,38 +385,12 @@
      grid tracks so the four columns keep breathing room on a narrow phone. */
   .archive-thead, .archive-row { grid-template-columns: 4rem minmax(0, 1fr) 2.25rem auto; gap: var(--space-2); }
 
-  /* Entry + report reading planes: tighten padding and drop the decorative baseline and sticky
-     rail so nothing pins or overflows on a narrow viewport. */
-  .entry-record { padding: var(--space-6) var(--space-5); }
-  .entry-record::before { display: none; }
+  /* Report reading plane: tighten padding and drop the sticky rail so nothing pins or overflows
+     on a narrow viewport. Entry Detail needs no override here -- its single capped-width column
+     and segmented control already read the same way at every width. */
   .report-document { padding: var(--space-6) var(--space-5); }
   .report-rail { position: static; }
   .conversation-message { grid-template-columns: 1fr; gap: var(--space-2); }
-  .entry-follow-up .conversation-composer { max-width: none; }
-
-  /* Entry: the sticky tab strip takes over jump-navigation on mobile (was buried below the
-     reflection in the sidebar); hide the sidebar's own copy of the same links so they are not
-     doubled, but keep its version ledger visible in place. */
-  .entry-mobile-tabs {
-    position: sticky;
-    top: var(--bar-height);
-    z-index: 5;
-    display: flex;
-    border-bottom: 1px solid var(--rule);
-    background: var(--bg);
-  }
-  .entry-mobile-tabs a {
-    flex: 1;
-    padding: var(--space-3) var(--space-2);
-    text-align: center;
-    color: var(--prose);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-  }
-  .entry-mobile-tabs a.is-active { color: var(--accent-teal-text); border-bottom-color: var(--accent-teal); }
-  .entry-margin-index nav { display: none; }
 
   /* Report: the same sticky-tab pattern -- "Report" and "History" jump between the document and
      the rail (version ledger + in-report table of contents), which the mobile collapse already

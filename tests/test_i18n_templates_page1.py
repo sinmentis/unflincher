@@ -41,7 +41,7 @@ def test_entry_detail_translates(client):
     client.cookies.set("unflincher_lang", "de")
     res = client.get(f"/entry/{entry_id}")
     assert "Noch keine Reflexion." in res.text
-    assert "Eintragsreflexion" in res.text
+    assert "Eintragsabschnitte" in res.text
 
 
 def test_entry_detail_regenerate_button_translates(client):

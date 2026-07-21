@@ -2,10 +2,22 @@
 {% block title %}{{ entry.title }}{% endblock %}
 {% block content %}
 <div class="entry-layout" data-role="primary-task" data-entry-source="{{ entry.source }}">
-  <nav class="entry-mobile-tabs" aria-label="{{ t('entry.toc_aria') }}">
-    {% include "partials/entry_toc_links.html" %}
-  </nav>
   <article class="entry-record">
+    {% if prev_entry or next_entry %}
+    <nav class="entry-adjacent-nav" aria-label="{{ t('entry.adjacent_nav_aria') }}">
+      {% if prev_entry %}
+      <a class="entry-adjacent-link" href="/entry/{{ prev_entry.id }}" title="{{ prev_entry.title }}">
+        <span aria-hidden="true">&lsaquo;</span> {{ t("entry.prev_entry_button") }}
+      </a>
+      {% endif %}
+      {% if next_entry %}
+      <a class="entry-adjacent-link entry-adjacent-link--next" href="/entry/{{ next_entry.id }}" title="{{ next_entry.title }}">
+        {{ t("entry.next_entry_button") }} <span aria-hidden="true">&rsaquo;</span>
+      </a>
+      {% endif %}
+    </nav>
+    {% endif %}
+
     {% with heading=entry.title %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
@@ -13,14 +25,32 @@
       <time datetime="{{ entry.entry_date[:10] }}">{{ entry.entry_date[:10] }}</time>
       <span aria-hidden="true">·</span>
       <span>{{ t("entry.source." ~ entry.source) }}</span>
+      <span aria-hidden="true">·</span>
+      <span>{{ t("entry.word_count_label", count=word_count) }}</span>
     </p>
-    <div class="diary-prose" id="diary-text" data-role="entry-body">{{ entry.content_html | safe }}</div>
-  </article>
 
-  <aside class="entry-commentary-rail">
-    <section class="commentary-panel" id="commentary-section" data-role="ai-commentary"
-             aria-labelledby="commentary-heading">
-      <h2 class="rail-heading" id="commentary-heading">{{ t("entry.toc_commentary") }}</h2>
+    <div class="entry-segmented" role="tablist" aria-label="{{ t('entry.segmented_aria') }}">
+      <div class="entry-segmented-thumb" aria-hidden="true"></div>
+      <button class="entry-segmented-tab" role="tab" aria-selected="true" aria-controls="panel-body"
+              id="tab-body" type="button">{{ t("entry.toc_body") }}</button>
+      <button class="entry-segmented-tab" role="tab" aria-selected="false" aria-controls="commentary-section"
+              id="tab-reflection" type="button">
+        {{ t("entry.tab_reflection") }}
+        {% if commentary_html %}<span class="status-mark" data-status="done"><span class="status-glyph" aria-hidden="true"></span></span>{% endif %}
+      </button>
+      <button class="entry-segmented-tab" role="tab" aria-selected="false" aria-controls="chat-section"
+              id="tab-conversation" type="button">
+        {{ t("entry.toc_chat") }}
+        {% if chat_history %}<span class="entry-segmented-badge">{{ chat_history | length }}</span>{% endif %}
+      </button>
+    </div>
+
+    <div class="entry-panel is-active" id="panel-body" role="tabpanel" aria-labelledby="tab-body">
+      <div class="diary-prose" id="diary-text" data-role="entry-body">{{ entry.content_html | safe }}</div>
+    </div>
+
+    <section class="entry-panel" id="commentary-section" data-role="ai-commentary" role="tabpanel"
+             aria-labelledby="tab-reflection" hidden>
       {% if commentary_perspective_name %}
         {% with label=t("perspective.historical_label", name=commentary_perspective_name) %}
           {% include "partials/perspective_indicator.html" %}
@@ -49,28 +79,28 @@
       {% endif %}
     </section>
 
-    {% include "partials/entry_margin_index.html" %}
-  </aside>
-
-  <section class="entry-follow-up" id="chat-section" data-role="follow-up"
-           aria-labelledby="inquiry-heading">
-    <h2 class="follow-up-heading" id="inquiry-heading">{{ t("entry.toc_chat") }}</h2>
-    <div id="chat-thread" class="conversation-thread">
-      {% for msg in chat_history %}
-      <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-assistant' }}">
-        <div class="message-stamp">{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</div>
-        <div class="message-copy">{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
-      </article>
-      {% endfor %}
-    </div>
-    <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
-    {% with composer_id="entry-chat-composer", input_id="chat-input", send_id="chat-send",
-      placeholder=t("entry.chat_input_placeholder"), input_aria=t("entry.chat_input_aria"),
-      send_label=t("common.send"), endpoint="/entry/" ~ entry.id ~ "/chat", stream_target_id="chat-stream",
-      perspective_label=t("perspective.next_response_label", name=next_response_perspective_name) %}
-      {% include "partials/conversation_composer.html" %}
-    {% endwith %}
-  </section>
+    <section class="entry-panel" id="chat-section" data-role="follow-up" role="tabpanel"
+             aria-labelledby="tab-conversation" hidden>
+      <div id="chat-thread" class="conversation-thread">
+        {% for msg in chat_history %}
+        <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-assistant' }}">
+          <div class="message-stamp">
+            <span>{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</span>
+            <time datetime="{{ msg.created_at }}">{{ msg.created_at[11:16] }}</time>
+          </div>
+          <div class="message-copy">{% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}</div>
+        </article>
+        {% endfor %}
+      </div>
+      <div id="chat-stream" class="stream-surface" hidden aria-live="polite"></div>
+      {% with composer_id="entry-chat-composer", input_id="chat-input", send_id="chat-send",
+        placeholder=t("entry.chat_input_placeholder"), input_aria=t("entry.chat_input_aria"),
+        send_label=t("common.send"), endpoint="/entry/" ~ entry.id ~ "/chat", stream_target_id="chat-stream",
+        perspective_label=t("perspective.next_response_label", name=next_response_perspective_name) %}
+        {% include "partials/conversation_composer.html" %}
+      {% endwith %}
+    </section>
+  </article>
 </div>
 {% endblock %}
 {% block scripts %}<script src="/static/js/entry.js" defer></script>{% endblock %}

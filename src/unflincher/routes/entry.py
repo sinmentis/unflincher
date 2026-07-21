@@ -13,6 +13,7 @@ from unflincher.db import (
     acquire_lease,
     entry_thread_key,
     get_active_prompt,
+    get_adjacent_entries,
     get_current_commentary,
     get_latest_commentary_job_item,
     release_lease,
@@ -52,7 +53,8 @@ async def entry_detail(request: Request, entry_id: int):
         current_lang, active_prompt["preset_key"] if active_prompt else None
     )
     chat_history = db.execute(
-        "SELECT role, content FROM chat_message WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
+        "SELECT role, content, created_at FROM chat_message "
+        "WHERE thread_kind='entry' AND entry_id=? ORDER BY id",
         (entry_id,),
     ).fetchall()
     # AI replies are markdown (the model writes **bold**/paragraphs); user turns are plain typed
@@ -62,6 +64,7 @@ async def entry_detail(request: Request, entry_id: int):
             "role": m["role"],
             "content": m["content"],
             "content_html": render_ai_markdown(m["content"]) if m["role"] == "assistant" else None,
+            "created_at": m["created_at"],
         }
         for m in chat_history
     ]
@@ -71,12 +74,17 @@ async def entry_detail(request: Request, entry_id: int):
     commentary_job_error = (
         latest_item["error"] if latest_item and latest_item["status"] == "failed" else None
     )
+    prev_entry, next_entry = get_adjacent_entries(db, entry_id, entry["entry_date"])
+    word_count = len(entry["content_text"].split())
 
     return templates.TemplateResponse(
         request,
         "entry_detail.html",
         {
             "entry": entry,
+            "word_count": word_count,
+            "prev_entry": prev_entry,
+            "next_entry": next_entry,
             "commentary_html": commentary_html,
             "commentary_perspective_name": commentary_perspective_name,
             "next_response_perspective_name": next_response_perspective_name,

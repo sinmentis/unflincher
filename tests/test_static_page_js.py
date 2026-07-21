@@ -500,3 +500,157 @@ def test_entry_commentary_trigger_still_reports_busy_on_409():
     result = json.loads(output)
 
     assert result == {"text": "Busy", "tone": "busy", "hidden": False}
+
+
+# Fakes the 3-tab segmented control (Body/Reflection/Conversation) + its panels and thumb, using
+# plain objects rather than a DOM library -- entry.js only touches getAttribute/setAttribute,
+# addEventListener, classList.toggle/contains, and offsetWidth/offsetLeft, none of which need a
+# real DOM. No trigger/composer elements are registered, so those code paths in initEntryPage
+# stay inert and don't need setNotice/streamInto/etc. defined as globals.
+_ENTRY_SEGMENTED_HARNESS_PRELUDE = """
+function makeTab(id, controls, offsetLeft, selected) {
+  const attrs = {'aria-selected': selected ? 'true' : 'false', 'aria-controls': controls};
+  const handlers = {};
+  return {
+    id,
+    tabIndex: -1,
+    offsetWidth: 100,
+    offsetLeft,
+    focused: false,
+    getAttribute(name) { return attrs[name]; },
+    setAttribute(name, value) { attrs[name] = String(value); },
+    addEventListener(type, cb) { handlers[type] = cb; },
+    focus() { this.focused = true; },
+    fire(type, event) { handlers[type](event); },
+  };
+}
+function makePanel(id) {
+  const classes = new Set();
+  return {
+    id,
+    hidden: true,
+    classList: {
+      toggle(cls, on) { if (on) classes.add(cls); else classes.delete(cls); },
+      contains(cls) { return classes.has(cls); },
+    },
+  };
+}
+
+const tabBody = makeTab('tab-body', 'panel-body', 0, true);
+const tabReflection = makeTab('tab-reflection', 'commentary-section', 100, false);
+const tabConversation = makeTab('tab-conversation', 'chat-section', 200, false);
+const tabs = [tabBody, tabReflection, tabConversation];
+
+const panelBody = makePanel('panel-body');
+panelBody.hidden = false;
+const panelReflection = makePanel('commentary-section');
+const panelConversation = makePanel('chat-section');
+const panelsById = {
+  'panel-body': panelBody,
+  'commentary-section': panelReflection,
+  'chat-section': panelConversation,
+};
+
+const thumb = {style: {}};
+
+const fakeDoc = {
+  getElementById(id) { return panelsById[id] || null; },
+  querySelectorAll(sel) { return sel === '.entry-segmented-tab' ? tabs : []; },
+  querySelector(sel) { return sel === '.entry-segmented-thumb' ? thumb : null; },
+};
+
+const {initEntryPage} = require(process.argv[1]);
+initEntryPage(fakeDoc);
+
+function snapshot() {
+  return {
+    selected: tabs.map((t) => t.getAttribute('aria-selected')),
+    tabIndex: tabs.map((t) => t.tabIndex),
+    panelHidden: {body: panelBody.hidden, reflection: panelReflection.hidden, conversation: panelConversation.hidden},
+    panelActive: {
+      body: panelBody.classList.contains('is-active'),
+      reflection: panelReflection.classList.contains('is-active'),
+      conversation: panelConversation.classList.contains('is-active'),
+    },
+    thumbTransform: thumb.style.transform,
+  };
+}
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_entry_segmented_control_click_switches_active_panel():
+    """Clicking a tab must select it, hide the other two panels, mark only its own panel
+    is-active (drives the page-enter fade), and slide the thumb under it."""
+    output = subprocess.run(
+        [
+            "node", "-e",
+            _ENTRY_SEGMENTED_HARNESS_PRELUDE + """
+            tabReflection.fire('click');
+            process.stdout.write(JSON.stringify(snapshot()));
+            """,
+            str(STATIC_JS / "entry.js"),
+        ],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    result = json.loads(output)
+
+    assert result["selected"] == ["false", "true", "false"]
+    assert result["tabIndex"] == [-1, 0, -1]
+    assert result["panelHidden"] == {"body": True, "reflection": False, "conversation": True}
+    assert result["panelActive"] == {"body": False, "reflection": True, "conversation": False}
+    assert result["thumbTransform"] == "translateX(100px)"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_entry_segmented_control_arrow_keys_move_focus_and_wrap():
+    """ArrowRight/ArrowLeft roving-tabindex navigation wraps at both ends, Home/End jump straight
+    to the first/last tab, each of those keys calls preventDefault (so the page doesn't scroll),
+    and an unrelated key (Enter) is left alone entirely."""
+    output = subprocess.run(
+        [
+            "node", "-e",
+            _ENTRY_SEGMENTED_HARNESS_PRELUDE + """
+            function press(tab, key) {
+              let defaultPrevented = false;
+              tab.fire('keydown', {key, preventDefault() { defaultPrevented = true; }});
+              return defaultPrevented;
+            }
+
+            const rightPrevented = press(tabBody, 'ArrowRight');
+            const afterRight = tabReflection.getAttribute('aria-selected') === 'true' && tabReflection.focused;
+
+            const wrapPrevented = press(tabConversation, 'ArrowRight');
+            const afterWrap = tabBody.getAttribute('aria-selected') === 'true' && tabBody.focused;
+
+            const endPrevented = press(tabBody, 'End');
+            const afterEnd = tabConversation.getAttribute('aria-selected') === 'true' && tabConversation.focused;
+
+            const homePrevented = press(tabConversation, 'Home');
+            const afterHome = tabBody.getAttribute('aria-selected') === 'true' && tabBody.focused;
+
+            const leftPrevented = press(tabBody, 'ArrowLeft');
+            const afterLeft = tabConversation.getAttribute('aria-selected') === 'true' && tabConversation.focused;
+
+            const enterPrevented = press(tabBody, 'Enter');
+
+            process.stdout.write(JSON.stringify({
+              rightPrevented, afterRight, wrapPrevented, afterWrap,
+              endPrevented, afterEnd, homePrevented, afterHome,
+              leftPrevented, afterLeft, enterPrevented,
+            }));
+            """,
+            str(STATIC_JS / "entry.js"),
+        ],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    result = json.loads(output)
+
+    assert result == {
+        "rightPrevented": True, "afterRight": True,
+        "wrapPrevented": True, "afterWrap": True,
+        "endPrevented": True, "afterEnd": True,
+        "homePrevented": True, "afterHome": True,
+        "leftPrevented": True, "afterLeft": True,
+        "enterPrevented": False,
+    }

@@ -36,8 +36,7 @@ function initReportPage(doc = document) {
   });
 
   // Mobile-only sticky tab strip (hidden at desktop, see pages.css): "Report" and "History" stay
-  // in sync with whichever stacked section is in view, same IntersectionObserver pattern as
-  // entry.js's Body/Reflection/Conversation tabs.
+  // in sync with whichever stacked section is in view via IntersectionObserver-driven scroll-spy.
   const tabs = doc.querySelector(".report-mobile-tabs");
   if (tabs && "IntersectionObserver" in window) {
     const sections = ["report-document", "report-history"]

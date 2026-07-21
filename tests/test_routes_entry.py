@@ -359,7 +359,7 @@ def test_entry_detail_only_ever_shows_the_latest_commentary_row(client):
     assert 'class="version-ledger"' not in body
 
 
-def test_entry_detail_uses_balanced_graphite_reading_layout(client):
+def test_entry_detail_uses_segmented_reading_layout(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -378,21 +378,19 @@ def test_entry_detail_uses_balanced_graphite_reading_layout(client):
     assert 'id="ai-commentary"' not in body
     assert 'id="chat-section"' in body
     assert 'data-role="follow-up"' in body
-    assert 'class="entry-margin-index"' in body
 
     # Owner decision: keep chat last. The production render order is pinned to
-    # diary-text -> commentary-section -> .entry-margin-index -> chat-section.
+    # diary-text -> commentary-section -> chat-section.
     # Assert on stable structural hooks only (ids/classes), never translated text.
     order_markers = [
         'id="diary-text"',
         'id="commentary-section"',
-        'class="entry-margin-index"',
         'id="chat-section"',
     ]
     positions = [body.index(marker) for marker in order_markers]
     assert positions == sorted(positions), (
         "Entry Detail render order must be "
-        "diary-text -> commentary-section -> .entry-margin-index -> chat-section; "
+        "diary-text -> commentary-section -> chat-section; "
         f"got positions {dict(zip(order_markers, positions))}"
     )
     # Each hook must appear exactly once so the ordering above is unambiguous.
@@ -441,7 +439,7 @@ def test_entry_detail_preserves_generation_hooks(client):
     assert 'id="run-commentary"' in body or 'id="retry-commentary"' in body
 
 
-def test_entry_detail_has_toc_anchors_and_sidebar(client):
+def test_entry_detail_has_segmented_tablist(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -452,11 +450,89 @@ def test_entry_detail_has_toc_anchors_and_sidebar(client):
 
     assert 'id="diary-text"' in body
     assert 'id="chat-section"' in body
-    assert 'class="entry-margin-index"' in body
-    assert 'href="#diary-text"' in body
-    assert 'href="#chat-section"' in body
-    # No reflection yet on this entry, so its TOC link must not be offered.
-    assert 'href="#ai-commentary"' not in body
+    assert 'role="tablist"' in body
+    assert body.count('role="tab"') == 3
+    assert 'id="tab-body"' in body
+    assert 'id="tab-reflection"' in body
+    assert 'id="tab-conversation"' in body
+    assert 'aria-controls="panel-body"' in body
+    assert 'aria-controls="commentary-section"' in body
+    assert 'aria-controls="chat-section"' in body
+    # Body is the only tab selected by default; the others start unselected and hidden.
+    assert 'id="tab-body" type="button">' in body
+    assert body.count('aria-selected="true"') == 1
+
+
+def test_entry_detail_shows_word_count_in_metadata(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>one two three</p>', '<p>one two three</p>', "
+        "'one two three', '2026-01-01', 'import')"
+    ).lastrowid
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert 'class="record-metadata"' in body
+    assert "3 words" in body
+
+
+def test_entry_detail_shows_prev_next_navigation(client):
+    db = client.app.state.db
+    first_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('First', '<p>a</p>', '<p>a</p>', 'a', "
+        "'2026-01-01', 'import')"
+    ).lastrowid
+    middle_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('Middle', '<p>b</p>', '<p>b</p>', 'b', "
+        "'2026-01-02', 'import')"
+    ).lastrowid
+    last_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('Last', '<p>c</p>', '<p>c</p>', 'c', "
+        "'2026-01-03', 'import')"
+    ).lastrowid
+
+    first_body = client.get(f"/entry/{first_id}").text
+    middle_body = client.get(f"/entry/{middle_id}").text
+    last_body = client.get(f"/entry/{last_id}").text
+
+    # Prev and next links carry distinct classes (next adds a `--next` modifier), so the two
+    # exact prefixes below unambiguously distinguish "link to earlier entry" from "link to
+    # later entry" -- see entry_detail.html.
+    prev_marker = 'class="entry-adjacent-link" href="/entry/'
+    next_marker = 'class="entry-adjacent-link entry-adjacent-link--next" href="/entry/'
+
+    # First entry (earliest date): no prev link, only a next link to Middle.
+    assert prev_marker not in first_body
+    assert f'{next_marker}{middle_id}"' in first_body
+
+    # Middle entry: prev link to First, next link to Last.
+    assert f'{prev_marker}{first_id}"' in middle_body
+    assert f'{next_marker}{last_id}"' in middle_body
+
+    # Last entry (latest date): prev link to Middle, no next link.
+    assert f'{prev_marker}{middle_id}"' in last_body
+    assert next_marker not in last_body
+
+
+def test_entry_detail_chat_shows_message_timestamps(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, entry_id, role, content, created_at) "
+        "VALUES ('entry', ?, 'user', ?, '2026-01-01 09:41:00')",
+        (entry_id, "今天过得怎么样"),
+    )
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert '<time datetime="2026-01-01 09:41:00">09:41</time>' in body
 
 
 def test_entry_detail_chat_uses_bubble_classes_per_role(client):

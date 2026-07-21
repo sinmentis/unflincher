@@ -36,7 +36,7 @@
   --leading-tight: 1.2;
   --leading-body: 1.75;
   --content-max: 80rem;
-  --reading-max: 68ch;
+  --reading-max: 68rem;
   --measure: var(--reading-max);
   --bar-height: 5.1rem;
 
