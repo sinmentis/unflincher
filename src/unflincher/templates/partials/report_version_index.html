@@ -1,9 +1,11 @@
 <nav class="report-version-index" aria-label="{{ t('report.timeline_aria') }}">
+  <h2 class="rail-heading">{{ t("report.mobile_tab_history") }}</h2>
   <ol>
     {% for version in versions %}
     <li data-status="{{ version.status }}">
       <a href="/report/{{ version.id }}"
          {% if version.id == viewing_version_id %}aria-current="true"{% endif %}>
+        <span class="status-glyph" aria-hidden="true"></span>
         <span>V{{ "%02d" % (versions|length - loop.index0) }}</span>
         <time>{{ version.created_at[:10] }}</time>
         <span>{{ t("report.failed_badge") if version.status == "failed" else version.covered_entry_count }}</span>

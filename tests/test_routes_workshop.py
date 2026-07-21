@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 import unflincher.llm as llm_module
@@ -76,6 +78,40 @@ def test_workshop_renders_balanced_draft_test_commit_stages(client):
     assert 'id="apply-all-confirmation"' in body
     assert 'id="workshop-notice"' in body
     assert 'src="/static/js/workshop.js"' in body
+
+
+def test_workshop_merges_model_and_language_into_one_settings_row(client, monkeypatch):
+    async def _fake_models():
+        return [("test-model", "Test Model")]
+    monkeypatch.setattr(llm_module, "list_available_models", _fake_models)
+
+    body = client.get("/workshop").text
+
+    assert 'class="workshop-settings-row"' in body
+    assert body.count('class="workshop-setting-field"') == 2
+    # Both selects still live inside the merged row, keeping their IDs so workshop.js's
+    # existing querySelectors keep working untouched.
+    settings_row = body[body.index('class="workshop-settings-row"'):body.index('id="refresh-models"')]
+    assert 'id="model-select"' in settings_row
+    assert 'id="lang-select"' in settings_row
+    # Refresh-models moved below the merged grid, full width.
+    assert body.index('id="refresh-models"') > body.index('class="workshop-settings-row"')
+
+
+def test_workshop_preview_stream_uses_the_analysis_prose_card_style(client):
+    body = client.get("/workshop").text
+    preview_tag = re.search(r'<div\b[^>]*\bid="preview-stream"[^>]*>', body).group(0)
+    assert "analysis-prose" in preview_tag
+
+
+def test_workshop_apply_all_shows_blast_radius_with_real_entry_count(client):
+    db = client.app.state.db
+    _seed_entries(db)  # 2 entries
+
+    body = client.get("/workshop").text
+
+    assert 'class="workshop-blast-radius"' in body
+    assert "2 Entry Reflections + the Life Report" in body
 
 
 def test_job_progress_uses_progress_rail(client):

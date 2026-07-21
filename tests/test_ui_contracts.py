@@ -316,8 +316,10 @@ def test_workshop_select_grids_can_shrink_below_option_width():
     css = PAGES_CSS.read_text()
     shrink = _rule_body(css, ".workshop-test-controls select")
     assert "min-width: 0" in shrink
+    settings_shrink = _rule_body(css, ".workshop-settings-row select")
+    assert "min-width: 0" in settings_shrink
     mobile = _media_block(css, MOBILE_QUERY)
-    for selector in (".workshop-test-controls", ".workshop-model-row"):
+    for selector in (".workshop-test-controls", ".workshop-settings-row"):
         body = _rule_body(mobile, selector)
         assert "grid-template-columns: minmax(0, 1fr)" in body
         # A bare `1fr` track (== minmax(auto, 1fr)) would floor at the widest option and overflow.

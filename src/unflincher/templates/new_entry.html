@@ -6,13 +6,20 @@
       data-draft-saving="{{ t('new_entry.draft_saving') }}"
       data-draft-saved="{{ t('new_entry.draft_saved') }}"
       data-save-failed="{{ t('new_entry.save_failed_alert') }}"
-      data-request-failed="{{ t('common.request_failed') }}">
+      data-request-failed="{{ t('common.request_failed') }}"
+      data-word-count-label="{{ t('new_entry.word_count_label') }}">
   <h1 class="visually-hidden" id="new-entry-heading">{{ t("new_entry.heading") }}</h1>
   <header class="writing-ledger" data-role="entry-metadata">
-    <div>
+    <div class="ledger-date-group">
       <label for="new-date">{{ t("new_entry.date_label") }}</label>
       <input type="date" id="new-date" aria-describedby="new-date-error">
+      <span id="entry-day-of-week" class="entry-day-of-week" aria-hidden="true"></span>
       <p id="new-date-error" class="field-error" hidden></p>
+      {% if streak_days %}
+      <p class="entry-recency-note">{{ t("new_entry.streak_label", count=streak_days) }}</p>
+      {% elif days_since_last is defined %}
+      <p class="entry-recency-note">{{ t("new_entry.days_since_last_label", count=days_since_last) }}</p>
+      {% endif %}
     </div>
     <p id="draft-status" class="draft-status" role="status" aria-live="polite"></p>
   </header>
@@ -25,6 +32,7 @@
     <textarea class="writing-body" id="new-content"
               placeholder="{{ t('new_entry.content_placeholder') }}"
               aria-label="{{ t('new_entry.content_aria') }}"></textarea>
+    <p id="entry-word-count" class="entry-word-count" aria-hidden="true"></p>
   </div>
   {% with notice_id="new-entry-notice", tone="failed", message="", hidden=true, live="polite" %}
     {% include "partials/inline_notice.html" %}

@@ -896,7 +896,13 @@ def create_chat_session(conn: sqlite3.Connection, title: str) -> int:
 
 
 def list_chat_sessions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    return conn.execute("SELECT * FROM chat_session ORDER BY updated_at DESC").fetchall()
+    """Every chat_session row plus its message_count, via a correlated subquery rather than a
+    JOIN + GROUP BY -- chat_session has no other one-to-many child table to accidentally
+    fan out against, so this stays a single simple row per session with no aggregation footguns."""
+    return conn.execute(
+        "SELECT *, (SELECT COUNT(*) FROM chat_message WHERE chat_message.session_id = chat_session.id) "
+        "AS message_count FROM chat_session ORDER BY updated_at DESC"
+    ).fetchall()
 
 
 def get_chat_session(conn: sqlite3.Connection, session_id: int) -> sqlite3.Row | None:
@@ -1833,6 +1839,28 @@ def get_ordered_entry_ids(conn: sqlite3.Connection) -> list[int]:
     crash recovery replays, never live SQL `IN`/array order."""
     rows = conn.execute("SELECT id FROM diary_entry ORDER BY entry_date ASC, id ASC").fetchall()
     return [r["id"] for r in rows]
+
+
+def get_entry_year_counts(conn: sqlite3.Connection) -> list[dict]:
+    """Entry counts grouped by calendar year (from entry_date's first 4 characters), newest year
+    first. Shared by the Timeline year filter chips (routes/timeline.py) and the Life Report
+    per-year density strip (routes/report.py) -- one source of truth for "how many entries per
+    year" rather than two copies of the same grouping logic."""
+    rows = conn.execute(
+        "SELECT substr(entry_date, 1, 4) AS year, COUNT(*) AS count FROM diary_entry "
+        "GROUP BY year ORDER BY year DESC"
+    ).fetchall()
+    return [{"year": r["year"], "count": r["count"]} for r in rows]
+
+
+def get_distinct_entry_days(conn: sqlite3.Connection) -> list[str]:
+    """Every calendar day (YYYY-MM-DD, from entry_date's first 10 characters) with at least one
+    entry, most recent first. Used by the New Entry page (routes/new_entry.py) to compute a quiet
+    streak / days-since-last-entry line without claiming a false daily-journaling habit."""
+    rows = conn.execute(
+        "SELECT DISTINCT substr(entry_date, 1, 10) AS day FROM diary_entry ORDER BY day DESC"
+    ).fetchall()
+    return [r["day"] for r in rows]
 
 
 def get_job_entry_snapshot(conn: sqlite3.Connection, job_id: int) -> list[int]:

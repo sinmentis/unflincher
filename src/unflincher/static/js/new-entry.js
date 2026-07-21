@@ -3,6 +3,11 @@ function localDateString(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function computeWordCount(text) {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
 function initNewEntryPage(doc = document, storage = window.localStorage) {
   const form = doc.getElementById("new-entry-form");
   if (!form) return;
@@ -13,9 +18,39 @@ function initNewEntryPage(doc = document, storage = window.localStorage) {
   const dateError = doc.getElementById("new-date-error");
   const notice = doc.getElementById("new-entry-notice");
   const submit = doc.getElementById("save-entry");
+  const dayOfWeekEl = doc.getElementById("entry-day-of-week");
+  const wordCountEl = doc.getElementById("entry-word-count");
   const today = localDateString(new Date());
   dateInput.value = today;
   dateInput.max = today;
+
+  // Day-of-week reflects whatever date is picked (not always "today"), same as the native
+  // date input itself -- entirely client-side, no i18n key needed (Intl already localizes it).
+  const updateDayOfWeek = () => {
+    if (!dayOfWeekEl) return;
+    const value = dateInput.value;
+    if (!value) {
+      dayOfWeekEl.textContent = "";
+      return;
+    }
+    const [year, month, day] = value.split("-").map(Number);
+    try {
+      const weekday = new Intl.DateTimeFormat(doc.documentElement.lang || undefined, {weekday: "long"})
+        .format(new Date(year, month - 1, day));
+      dayOfWeekEl.textContent = `· ${weekday}`;
+    } catch {
+      dayOfWeekEl.textContent = "";
+    }
+  };
+  const updateWordCount = () => {
+    if (!wordCountEl) return;
+    const template = form.dataset.wordCountLabel || "";
+    wordCountEl.textContent = template.replace("{count}", String(computeWordCount(contentInput.value)));
+  };
+  updateDayOfWeek();
+  updateWordCount();
+  dateInput.addEventListener("input", updateDayOfWeek);
+  contentInput.addEventListener("input", updateWordCount);
 
   const draft = loadDraft(storage);
   if (draft) {
@@ -23,6 +58,8 @@ function initNewEntryPage(doc = document, storage = window.localStorage) {
     titleInput.value = draft.title || "";
     contentInput.value = draft.content || "";
     draftStatus.textContent = form.dataset.draftSaved;
+    updateDayOfWeek();
+    updateWordCount();
   }
 
   let saveTimer = null;
@@ -83,5 +120,5 @@ if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => initNewEntryPage(document));
 }
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {localDateString, initNewEntryPage};
+  module.exports = {localDateString, computeWordCount, initNewEntryPage};
 }

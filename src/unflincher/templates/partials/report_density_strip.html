@@ -1,0 +1,15 @@
+{# report_density_strip.html: year_density (list of {year, count, bucket}) #}
+{% if year_density %}
+<section class="report-density" aria-label="{{ t('report.density_heading') }}">
+  <h2 class="rail-heading">{{ t("report.density_heading") }}</h2>
+  <ol class="report-density-list">
+    {% for row in year_density %}
+    <li class="report-density-row" data-bucket="{{ row.bucket }}">
+      <span class="report-density-year">{{ row.year }}</span>
+      <span class="report-density-bar" aria-hidden="true"><span></span></span>
+      <span class="report-density-count">{{ row.count }}</span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}

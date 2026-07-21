@@ -119,11 +119,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { border-color
 .session-row.is-active .session-link { color: var(--text); }
 .session-link span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-link time { display: block; margin-top: var(--space-1); color: var(--prose); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.session-link .session-meta { display: flex; flex-direction: column; gap: var(--space-1); }
+.session-link .session-meta time { margin-top: 0; }
+.session-message-count { color: var(--prose); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 
 /* Conversation messages: editorial turns, never chat bubbles. The user reads louder; the
    assistant stays quiet behind a left rule. */
 .conversation-message { display: grid; grid-template-columns: 6rem minmax(0, var(--reading-max)); gap: var(--space-5); padding: var(--space-5) 0; border-top: 1px solid var(--rule); }
-.message-stamp { color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.message-stamp { display: flex; flex-direction: column; gap: var(--space-1); color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.message-stamp time { letter-spacing: normal; text-transform: none; opacity: 0.7; }
 .message-copy { min-width: 0; color: var(--prose); line-height: var(--leading-body); }
 .message-copy > :first-child { margin-top: 0; }
 .message-copy > :last-child { margin-bottom: 0; }

@@ -9,6 +9,7 @@ from unflincher.db import (
     get_active_prompt,
     get_current_report,
     get_entries_in_order,
+    get_entry_year_counts,
     get_ordered_entry_ids,
     get_report_by_id,
     list_report_versions,
@@ -25,6 +26,25 @@ from unflincher.templates_env import get_current_language, templates
 router = APIRouter()
 
 
+def _year_density(db) -> list[dict]:
+    """Whole-archive entries-per-year, bucketed 1-10 (relative to the busiest year) for the Life
+    Report's density strip -- same discrete-bucket-width convention as .progress-track (see
+    components.css), so no per-row inline style is needed. A year with any entries at all gets at
+    least bucket 1, so a thin year never collapses to an invisible sliver."""
+    year_counts = get_entry_year_counts(db)
+    max_count = max((y["count"] for y in year_counts), default=0)
+    if not max_count:
+        return []
+    return [
+        {
+            "year": y["year"],
+            "count": y["count"],
+            "bucket": max(1, round(y["count"] / max_count * 10)),
+        }
+        for y in year_counts
+    ]
+
+
 @router.get("/report")
 async def report_page(request: Request):
     db = request.app.state.db
@@ -32,6 +52,7 @@ async def report_page(request: Request):
     report = get_current_report(db)
     versions = list_report_versions(db)
     archive_entry_count = len(get_ordered_entry_ids(db))
+    year_density = _year_density(db)
     context = {
         "report_html": None,
         "report_status": None,
@@ -41,6 +62,7 @@ async def report_page(request: Request):
         "versions": versions,
         "viewing_version_id": None,
         "has_any_successful_report": report is not None,
+        "year_density": year_density,
     }
     if report:
         context = {
@@ -55,6 +77,7 @@ async def report_page(request: Request):
             "versions": versions,
             "viewing_version_id": report["id"],
             "has_any_successful_report": True,
+            "year_density": year_density,
         }
     return templates.TemplateResponse(request, "report.html", context)
 
@@ -91,6 +114,7 @@ async def view_report_version(request: Request, report_id: int):
             "versions": versions,
             "viewing_version_id": report_id,
             "has_any_successful_report": has_any_successful_report,
+            "year_density": _year_density(db),
         },
     )
 

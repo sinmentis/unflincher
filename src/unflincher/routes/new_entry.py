@@ -3,15 +3,39 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from unflincher.db import get_distinct_entry_days
 from unflincher.sanitize import plain_text_to_safe_html
 from unflincher.templates_env import templates
 
 router = APIRouter()
 
 
+def _recency_context(db) -> dict:
+    """Builds the New Entry page's quiet context line. This diary is used sporadically (not
+    daily), so a naive streak counter would show 0 or 1 nearly always and read as broken. Only
+    surface a streak once it reaches 2+ days; otherwise fall back to "last entry N days ago"
+    (always meaningful regardless of cadence); a brand new diary with no entries yet shows
+    nothing at all."""
+    days = get_distinct_entry_days(db)
+    if not days:
+        return {}
+    today = datetime.now(timezone.utc).date()
+    day_set = {date.fromisoformat(d) for d in days}
+    streak = 0
+    cursor = today
+    while cursor in day_set:
+        streak += 1
+        cursor -= timedelta(days=1)
+    if streak >= 2:
+        return {"streak_days": streak}
+    days_since_last = (today - date.fromisoformat(days[0])).days
+    return {"days_since_last": days_since_last}
+
+
 @router.get("/new")
 async def new_entry_form(request: Request):
-    return templates.TemplateResponse(request, "new_entry.html", {})
+    db = request.app.state.db
+    return templates.TemplateResponse(request, "new_entry.html", _recency_context(db))
 
 
 @router.post("/new")

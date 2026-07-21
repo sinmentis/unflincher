@@ -9,7 +9,10 @@
       <a class="session-link" href="/chat/{{ s.id }}"
          {% if s.id == active_session_id %}aria-current="page"{% endif %}>
         <span>{{ s.title }}</span>
-        <time datetime="{{ s.updated_at }}">{{ s.updated_at[:16] }}</time>
+        <span class="session-meta">
+          <span class="session-message-count">{{ t("chat_sidebar.message_count", count=s.message_count) }}</span>
+          <time datetime="{{ s.updated_at }}">{{ s.updated_at[:10] }} {{ s.updated_at[11:16] }}</time>
+        </span>
       </a>
       <button type="button" class="session-action" data-rename-session="{{ s.id }}"
               aria-label="{{ t('chat_sidebar.rename_title') }}">

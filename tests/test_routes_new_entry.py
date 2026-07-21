@@ -69,6 +69,16 @@ def test_new_entry_page_uses_balanced_writing_desk(client):
     assert "novalidate" in form_open_tag
 
 
+def test_new_entry_page_has_day_of_week_and_live_word_count_scaffolding(client):
+    body = client.get("/new").text
+    assert 'id="entry-day-of-week"' in body
+    assert 'id="entry-word-count"' in body
+    form_open_tag = re.search(r'<form\b[^>]*\bid="new-entry-form"[^>]*>', body).group(0)
+    # The raw "{count} words" template is left un-interpolated here -- new-entry.js
+    # substitutes {count} client-side on every keystroke (see updateWordCount).
+    assert 'data-word-count-label="{count} words"' in form_open_tag
+
+
 def test_new_entry_saves_as_manual_and_does_not_trigger_commentary(client):
     response = client.post("/new", json={"title": "今天", "content": "写点什么"})
 
@@ -115,6 +125,56 @@ def test_new_entry_without_entry_date_field_still_works(client):
     db = client.app.state.db
     row = db.execute("SELECT entry_date FROM diary_entry WHERE title = '旧客户端'").fetchone()
     assert row["entry_date"] is not None and len(row["entry_date"]) > 0
+
+
+def _seed_diary_entry(db, entry_date: str, title: str = "e"):
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES (?, '<p>x</p>', '<p>x</p>', 'x', ?, 'import')",
+        (title, entry_date),
+    )
+
+
+def test_new_entry_shows_no_recency_note_for_a_fresh_archive(client):
+    body = client.get("/new").text
+    assert 'class="entry-recency-note"' not in body
+
+
+def test_new_entry_shows_days_since_last_when_streak_is_short(client, monkeypatch):
+    _freeze_utc_now(monkeypatch)  # "today" = 2026-07-12
+    db = client.app.state.db
+    _seed_diary_entry(db, "2026-07-05T09:00:00")
+
+    body = client.get("/new").text
+
+    assert "Last entry 7 days ago" in body
+    assert "writing streak" not in body
+
+
+def test_new_entry_shows_streak_for_consecutive_days_including_today(client, monkeypatch):
+    _freeze_utc_now(monkeypatch)  # "today" = 2026-07-12
+    db = client.app.state.db
+    for day, title in [("2026-07-10", "a"), ("2026-07-11", "b"), ("2026-07-12", "c")]:
+        _seed_diary_entry(db, f"{day}T08:00:00", title=title)
+
+    body = client.get("/new").text
+
+    assert "3-day writing streak" in body
+    assert "Last entry" not in body
+
+
+def test_new_entry_single_day_streak_falls_back_to_days_since_last(client, monkeypatch):
+    # A streak of exactly 1 (only today, no run of consecutive days) is not surfaced as a
+    # "streak" -- it reads as days-since-last with a count of 0, matching _recency_context's
+    # documented `streak >= 2` threshold.
+    _freeze_utc_now(monkeypatch)  # "today" = 2026-07-12
+    db = client.app.state.db
+    _seed_diary_entry(db, "2026-07-12T08:00:00")
+
+    body = client.get("/new").text
+
+    assert "Last entry 0 days ago" in body
+    assert "writing streak" not in body
 
 
 def test_new_entry_rejects_malformed_date(client):

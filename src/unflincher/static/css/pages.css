@@ -185,12 +185,34 @@
 .report-heading-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .report-heading-row h1 { text-wrap: balance; }
 .report-heading .page-metadata { font-variant-numeric: tabular-nums; }
+.report-stats-strip { display: flex; flex-wrap: wrap; gap: var(--space-6); margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--rule); }
+.report-stat { display: flex; flex-direction: column; gap: var(--space-1); }
+.report-stat-value { color: var(--text); font-size: 1.5rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1; }
+.report-stat-label { color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.04em; text-transform: uppercase; }
 .report-rail { min-width: 0; padding: var(--space-6); background-color: var(--commentary-plane); position: sticky; top: calc(var(--bar-height) + var(--space-6)); align-self: start; }
 .report-rail > * + * { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid var(--rule); }
+.report-rail .rail-heading { margin-bottom: var(--space-3); }
+.report-density-list { margin: 0; padding: 0; list-style: none; }
+.report-density-row { display: grid; grid-template-columns: 3rem 1fr 2rem; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; color: var(--prose); font-size: 0.6875rem; font-variant-numeric: tabular-nums; }
+.report-density-count { text-align: right; }
+.report-density-bar { display: block; height: 3px; background: var(--rule); }
+.report-density-bar span { display: block; width: 0; height: 100%; background: var(--muted); }
+.report-density-row[data-bucket="1"] .report-density-bar span { width: 10%; }
+.report-density-row[data-bucket="2"] .report-density-bar span { width: 20%; }
+.report-density-row[data-bucket="3"] .report-density-bar span { width: 30%; }
+.report-density-row[data-bucket="4"] .report-density-bar span { width: 40%; }
+.report-density-row[data-bucket="5"] .report-density-bar span { width: 50%; }
+.report-density-row[data-bucket="6"] .report-density-bar span { width: 60%; }
+.report-density-row[data-bucket="7"] .report-density-bar span { width: 70%; }
+.report-density-row[data-bucket="8"] .report-density-bar span { width: 80%; }
+.report-density-row[data-bucket="9"] .report-density-bar span { width: 90%; }
+.report-density-row[data-bucket="10"] .report-density-bar span { width: 100%; }
 .report-version-index ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
-.report-version-index a { display: grid; grid-template-columns: 3rem 1fr auto; gap: var(--space-2); padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--prose); font-size: 0.6875rem; text-decoration: none; }
+.report-version-index a { display: grid; grid-template-columns: 0.75rem 3rem 1fr auto; align-items: center; gap: var(--space-2); padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--prose); font-size: 0.6875rem; text-decoration: none; }
 .report-version-index a[aria-current="true"] { color: var(--text); border-left: 3px solid var(--muted); padding-left: var(--space-2); }
 .report-version-index li[data-status="failed"] a { text-decoration: line-through; text-decoration-color: var(--muted); }
+.report-version-index li[data-status="ok"] .status-glyph { background: var(--accent-teal); }
+.report-version-index li[data-status="failed"] .status-glyph { background: var(--danger-text); }
 .report-toc { display: grid; }
 .report-toc a { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); color: var(--prose); font-size: 0.75rem; text-decoration: none; }
 .report-toc a:hover { color: var(--text); }
@@ -200,6 +222,10 @@
 .writing-desk { max-width: 64rem; margin-inline: auto; }
 .writing-ledger { display: flex; align-items: end; justify-content: space-between; gap: var(--space-5); padding-bottom: var(--space-5); border-bottom: 1px solid var(--rule); }
 .writing-ledger label, .draft-status { color: var(--prose); font-size: 0.6875rem; text-transform: uppercase; }
+.ledger-date-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
+.entry-day-of-week { color: var(--prose); font-size: 0.8125rem; text-transform: none; }
+.entry-recency-note { flex-basis: 100%; margin: 0; color: var(--prose); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.entry-word-count { margin: var(--space-3) 0 0; text-align: right; color: var(--prose); font-size: 0.6875rem; text-transform: uppercase; font-variant-numeric: tabular-nums; }
 .writing-editor { position: relative; isolation: isolate; }
 /* Tactile baseline ruling behind the dominant editor: purely decorative, extremely
    faint, sits below the writing, and is dropped where system colours are enforced. */
@@ -246,14 +272,26 @@
 .workshop-panel-head h2 { color: var(--text); font: 600 1rem/1.2 var(--font-ui); text-transform: uppercase; }
 .workshop-panel-meta { color: var(--prose); font-size: var(--text-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .workshop-editor { width: 100%; min-height: 22rem; }
-.workshop-model-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
-.workshop-model-row .button { justify-self: start; padding: var(--space-2) var(--space-3); font-size: var(--text-xs); }
+/* One column, not two: the sidebar is only 15rem wide, so a side-by-side split leaves each
+   <select> too narrow to show its selected option. Real model names ("MAI-Code-1-Flash") and
+   language names ("Simplified Chinese") don't fit legibly at that width, so both fields stack
+   full-width instead -- still one grouped row (no separate sub-heading) rather than two fully
+   separate .workshop-side-group sections, which keeps most of the density win without clipped text. */
+.workshop-settings-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+.workshop-setting-field label { display: block; }
+.workshop-setting-field + .workshop-setting-field { margin-top: var(--space-4); }
+.workshop-refresh-models { margin-top: var(--space-3); padding: var(--space-2) var(--space-3); font-size: var(--text-xs); }
 .workshop-test-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); margin-top: var(--space-4); }
 .workshop-test-controls label { grid-column: 1 / -1; }
 /* Selects size to their widest <option> by default; a long entry title or model name would floor
    the grid track and force horizontal overflow (worst on mobile). min-width:0 lets the select
    shrink to its track so real long content wraps/clips instead of overflowing. */
-.workshop-model-row select, .workshop-test-controls select { min-width: 0; }
+.workshop-test-controls select, .workshop-settings-row select { min-width: 0; }
+.workshop-panel .analysis-prose { max-width: none; font-size: 0.9375rem; line-height: 1.75; }
+/* The test-run preview is the one stream surface that persists its rendered result instead of
+   reloading the page (see streamInto in app.js) -- once the final markdown HTML has swapped in,
+   it upgrades from the shared streaming quote-rule look to an actual Entry-Reflection-styled card. */
+#preview-stream[data-stream-state="done"] { padding: var(--space-5); border-left: 0; background-color: var(--commentary-plane); }
 .workshop-actionbar {
   grid-column: 1 / -1;
   display: flex;
@@ -266,6 +304,7 @@
 }
 .workshop-commit-actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-5); }
 .workshop-apply-all { padding-left: var(--space-4); border-left: 3px solid var(--muted); }
+.workshop-blast-radius { margin: 0 0 var(--space-2); color: var(--prose); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 .workshop-commit-hint { color: var(--prose); font-size: var(--text-sm); }
 .workshop-progress-holder { grid-column: 1 / -1; }
 .workshop-progress-holder:empty { display: none; }
@@ -401,7 +440,10 @@
   .workshop-side { padding: 0 0 var(--space-5); border-right: 0; border-bottom: 1px solid var(--rule); }
   .workshop-main { padding: var(--space-5) 0; }
   .workshop-test-controls, .session-inline-form { grid-template-columns: minmax(0, 1fr); }
-  .workshop-model-row { grid-template-columns: minmax(0, 1fr); }
+  /* Already minmax(0, 1fr) at desktop width too (pages.css ~line 280) -- restated explicitly here
+     so this file keeps a single source of truth per breakpoint for the shrink-to-fit contract
+     that test_workshop_select_grids_can_shrink_below_option_width guards. */
+  .workshop-settings-row { grid-template-columns: minmax(0, 1fr); }
   .workshop-commit-actions { align-items: stretch; flex-direction: column; }
   .workshop-apply-all { width: 100%; padding-left: 0; border-left: 0; }
   .workshop-commit-actions .button { width: 100%; }

@@ -71,6 +71,7 @@ def _render_history(rows):
             "role": m["role"],
             "content": m["content"],
             "content_html": render_ai_markdown(m["content"]) if m["role"] == "assistant" else None,
+            "created_at": m["created_at"],
         }
         for m in rows
     ]
@@ -138,7 +139,8 @@ async def chat_session_view(request: Request, session_id: int):
         raise HTTPException(status_code=404, detail="session not found")
     sessions = list_chat_sessions(db)
     history_rows = db.execute(
-        "SELECT role, content FROM chat_message WHERE session_id = ? ORDER BY id", (session_id,)
+        "SELECT role, content, created_at FROM chat_message WHERE session_id = ? ORDER BY id",
+        (session_id,),
     ).fetchall()
     return templates.TemplateResponse(
         request, "chat_session.html",

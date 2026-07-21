@@ -14,6 +14,20 @@
       </div>
       {% if report_html %}
       <p class="page-metadata">{{ t("report.coverage", count=covered_count, range=(covered_from or "")[:10] ~ " — " ~ (covered_to or "")[:10], behind=behind_count) }}</p>
+      <div class="report-stats-strip">
+        <div class="report-stat">
+          <span class="report-stat-value">{{ covered_count }}</span>
+          <span class="report-stat-label">{{ t("report.stats_entries_label") }}</span>
+        </div>
+        <div class="report-stat">
+          <span class="report-stat-value">{{ versions | length }}</span>
+          <span class="report-stat-label">{{ t("report.stats_reports_label") }}</span>
+        </div>
+        <div class="report-stat">
+          <span class="report-stat-value">{{ behind_count }}</span>
+          <span class="report-stat-label">{{ t("report.stats_behind_label") }}</span>
+        </div>
+      </div>
       {% endif %}
     </header>
     {% if report_perspective_name %}
@@ -39,6 +53,7 @@
     <div id="report-stream" class="stream-surface" hidden aria-live="polite"></div>
   </article>
   <aside class="report-rail" id="report-history" data-role="report-history">
+    {% include "partials/report_density_strip.html" %}
     {% include "partials/report_version_index.html" %}
     <nav id="report-toc" class="report-toc" aria-label="{{ t('report.toc_aria') }}" hidden></nav>
   </aside>

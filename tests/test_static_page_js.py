@@ -85,6 +85,22 @@ def test_new_entry_local_date_string_does_not_convert_to_utc():
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_new_entry_compute_word_count_splits_on_whitespace_and_ignores_padding():
+    output = _run_node(
+        "new-entry.js",
+        """
+        const {computeWordCount} = require(process.argv[1]);
+        process.stdout.write(JSON.stringify({
+          empty: computeWordCount(''),
+          blank: computeWordCount('   \\n\\t  '),
+          words: computeWordCount('  a quiet morning  '),
+        }));
+        """,
+    )
+    assert json.loads(output) == {"empty": 0, "blank": 0, "words": 3}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
 def test_apply_and_regenerate_uses_one_atomic_request():
     output = _run_node(
         "workshop.js",

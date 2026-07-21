@@ -45,6 +45,41 @@ def test_chat_list_shows_existing_sessions(client):
     assert "2026-07-01 · 该不该辞职" in response.text
 
 
+def test_chat_sidebar_shows_message_count_per_session(client):
+    db = client.app.state.db
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('t')").lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', 'a')",
+        (session_id,),
+    )
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'assistant', 'b')",
+        (session_id,),
+    )
+
+    body = client.get("/chat").text
+
+    assert "2 messages" in body
+
+
+def test_chat_sidebar_timestamp_normalizes_the_isoformat_t_separator(client):
+    # chat_session.updated_at is written via db._now() (datetime.isoformat(), e.g.
+    # "2026-03-04T09:30:00.123456+00:00") everywhere a real session is created/touched/renamed --
+    # unlike chat_message.created_at, which relies on SQLite's space-separated `datetime('now')`
+    # column default. The sidebar must always show a space, never the raw ISO "T", regardless of
+    # which of the two stored shapes is present.
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO chat_session (title, created_at, updated_at) VALUES "
+        "('t', '2026-03-04T09:30:00.500000+00:00', '2026-03-04T09:30:00.500000+00:00')"
+    )
+
+    body = client.get("/chat").text
+
+    assert ">2026-03-04 09:30<" in body
+    assert ">2026-03-04T09:30<" not in body
+
+
 def test_chat_new_renders_empty_session_form(client):
     response = client.get("/chat/new")
     assert response.status_code == 200
@@ -513,6 +548,48 @@ def test_chat_session_view_shows_the_active_perspective_for_the_next_response(cl
     assert "Perspective for the next response: Companion" in body
     # Non-goal: no per-message Perspective badges on individual turns.
     assert body.count("Perspective for the next response") == 1
+
+
+def test_chat_session_view_promotes_active_perspective_into_the_header(client):
+    """The conversation header (matching Entry/Report) shows the CURRENT active Perspective via
+    perspective.active_label -- distinct text from the composer's next_response_label so the two
+    never read as duplicated on the same page."""
+    from unflincher.db import set_active_prompt
+    from unflincher.perspectives import get_preset
+
+    db = client.app.state.db
+    set_active_prompt(db, get_preset("challenger").prompt, "test-model")
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('t')").lastrowid
+
+    body = client.get(f"/chat/{session_id}").text
+
+    assert "Active Perspective: Challenger" in body
+    assert body.index("Active Perspective: Challenger") < body.index('data-role="conversation"')
+
+
+def test_chat_new_also_promotes_active_perspective_into_the_header(client):
+    body = client.get("/chat/new").text
+    # Fresh install seeds Analyst active.
+    assert "Active Perspective: Analyst" in body
+
+
+def test_chat_session_view_renders_message_timestamps(client):
+    db = client.app.state.db
+    session_id = db.execute("INSERT INTO chat_session (title) VALUES ('t')").lastrowid
+    db.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content, created_at) "
+        "VALUES ('general', ?, 'user', 'hi', '2026-03-04T09:30:00')",
+        (session_id,),
+    )
+
+    body = client.get(f"/chat/{session_id}").text
+
+    # The full value is preserved on `datetime=` (assistive tech / semantics); the visible text
+    # is time-only -- repeating the full date on every turn of an already-dated conversation
+    # would be redundant, and it does not fit the narrow message-stamp column without wrapping.
+    assert 'datetime="2026-03-04T09:30:00"' in body
+    assert ">09:30<" in body
+    assert "2026-03-04T09:30<" not in body
 
 
 def test_chat_session_view_shows_custom_for_a_non_preset_active_prompt(client):

@@ -11,7 +11,9 @@ from unflincher.db import (
     get_chat_session,
     get_connection,
     get_current_commentary,
+    get_distinct_entry_days,
     get_entries_with_active_commentary_job,
+    get_entry_year_counts,
     get_latest_commentary_job_item,
     get_report_by_id,
     init_schema,
@@ -447,6 +449,25 @@ def test_list_chat_sessions_orders_by_updated_at_desc(conn):
     assert [r["id"] for r in rows] == [first, second]
 
 
+def test_list_chat_sessions_includes_message_count(conn):
+    migrate_chat_session(conn)
+    quiet = create_chat_session(conn, "quiet")
+    chatty = create_chat_session(conn, "chatty")
+    conn.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'user', 'a')",
+        (chatty,),
+    )
+    conn.execute(
+        "INSERT INTO chat_message (thread_kind, session_id, role, content) VALUES ('general', ?, 'assistant', 'b')",
+        (chatty,),
+    )
+
+    rows = {r["id"]: r["message_count"] for r in list_chat_sessions(conn)}
+
+    assert rows[chatty] == 2
+    assert rows[quiet] == 0
+
+
 def test_rename_chat_session(conn):
     migrate_chat_session(conn)
     session_id = create_chat_session(conn, "old title")
@@ -623,11 +644,11 @@ def test_migrate_chat_session_discards_old_general_thread_only_once(tmp_path):
 
 
 
-def _seed_entry(conn, title="e"):
+def _seed_entry(conn, title="e", entry_date="2026-01-01"):
     return conn.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
-        "entry_date, source) VALUES (?, '<p>x</p>', '<p>x</p>', 'x', '2026-01-01', 'import')",
-        (title,),
+        "entry_date, source) VALUES (?, '<p>x</p>', '<p>x</p>', 'x', ?, 'import')",
+        (title, entry_date),
     ).lastrowid
 
 
@@ -704,3 +725,31 @@ def test_get_latest_commentary_job_item_returns_the_newest_one(conn):
     latest = get_latest_commentary_job_item(conn, entry_id)
     assert latest["id"] == new_item_id
     assert latest["status"] == "ok"
+
+
+def test_get_entry_year_counts_groups_by_year_newest_first(conn):
+    _seed_entry(conn, "a", entry_date="2024-03-01")
+    _seed_entry(conn, "b", entry_date="2024-08-01")
+    _seed_entry(conn, "c", entry_date="2023-01-01")
+
+    counts = get_entry_year_counts(conn)
+
+    assert counts == [{"year": "2024", "count": 2}, {"year": "2023", "count": 1}]
+
+
+def test_get_entry_year_counts_is_empty_for_a_fresh_archive(conn):
+    assert get_entry_year_counts(conn) == []
+
+
+def test_get_distinct_entry_days_dedupes_same_day_entries_newest_first(conn):
+    _seed_entry(conn, "a", entry_date="2024-03-01T08:00:00+00:00")
+    _seed_entry(conn, "b", entry_date="2024-03-01T20:00:00+00:00")  # same day, second entry
+    _seed_entry(conn, "c", entry_date="2024-03-02T00:00:00+00:00")
+
+    days = get_distinct_entry_days(conn)
+
+    assert days == ["2024-03-02", "2024-03-01"]
+
+
+def test_get_distinct_entry_days_is_empty_for_a_fresh_archive(conn):
+    assert get_distinct_entry_days(conn) == []

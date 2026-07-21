@@ -9,6 +9,9 @@
       <h1 id="chat-heading">{{ active_session_title or t("chat.default_title") }}</h1>
       <p class="conversation-context">{{ t("chat.context_note") }}</p>
     </header>
+    {% with label=t("perspective.active_label", name=next_response_perspective_name) %}
+      {% include "partials/perspective_indicator.html" %}
+    {% endwith %}
     {% with notice_id="chat-notice", tone="failed", message="", hidden=true, live="polite" %}
       {% include "partials/inline_notice.html" %}
     {% endwith %}
@@ -16,7 +19,12 @@
       {% for msg in history %}
       <article class="conversation-message {{ 'is-user' if msg.role == 'user' else 'is-assistant' }}">
         <div class="message-stamp">
-          {{ t("common.me") if msg.role == "user" else t("common.mentor") }}
+          <span>{{ t("common.me") if msg.role == "user" else t("common.mentor") }}</span>
+          <!-- Time-only (not full date+time): repeating the full date on every turn inside an
+               already-dated conversation is redundant, and a full "YYYY-MM-DD HH:MM" string does
+               not fit this label column's width without wrapping. The full value stays on the
+               `datetime` attribute for assistive tech. -->
+          <time datetime="{{ msg.created_at }}">{{ msg.created_at[11:16] }}</time>
         </div>
         <div class="message-copy">
           {% if msg.content_html %}{{ msg.content_html | safe }}{% else %}{{ msg.content }}{% endif %}
