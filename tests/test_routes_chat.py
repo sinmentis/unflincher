@@ -38,11 +38,12 @@ def test_chat_list_empty_state(client):
 
 def test_chat_list_shows_existing_sessions(client):
     db = client.app.state.db
-    db.execute("INSERT INTO chat_session (title) VALUES ('2026-07-01 · 该不该辞职')")
+    title = "2026-07-01 · 该不该辞职，以及接下来怎样做更符合长期目标"
+    db.execute("INSERT INTO chat_session (title) VALUES (?)", (title,))
 
     response = client.get("/chat")
 
-    assert "2026-07-01 · 该不该辞职" in response.text
+    assert f'<span class="session-title">{title}</span>' in response.text
 
 
 def test_chat_sidebar_shows_message_count_per_session(client):

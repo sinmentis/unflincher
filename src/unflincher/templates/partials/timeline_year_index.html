@@ -1,14 +1,15 @@
 <div class="timeline-year-index" data-role="year-filter">
-  <nav aria-label="{{ t('timeline.filter_by_year_aria') }}">
-    <button type="button" class="year-chip is-active" data-year-clear
-            aria-pressed="true" disabled>
-      <span>{{ t("timeline.all_years") }}</span>
-    </button>
+  <div class="timeline-year-heading">
+    <span>{{ t("timeline.filter_by_year_aria") }}</span>
+    <button type="button" class="year-clear is-active" data-year-clear
+            aria-pressed="true" disabled>{{ t("timeline.all_years") }}</button>
+  </div>
+  <nav class="timeline-year-track" aria-label="{{ t('timeline.filter_by_year_aria') }}">
     {% for year in years %}
-    <button type="button" class="year-chip" data-year-link="{{ year.year }}"
+    <button type="button" class="year-node" data-year-link="{{ year.year }}"
             data-year-count="{{ year.count }}" aria-pressed="false">
-      <span>{{ year.year }}</span>
-      <b>{{ year.count }}</b>
+      <span class="year-count-dot"><b>{{ year.count }}</b></span>
+      <span class="year-label">{{ year.year }}</span>
     </button>
     {% endfor %}
   </nav>

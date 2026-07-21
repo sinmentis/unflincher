@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-{% set archive_metadata = entry_count ~ " / " ~ (date_from ~ " — " ~ date_to if entry_count else "") %}
+{% set archive_metadata = t("timeline.entry_count", count=entry_count) %}
 {% if entries %}
 <div class="timeline-layout">
-  {% include "partials/timeline_year_index.html" %}
   <section class="timeline-document" data-role="primary-task">
     {% with heading=t("timeline.heading"), metadata=archive_metadata %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
+    {% include "partials/timeline_year_index.html" %}
     {% if show_onboarding_panel %}
       {% include "partials/onboarding_start_panel.html" %}
     {% endif %}

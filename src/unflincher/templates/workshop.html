@@ -78,7 +78,7 @@
     <section class="workshop-panel" data-workshop-stage="draft">
       <div class="workshop-panel-head">
         <h2>{{ t("workshop.tune_instructions_heading") }}</h2>
-        <span class="workshop-panel-meta">{{ t("workshop.draft_word_count", count=(active_prompt | wordcount), perspective=active_perspective_name) }}</span>
+        <span class="workshop-panel-meta">{{ t("workshop.draft_word_count", count=(active_prompt | writing_units), perspective=active_perspective_name) }}</span>
       </div>
       <textarea id="prompt-draft" class="workshop-editor" aria-label="{{ t('workshop.persona_label') }}">{{ active_prompt }}</textarea>
     </section>

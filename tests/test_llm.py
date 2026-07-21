@@ -164,6 +164,8 @@ async def test_generate_commentary_streams_and_never_writes_db(fake_stream):
     # for real generation and test-run preview)
     assert "第一篇" in user_content
     assert "第二篇" in user_content
+    assert '[wellbeing-score]: # "NN"' in system
+    assert "never present the score as therapy, diagnosis, or a clinical assessment" in system
 
 
 async def test_generate_commentary_for_second_entry_still_sees_full_corpus(fake_stream):

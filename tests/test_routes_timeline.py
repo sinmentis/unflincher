@@ -41,7 +41,7 @@ def test_timeline_shows_commentary_badge(client):
     assert "Not reflected" in body
 
 
-def test_timeline_provides_year_sidebar_data(client):
+def test_timeline_provides_year_track_data(client):
     db = client.app.state.db
     db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
@@ -58,12 +58,14 @@ def test_timeline_provides_year_sidebar_data(client):
 
     body = client.get("/").text
 
-    # Sidebar shows newest year first, with a per-year entry count.
+    # The chronology shows newest year first, with the count inside each dot.
     assert body.index("2024") < body.index("2023")
+    assert 'class="timeline-year-track"' in body
     assert 'data-year-link="2024"' in body
     assert 'data-year-count="2"' in body
     assert 'data-year-link="2023"' in body
     assert 'data-year-count="1"' in body
+    assert body.count('class="year-count-dot"') == 2
     # Year-divider markup appears once per year, ahead of that year's entries.
     assert body.count('class="archive-year"') == 2
 
@@ -89,6 +91,39 @@ def test_timeline_shows_word_count_per_entry(client):
     )
     body = client.get("/").text
     assert 'class="archive-words">5</span>' in body
+
+
+def test_timeline_counts_cjk_characters_as_writing_units(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>今天心情很好</p>', '<p>今天心情很好</p>', "
+        "'今天心情很好', '2024-03-01', 'import')"
+    )
+
+    body = client.get("/").text
+
+    assert 'class="archive-words">6</span>' in body
+
+
+def test_timeline_heading_localizes_entry_count_without_date_range(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('a', '<p>x</p>', '<p>x</p>', 'x', "
+        "'2024-03-01T08:09:10', 'import')"
+    )
+    db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('b', '<p>x</p>', '<p>x</p>', 'x', "
+        "'2026-07-17T10:11:12', 'import')"
+    )
+    client.cookies.set("unflincher_lang", "zh-Hans")
+
+    body = client.get("/").text
+
+    assert "2篇" in body
+    assert "2024-03-01 — 2026-07-17" not in body
 
 
 def test_timeline_shows_generating_badge_for_entry_with_active_job(client):

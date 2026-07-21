@@ -39,8 +39,11 @@ from unflincher.db import (
     report_target_key,
 )
 from unflincher.request_envelope import matches_stored_assembly
+from unflincher.reflection_output import InvalidReflectionOutput, parse_reflection_output
 
 logger = logging.getLogger(__name__)
+
+_REFLECTION_FORMAT_ATTEMPTS = 2
 
 
 class BatchWorker:
@@ -330,10 +333,22 @@ class BatchWorker:
         envelope = llm.build_commentary_envelope(entry, all_entries, persona_text, model)
         self._verify_envelope_matches_item(envelope, item)
         preflight_envelope(envelope, current_limit)
-        chunks = [tok async for tok in llm.stream_completion_envelope(envelope)]
+        for attempt in range(_REFLECTION_FORMAT_ATTEMPTS):
+            chunks = [tok async for tok in llm.stream_completion_envelope(envelope)]
+            body_text = "".join(chunks)
+            try:
+                parse_reflection_output(body_text, require_score=True)
+                break
+            except InvalidReflectionOutput:
+                if attempt + 1 == _REFLECTION_FORMAT_ATTEMPTS:
+                    raise
+                logger.warning(
+                    "regen_job_item %d returned invalid Entry Reflection metadata; retrying once",
+                    item["id"],
+                )
         complete_job_item(self.conn, item["id"], "entry_commentary", {
             "entry_id": item["entry_id"], "prompt_version_id": prompt_version_id,
-            "model": model, "body_text": "".join(chunks), "status": "ok",
+            "model": model, "body_text": body_text, "status": "ok",
         })
 
     async def _generate_aggregate_report(self, item, prompt_version_id, persona_text, model, all_entries, current_limit):

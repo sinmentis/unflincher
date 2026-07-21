@@ -239,7 +239,7 @@ def _dispatch_by_target(entry_commentary_gen, report_gen):
 
 
 async def _fake_gen_ok(envelope):
-    yield f"锐评-{envelope.target_id}"
+    yield f'锐评-{envelope.target_id}\n\n[wellbeing-score]: # "73"'
 
 
 async def _fake_report_ok(envelope):
@@ -374,7 +374,7 @@ def test_retry_failed_item_reopens_job_and_succeeds(client, monkeypatch):
         attempts[envelope.target_id] = attempts.get(envelope.target_id, 0) + 1
         if envelope.target_id == str(failing_entry_id) and attempts[envelope.target_id] == 1:
             raise RuntimeError("boom")
-        yield "recovered"
+        yield 'recovered\n\n[wellbeing-score]: # "73"'
 
     monkeypatch.setattr(
         llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
@@ -406,7 +406,7 @@ def test_retry_returns_progress_fragment_not_json(client, monkeypatch):
         attempts[envelope.target_id] = attempts.get(envelope.target_id, 0) + 1
         if envelope.target_id == str(failing_entry_id) and attempts[envelope.target_id] == 1:
             raise RuntimeError("boom")
-        yield "recovered"
+        yield 'recovered\n\n[wellbeing-score]: # "73"'
 
     monkeypatch.setattr(
         llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)
@@ -581,7 +581,7 @@ def test_retry_uses_original_job_model_not_current_active(client, monkeypatch):
         attempts[envelope.target_id] = attempts.get(envelope.target_id, 0) + 1
         if envelope.target_id == str(failing_entry_id) and attempts[envelope.target_id] == 1:
             raise RuntimeError("boom")
-        yield "recovered"
+        yield 'recovered\n\n[wellbeing-score]: # "73"'
 
     monkeypatch.setattr(
         llm_module, "stream_completion_envelope", _dispatch_by_target(fake_gen, _fake_report_ok)

@@ -397,24 +397,29 @@ def test_entry_detail_uses_segmented_reading_layout(client):
     for marker in order_markers:
         assert body.count(marker) == 1, f"expected exactly one {marker}"
 
-    assert 'data-entry-source="manual"' in body
+    assert "data-entry-source" not in body
     assert 'src="/static/js/entry.js"' in body
 
 
-def test_entry_detail_uses_quiet_record_metadata_without_ledger_numbering(client):
+def test_entry_detail_places_precise_time_and_count_below_title_without_source(client):
     db = client.app.state.db
     entry_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('A hard choice', '<p>Body</p>', '<p>Body</p>', "
-        "'Body', '2026-07-13', 'manual')"
+        "'Body', '2026-07-13T08:09:10+00:00', 'manual')"
     ).lastrowid
 
     body = client.get(f"/entry/{entry_id}").text
 
     assert 'class="record-metadata"' in body
+    assert '<time datetime="2026-07-13T08:09:10+00:00">2026-07-13 08:09:10</time>' in body
+    assert "1 word" in body
+    assert ">Manual<" not in body
+    assert "entry-adjacent" not in body
     assert " / 001" not in body
     assert "Archive ID" not in body
-    assert body.index('class="record-metadata"') < body.index('id="diary-text"')
+    assert body.index("<h1>A hard choice</h1>") < body.index('class="record-metadata"')
+    assert body.index('class="record-metadata"') < body.index('role="tablist"')
 
 
 def test_entry_detail_preserves_generation_hooks(client):
@@ -477,45 +482,89 @@ def test_entry_detail_shows_word_count_in_metadata(client):
     assert "3 words" in body
 
 
-def test_entry_detail_shows_prev_next_navigation(client):
+def test_entry_detail_counts_cjk_characters_as_writing_units(client):
     db = client.app.state.db
-    first_id = db.execute(
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>今天心情很好</p>', '<p>今天心情很好</p>', "
+        "'今天心情很好', '2026-01-01', 'import')"
+    ).lastrowid
+
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert "6 words" in body
+
+
+def test_entry_detail_omits_adjacent_entry_navigation(client):
+    db = client.app.state.db
+    db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('First', '<p>a</p>', '<p>a</p>', 'a', "
         "'2026-01-01', 'import')"
-    ).lastrowid
+    )
     middle_id = db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('Middle', '<p>b</p>', '<p>b</p>', 'b', "
         "'2026-01-02', 'import')"
     ).lastrowid
-    last_id = db.execute(
+    db.execute(
         "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
         "entry_date, source) VALUES ('Last', '<p>c</p>', '<p>c</p>', 'c', "
         "'2026-01-03', 'import')"
+    )
+
+    body = client.get(f"/entry/{middle_id}").text
+
+    assert "entry-adjacent-nav" not in body
+    assert "entry-adjacent-link" not in body
+
+
+def test_entry_detail_reflection_tab_has_no_completion_highlight(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', "
+        "'2026-01-01', 'import')"
     ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', 'reflection', 'ok')",
+        (entry_id, prompt_id),
+    )
 
-    first_body = client.get(f"/entry/{first_id}").text
-    middle_body = client.get(f"/entry/{middle_id}").text
-    last_body = client.get(f"/entry/{last_id}").text
+    body = client.get(f"/entry/{entry_id}").text
+    reflection_tab = body[body.index('id="tab-reflection"'):body.index("</button>", body.index('id="tab-reflection"'))]
 
-    # Prev and next links carry distinct classes (next adds a `--next` modifier), so the two
-    # exact prefixes below unambiguously distinguish "link to earlier entry" from "link to
-    # later entry" -- see entry_detail.html.
-    prev_marker = 'class="entry-adjacent-link" href="/entry/'
-    next_marker = 'class="entry-adjacent-link entry-adjacent-link--next" href="/entry/'
+    assert "status-mark" not in reflection_tab
 
-    # First entry (earliest date): no prev link, only a next link to Middle.
-    assert prev_marker not in first_body
-    assert f'{next_marker}{middle_id}"' in first_body
 
-    # Middle entry: prev link to First, next link to Last.
-    assert f'{prev_marker}{first_id}"' in middle_body
-    assert f'{next_marker}{last_id}"' in middle_body
+def test_entry_detail_shows_non_diagnostic_wellbeing_score(client):
+    db = client.app.state.db
+    entry_id = db.execute(
+        "INSERT INTO diary_entry (title, content_html_raw, content_html, content_text, "
+        "entry_date, source) VALUES ('t', '<p>x</p>', '<p>x</p>', 'x', "
+        "'2026-01-01', 'import')"
+    ).lastrowid
+    prompt_id = db.execute(
+        "INSERT INTO persona_prompt (version_no, body_text, model, is_active) "
+        "VALUES (2, 'p', 'test-model', 0)"
+    ).lastrowid
+    db.execute(
+        "INSERT INTO entry_commentary (entry_id, prompt_version_id, model, body_text, status) "
+        "VALUES (?, ?, 'm', ?, 'ok')",
+        (entry_id, prompt_id, 'A grounded reflection.\n\n[wellbeing-score]: # "73"'),
+    )
 
-    # Last entry (latest date): prev link to Middle, no next link.
-    assert f'{prev_marker}{middle_id}"' in last_body
-    assert next_marker not in last_body
+    body = client.get(f"/entry/{entry_id}").text
+
+    assert "Wellbeing 73/100" in body
+    assert "not a diagnosis" in body
+    assert "A grounded reflection." in body
+    assert "[wellbeing-score]:" not in body
 
 
 def test_entry_detail_chat_shows_message_timestamps(client):

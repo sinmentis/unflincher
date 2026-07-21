@@ -7,6 +7,7 @@ from unflincher.db import (
 )
 from unflincher.onboarding import IMPORT_DOCS_URL, get_onboarding_state
 from unflincher.templates_env import templates
+from unflincher.text_metrics import count_writing_units
 
 router = APIRouter()
 
@@ -25,7 +26,7 @@ async def timeline(request: Request):
             "id": row["id"], "title": row["title"], "entry_date": row["entry_date"],
             "year": row["entry_date"][:4], "has_commentary": commentary is not None,
             "is_generating": row["id"] in active_job_entry_ids,
-            "word_count": len(row["content_text"].split()),
+            "word_count": count_writing_units(row["content_text"]),
         })
     total_entries = len(entries)
     years = get_entry_year_counts(db) if total_entries else []
@@ -37,8 +38,6 @@ async def timeline(request: Request):
         "entries": entries,
         "years": years,
         "entry_count": total_entries,
-        "date_from": entries[-1]["entry_date"][:10] if entries else None,
-        "date_to": entries[0]["entry_date"][:10] if entries else None,
         "show_onboarding_panel": onboarding_state.show_start_panel,
         "import_docs_url": IMPORT_DOCS_URL,
     }

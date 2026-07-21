@@ -224,7 +224,7 @@ def test_reading_surfaces_keep_a_comfortable_measure():
     assert "--reading-max: 48rem" in tokens
     assert "--measure: 46rem" in tokens
     assert "--leading-reading: 1.82" in tokens
-    assert "max-width: var(--measure)" in _rule_body(pages, ".diary-prose")
+    assert "max-width: 64rem" in _rule_body(pages, ".diary-prose")
     assert "max-width: var(--measure)" in _rule_body(pages, ".report-prose")
     assert "minmax(0, var(--measure))" in _rule_body(components, ".conversation-message")
 
@@ -308,25 +308,40 @@ def test_mobile_layouts_collapse_in_source_order():
         assert not re.search(r"(?m)^\s*order\s*:", body)
 
 
-def test_timeline_layout_uses_a_desktop_filter_rail_and_collapses_on_mobile():
+def test_timeline_layout_returns_full_width_to_the_archive():
     css = PAGES_CSS.read_text()
     body = _rule_body(css, ".timeline-layout")
-    assert "display: grid" in body
-    assert "grid-template-columns: 12rem minmax(0, 1fr)" in body
-    mobile = _media_block(css, MOBILE_QUERY)
-    mobile_body = _rule_body(mobile, ".timeline-layout")
-    assert "grid-template-columns: 1fr" in mobile_body
+    assert "max-width: 96rem" in body
+    assert "grid-template-columns" not in body
+    track = _rule_body(css, ".timeline-year-track")
+    assert "grid-auto-columns: minmax(3.75rem, 1fr)" in track
+    assert "grid-auto-flow: column" in track
+    assert "animation: timeline-node-enter" in _rule_body(css, ".year-node")
 
 
-def test_entry_layout_uses_a_desktop_context_rail_and_collapses_on_mobile():
+def test_entry_layout_uses_the_removed_rail_space_for_reading():
     css = PAGES_CSS.read_text()
     body = _rule_body(css, ".entry-layout")
-    assert "display: grid" in body
-    assert "grid-template-columns: 12rem minmax(0, var(--reading-max))" in body
-    assert "max-width: 66rem" in body
-    mobile = _media_block(css, MOBILE_QUERY)
-    mobile_body = _rule_body(mobile, ".entry-layout")
-    assert "grid-template-columns: 1fr" in mobile_body
+    assert "max-width: 80rem" in body
+    assert "grid-template-columns" not in body
+    source = (TEMPLATES / "entry_detail.html").read_text()
+    assert "entry-context" not in source
+    assert "entry-adjacent" not in source
+
+
+def test_conversation_titles_wrap_instead_of_truncating():
+    source = (TEMPLATES / "partials" / "chat_sidebar.html").read_text()
+    components = (STATIC_JS / "css" / "components.css").read_text()
+    pages = PAGES_CSS.read_text()
+
+    assert 'class="session-title"' in source
+    title = _rule_body(components, ".session-title")
+    assert "white-space: normal" in title
+    assert "overflow-wrap: anywhere" in title
+    assert "text-overflow" not in title
+    assert "grid-template-columns: minmax(22rem, 25rem) minmax(0, 1fr)" in _rule_body(
+        pages, ".chat-layout"
+    )
 
 
 def test_report_mobile_tabs_mirror_entry_sticky_tab_pattern():

@@ -13,17 +13,18 @@ from unflincher.db import (
     acquire_lease,
     entry_thread_key,
     get_active_prompt,
-    get_adjacent_entries,
     get_current_commentary,
     get_latest_commentary_job_item,
     release_lease,
 )
 from unflincher.i18n import t
 from unflincher.perspectives import display_name_key
+from unflincher.reflection_output import parse_reflection_output
 from unflincher.routes.errors import generation_safety_http_exception
 from unflincher.routes.sse import sse_response
 from unflincher.sanitize import render_ai_markdown
 from unflincher.templates_env import get_current_language, templates
+from unflincher.text_metrics import count_writing_units
 from unflincher.worker import BatchWorker
 
 router = APIRouter()
@@ -44,7 +45,10 @@ async def entry_detail(request: Request, entry_id: int):
 
     current_lang = get_current_language(request)
     commentary = get_current_commentary(db, entry_id)
-    commentary_html = render_ai_markdown(commentary["body_text"]) if commentary else None
+    parsed_commentary = parse_reflection_output(commentary["body_text"]) if commentary else None
+    commentary_html = (
+        render_ai_markdown(parsed_commentary.body_text) if parsed_commentary else None
+    )
     commentary_perspective_name = (
         _perspective_name(current_lang, commentary["prompt_preset_key"]) if commentary else None
     )
@@ -74,8 +78,8 @@ async def entry_detail(request: Request, entry_id: int):
     commentary_job_error = (
         latest_item["error"] if latest_item and latest_item["status"] == "failed" else None
     )
-    prev_entry, next_entry = get_adjacent_entries(db, entry_id, entry["entry_date"])
-    word_count = len(entry["content_text"].split())
+    word_count = count_writing_units(entry["content_text"])
+    entry_timestamp = entry["entry_date"].replace("T", " ", 1)[:19]
 
     return templates.TemplateResponse(
         request,
@@ -83,8 +87,10 @@ async def entry_detail(request: Request, entry_id: int):
         {
             "entry": entry,
             "word_count": word_count,
-            "prev_entry": prev_entry,
-            "next_entry": next_entry,
+            "entry_timestamp": entry_timestamp,
+            "wellbeing_score": (
+                parsed_commentary.wellbeing_score if parsed_commentary else None
+            ),
             "commentary_html": commentary_html,
             "commentary_perspective_name": commentary_perspective_name,
             "next_response_perspective_name": next_response_perspective_name,
@@ -181,7 +187,10 @@ async def entry_chat(request: Request, entry_id: int):
         # Always ground the reply in the LATEST status='ok' commentary, never a specific/viewed
         # version — get_current_commentary already returns the newest ok row.
         commentary = get_current_commentary(db, entry_id)
-        commentary_text = commentary["body_text"] if commentary else None
+        commentary_text = (
+            parse_reflection_output(commentary["body_text"]).body_text
+            if commentary else None
+        )
         active_prompt = get_active_prompt(db)
         model = active_prompt["model"]
 

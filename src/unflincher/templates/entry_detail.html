@@ -1,35 +1,21 @@
 {% extends "base.html" %}
 {% block title %}{{ entry.title }}{% endblock %}
 {% block content %}
-<div class="entry-layout" data-role="primary-task" data-entry-source="{{ entry.source }}">
-  <aside class="entry-context">
-    {% if prev_entry or next_entry %}
-    <nav class="entry-adjacent-nav" aria-label="{{ t('entry.adjacent_nav_aria') }}">
-      {% if prev_entry %}
-      <a class="entry-adjacent-link" href="/entry/{{ prev_entry.id }}" title="{{ prev_entry.title }}">
-        <span aria-hidden="true">&lsaquo;</span> {{ t("entry.prev_entry_button") }}
-      </a>
-      {% endif %}
-      {% if next_entry %}
-      <a class="entry-adjacent-link entry-adjacent-link--next" href="/entry/{{ next_entry.id }}" title="{{ next_entry.title }}">
-        {{ t("entry.next_entry_button") }} <span aria-hidden="true">&rsaquo;</span>
-      </a>
-      {% endif %}
-    </nav>
-    {% endif %}
-    <p class="record-metadata">
-      <time datetime="{{ entry.entry_date[:10] }}">{{ entry.entry_date[:10] }}</time>
-      <span aria-hidden="true">·</span>
-      <span>{{ t("entry.source." ~ entry.source) }}</span>
-      <span aria-hidden="true">·</span>
-      <span>{{ t("entry.word_count_label", count=word_count) }}</span>
-    </p>
-  </aside>
-
+<div class="entry-layout" data-role="primary-task">
   <article class="entry-record">
     {% with heading=entry.title %}
       {% include "partials/page_heading.html" %}
     {% endwith %}
+    <p class="record-metadata">
+      <time datetime="{{ entry.entry_date }}">{{ entry_timestamp }}</time>
+      <span aria-hidden="true">·</span>
+      <span>{{ t("entry.word_count_label", count=word_count) }}</span>
+      {% if wellbeing_score is not none %}
+      <span aria-hidden="true">·</span>
+      <span class="entry-wellbeing-score"
+            title="{{ t('entry.wellbeing_score_help') }}">{{ t("entry.wellbeing_score_label", score=wellbeing_score) }}</span>
+      {% endif %}
+    </p>
     <div class="entry-segmented" role="tablist" aria-label="{{ t('entry.segmented_aria') }}">
       <div class="entry-segmented-thumb" aria-hidden="true"></div>
       <button class="entry-segmented-tab" role="tab" aria-selected="true" aria-controls="panel-body"
@@ -37,7 +23,6 @@
       <button class="entry-segmented-tab" role="tab" aria-selected="false" aria-controls="commentary-section"
               id="tab-reflection" type="button">
         {{ t("entry.tab_reflection") }}
-        {% if commentary_html %}<span class="status-mark" data-status="done"><span class="status-glyph" aria-hidden="true"></span></span>{% endif %}
       </button>
       <button class="entry-segmented-tab" role="tab" aria-selected="false" aria-controls="chat-section"
               id="tab-conversation" type="button">

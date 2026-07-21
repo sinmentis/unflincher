@@ -184,7 +184,18 @@ async def shutdown_client() -> None:
 
 
 
-PER_ENTRY_TASK = "重点回应这一篇日记，但可以参考其他日记里反复出现的模式，引用具体时间点。"
+PER_ENTRY_TASK = """Focus on this entry while using other dated entries only when they support a
+recurring pattern.
+
+End every Entry Reflection with this exact metadata line:
+[wellbeing-score]: # "NN"
+
+Replace NN with one integer from 0 to 100. Score the apparent psychological wellbeing expressed in
+the target entry, informed by emotional stability, agency, connection, self-awareness, functioning,
+and coping capacity. A lower score reflects stronger distress, hopelessness, disconnection, loss of
+agency, or difficulty coping. Base the score only on the writing, state uncertainty in the prose
+when evidence is mixed, and never present the score as therapy, diagnosis, or a clinical assessment.
+Do not mention or explain the metadata line in the reflection."""
 REPORT_TASK = "读完全部日记后，写一份看跨越时间的模式、反复出现的困惑、成长轨迹的综合报告。"
 CHAT_TASK = "这是延续对话，保持上下文一致，语气跟你平时逐篇/总对话一致。"
 

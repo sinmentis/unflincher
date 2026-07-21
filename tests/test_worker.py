@@ -75,7 +75,7 @@ def _enqueue_full_job(conn, entry_ids, persona_text="人设", model="test-model"
 async def test_run_job_generates_commentary_for_every_entry_and_the_report(monkeypatch, conn):
     async def fake_stream(envelope):
         if envelope.target_kind == "entry_commentary":
-            yield f"关于条目{envelope.target_id}的锐评"
+            yield f'关于条目{envelope.target_id}的锐评\n\n[wellbeing-score]: # "73"'
         else:
             yield "汇总报告"
 
@@ -128,7 +128,10 @@ async def test_run_job_isolates_failures_and_releases_lease_even_on_failure(monk
     async def fake_stream(envelope):
         if envelope.target_kind == "entry_commentary" and envelope.target_id == "1":
             raise RuntimeError("provider error")
-        yield "ok take"
+        if envelope.target_kind == "entry_commentary":
+            yield 'ok take\n\n[wellbeing-score]: # "73"'
+        else:
+            yield "ok report"
 
     monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
 
@@ -269,7 +272,10 @@ async def test_run_job_requeued_item_after_crash_produces_exactly_one_result(mon
     before the LLM call returned). Re-running the worker after resetting it back to 'pending'
     must produce exactly one commentary row, not two."""
     async def fake_stream(envelope):
-        yield "重新生成的锐评"
+        if envelope.target_kind == "entry_commentary":
+            yield '重新生成的锐评\n\n[wellbeing-score]: # "73"'
+        else:
+            yield "重新生成的报告"
     monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
 
     entry_ids = _seed_entries(conn, 1)
@@ -607,7 +613,10 @@ async def test_run_job_recovering_proceeds_normally_when_everything_is_valid(mon
     """Sanity check: recovering=True must not refuse a perfectly valid job -- it should generate
     exactly as the non-recovery path would."""
     async def fake_stream(envelope):
-        yield "重新生成的锐评"
+        if envelope.target_kind == "entry_commentary":
+            yield '重新生成的锐评\n\n[wellbeing-score]: # "73"'
+        else:
+            yield "重新生成的报告"
     monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
 
     entry_ids = _seed_entries(conn, 1)
@@ -621,3 +630,64 @@ async def test_run_job_recovering_proceeds_normally_when_everything_is_valid(mon
     current = get_current_commentary(conn, entry_ids[0])
     assert current is not None
     assert "锐评" in current["body_text"]
+
+
+async def test_run_job_rejects_entry_reflection_without_score_metadata(monkeypatch, conn):
+    attempts = 0
+
+    async def fake_stream(envelope):
+        nonlocal attempts
+        if envelope.target_kind == "entry_commentary":
+            attempts += 1
+            yield "Reflection without metadata"
+        else:
+            yield "Report"
+
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
+    entry_ids = _seed_entries(conn, 1)
+    job_id, _ = _enqueue_full_job(conn, entry_ids)
+
+    await BatchWorker(conn, concurrency=1).run_job(job_id)
+
+    item = conn.execute(
+        "SELECT status, error FROM regen_job_item "
+        "WHERE job_id = ? AND target_type = 'entry_commentary'",
+        (job_id,),
+    ).fetchone()
+    assert item["status"] == "failed"
+    assert "missing wellbeing score metadata" in item["error"]
+    assert get_current_commentary(conn, entry_ids[0]) is None
+    assert attempts == 2
+
+
+async def test_run_job_retries_invalid_entry_reflection_format_once(monkeypatch, conn):
+    attempts = 0
+
+    async def fake_stream(envelope):
+        nonlocal attempts
+        if envelope.target_kind == "entry_commentary":
+            attempts += 1
+            if attempts == 1:
+                yield "Reflection without metadata"
+            else:
+                yield 'Recovered reflection.\n\n[wellbeing-score]: # "73"'
+        else:
+            yield "Report"
+
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
+    entry_ids = _seed_entries(conn, 1)
+    job_id, _ = _enqueue_full_job(conn, entry_ids)
+
+    await BatchWorker(conn, concurrency=1).run_job(job_id)
+
+    item = conn.execute(
+        "SELECT status, error FROM regen_job_item "
+        "WHERE job_id = ? AND target_type = 'entry_commentary'",
+        (job_id,),
+    ).fetchone()
+    assert item["status"] == "ok"
+    assert item["error"] is None
+    assert get_current_commentary(conn, entry_ids[0])["body_text"].startswith(
+        "Recovered reflection."
+    )
+    assert attempts == 2

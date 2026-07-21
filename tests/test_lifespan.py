@@ -68,7 +68,7 @@ async def test_startup_recovers_snapshot_backed_crashed_running_job(tmp_path, mo
     # Module-reference monkeypatch (the worker calls llm.stream_completion_envelope) so no real
     # LLM hit.
     async def _fake_stream(envelope):
-        yield "锐评：崩溃后恢复生成"
+        yield '锐评：崩溃后恢复生成\n\n[wellbeing-score]: # "73"'
     monkeypatch.setattr(llm_module, "stream_completion_envelope", _fake_stream)
 
     async def _fake_limit(model):

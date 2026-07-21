@@ -4,8 +4,11 @@ function localDateString(date) {
 }
 
 function computeWordCount(text) {
-  const trimmed = text.trim();
-  return trimmed ? trimmed.split(/\s+/).length : 0;
+  const cjkPattern = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
+  const cjkCharacters = text.match(cjkPattern) || [];
+  const nonCjkText = text.replace(cjkPattern, " ");
+  const words = nonCjkText.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) || [];
+  return cjkCharacters.length + words.length;
 }
 
 function initNewEntryPage(doc = document, storage = window.localStorage) {

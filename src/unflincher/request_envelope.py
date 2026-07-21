@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 # allowlist, discovery flags, streaming mode), or this envelope's own shape. Retry/recovery compare
 # this against the value stored at enqueue time (see db.enqueue_snapshot_regen_job) and refuse to
 # resume stale work under a changed contract (stable 409 request_format_changed).
-ASSEMBLY_VERSION = 1
+ASSEMBLY_VERSION = 2
 
 # Fixed, security-relevant session options every generation path uses. Never overridden per-call:
 # available_tools=() disables the whole tool catalog (no filesystem/network access for the model),

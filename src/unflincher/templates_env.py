@@ -10,6 +10,7 @@ from starlette.requests import Request
 
 from unflincher.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGE_CODES
 from unflincher.i18n import t as _t
+from unflincher.text_metrics import count_writing_units
 
 LANG_COOKIE_NAME = "unflincher_lang"
 
@@ -69,3 +70,4 @@ templates = Jinja2Templates(
     directory="src/unflincher/templates",
     context_processors=[_i18n_context],
 )
+templates.env.filters["writing_units"] = count_writing_units
