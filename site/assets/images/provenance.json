@@ -15,7 +15,7 @@
     "fixture_sha256": "d20052f6ee4abe6b80b1fa4e29490a15096d8cfd1f18bfbc8654dbc30486fb0e",
     "capture_command": "python3 -m http.server 8000 --bind 127.0.0.1 --directory . (repo root, via a temporary unflincher -> site symlink) ; Playwright MCP browser_resize(1440, 900) ; browser_navigate('http://localhost:8000/unflincher/demo/?view=conversation') ; browser_take_screenshot(type: 'png', scale: 'css', fullPage: false)",
     "runtime": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
-    "source_ref": "4a6d005532b7267de2b2220fbdfa4e4c6593e308"
+    "source_ref": "1f45dba3477ff04ccbab0b89ff0e1f0d0909746d"
   },
   {
     "file": "demo-entry.png",
@@ -33,7 +33,7 @@
     "fixture_sha256": "d20052f6ee4abe6b80b1fa4e29490a15096d8cfd1f18bfbc8654dbc30486fb0e",
     "capture_command": "python3 -m http.server 8000 --bind 127.0.0.1 --directory . (repo root, via a temporary unflincher -> site symlink) ; Playwright MCP browser_resize(1440, 900) ; browser_navigate('http://localhost:8000/unflincher/demo/?view=entry') ; browser_take_screenshot(type: 'png', scale: 'css', fullPage: false)",
     "runtime": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
-    "source_ref": "4a6d005532b7267de2b2220fbdfa4e4c6593e308"
+    "source_ref": "1f45dba3477ff04ccbab0b89ff0e1f0d0909746d"
   },
   {
     "file": "demo-report.png",
@@ -51,7 +51,7 @@
     "fixture_sha256": "d20052f6ee4abe6b80b1fa4e29490a15096d8cfd1f18bfbc8654dbc30486fb0e",
     "capture_command": "python3 -m http.server 8000 --bind 127.0.0.1 --directory . (repo root, via a temporary unflincher -> site symlink) ; Playwright MCP browser_resize(1440, 900) ; browser_navigate('http://localhost:8000/unflincher/demo/?view=report') ; browser_take_screenshot(type: 'png', scale: 'css', fullPage: false)",
     "runtime": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
-    "source_ref": "4a6d005532b7267de2b2220fbdfa4e4c6593e308"
+    "source_ref": "1f45dba3477ff04ccbab0b89ff0e1f0d0909746d"
   },
   {
     "file": "demo-timeline.png",
@@ -69,7 +69,7 @@
     "fixture_sha256": "d20052f6ee4abe6b80b1fa4e29490a15096d8cfd1f18bfbc8654dbc30486fb0e",
     "capture_command": "python3 -m http.server 8000 --bind 127.0.0.1 --directory . (repo root, via a temporary unflincher -> site symlink) ; Playwright MCP browser_resize(1440, 900) ; browser_navigate('http://localhost:8000/unflincher/demo/?view=timeline') ; browser_take_screenshot(type: 'png', scale: 'css', fullPage: false)",
     "runtime": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
-    "source_ref": "4a6d005532b7267de2b2220fbdfa4e4c6593e308"
+    "source_ref": "1f45dba3477ff04ccbab0b89ff0e1f0d0909746d"
   },
   {
     "file": "demo-workshop.png",
@@ -87,7 +87,7 @@
     "fixture_sha256": "d20052f6ee4abe6b80b1fa4e29490a15096d8cfd1f18bfbc8654dbc30486fb0e",
     "capture_command": "python3 -m http.server 8000 --bind 127.0.0.1 --directory . (repo root, via a temporary unflincher -> site symlink) ; Playwright MCP browser_resize(1440, 900) ; browser_navigate('http://localhost:8000/unflincher/demo/?view=workshop') ; browser_take_screenshot(type: 'png', scale: 'css', fullPage: false)",
     "runtime": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
-    "source_ref": "4a6d005532b7267de2b2220fbdfa4e4c6593e308"
+    "source_ref": "1f45dba3477ff04ccbab0b89ff0e1f0d0909746d"
   },
   {
     "file": "favicon.svg",
