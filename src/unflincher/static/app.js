@@ -126,6 +126,16 @@ document.body.addEventListener("htmx:responseError", (event) => {
   setNotice(notice, stableErrorNoticeMessage(detail, UI_MESSAGES.requestFailed), "failed");
 });
 
+function keepStreamVisible(targetEl, {force = false} = {}) {
+  if (typeof targetEl.closest !== "function") return;
+  const container = targetEl.closest("[data-stream-scroll]");
+  if (!container) return;
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  if (force || distanceFromBottom <= 96) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
 async function streamInto(url, body, targetEl, onDone, onError) {
   // Re-entrancy guard: the CSS-only "disable while streaming" treatment
   // (main:has([data-streaming="1"]) #trigger-btn { pointer-events: none }) only blocks MOUSE
@@ -141,6 +151,7 @@ async function streamInto(url, body, targetEl, onDone, onError) {
   targetEl.textContent = "";
   targetEl.dataset.streaming = "1";
   targetEl.dataset.streamState = "running";
+  keepStreamVisible(targetEl, {force: true});
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -168,6 +179,7 @@ async function streamInto(url, body, targetEl, onDone, onError) {
         const {ev, data} = parseSseFrame(frame);
         if (ev === "token") {
           targetEl.textContent += data;
+          keepStreamVisible(targetEl);
         } else if (ev === "error") {
           throw new Error("server ended the stream with an error event");
         } else if (ev === "done") {
@@ -331,6 +343,7 @@ function bindComposer(form, onSubmit) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     parseSseFrame,
+    keepStreamVisible,
     streamInto,
     StreamRequestError,
     extractStableErrorDetail,

@@ -25,36 +25,31 @@ button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 img { max-width: 100%; height: auto; }
 [hidden] { display: none !important; }
 
-/* Running copy: dimmer than UI text, with generous reading leading. */
 p, li { color: var(--prose); line-height: var(--leading-body); text-wrap: pretty; }
 
-/* Links read as underlined text, not a coloured accent. Chrome/nav links opt out
-   later in shell/components/pages, which load after this layer. */
 a {
   color: inherit;
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
-  text-decoration-color: var(--muted);
+  text-decoration-color: var(--label);
   text-underline-offset: 0.15em;
+  transition: color var(--transition-fast), text-decoration-color var(--transition-fast);
 }
 a:hover { text-decoration-color: var(--text); }
 
-/* Heading hierarchy below the page <h1>. Page-specific hero sizing is layered on
-   top by pages.css. */
 h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
   color: var(--text);
   font-family: var(--font-ui);
   line-height: var(--leading-tight);
   text-wrap: balance;
 }
-h1 { margin: 0; font-size: var(--text-xl); font-weight: 500; letter-spacing: -0.01em; }
-h2 { font-size: var(--text-lg); font-weight: 600; }
+h1 { margin: 0; font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.025em; }
+h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
 h3 { font-size: var(--text-base); font-weight: 600; }
 h4 { font-size: var(--text-sm); font-weight: 600; }
 h5, h6 { font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.02em; }
 
-/* Metadata, dates, version labels, and progress counts share the prose colour and
-   tabular figures so digits stay aligned. */
 time,
 .metadata,
 .meta-line,
@@ -66,31 +61,28 @@ time,
   font-variant-numeric: tabular-nums;
 }
 
-/* Generated commentary and user-entered content can contain unbreakable tokens
-   (URLs, long strings); let them wrap instead of overflowing. */
 .diary-prose,
 .analysis-prose,
 .report-prose,
 pre,
 code { overflow-wrap: anywhere; }
 
-/* Flat form controls: raised surface, a boundary stronger than --rule, and full
-   text colour. Never use --rule for an interactive edge. */
 input, textarea, select {
-  min-height: 2.75rem;
+  min-height: 2.625rem;
   padding: var(--space-3);
   border: 1px solid var(--muted);
-  border-radius: var(--radius-sm);
-  background: var(--soft-surface);
+  border-radius: var(--radius-md);
+  background: var(--commentary-plane);
   color: var(--text);
   caret-color: var(--text);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
 }
 select { padding: 0.625rem 2rem 0.625rem var(--space-3); }
 textarea { line-height: var(--leading-body); }
-::placeholder { color: var(--prose); opacity: 1; }
+::placeholder { color: var(--label); opacity: 1; }
 
-:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
-::selection { background: var(--soft-surface); color: var(--text); }
+:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 3px; }
+::selection { background: var(--accent-teal-soft); color: var(--text); }
 
 .visually-hidden {
   position: absolute;
@@ -104,11 +96,6 @@ textarea { line-height: var(--leading-body); }
   border: 0;
 }
 
-/* Buttons, the .visually-hidden utility, and the shared component surfaces live in
-   components.css so their flat graphite states are defined once. */
-
-/* Reduced motion: neutralize the page-enter, hover-translate, streaming-cursor, skeleton, and
-   ledger-slide animations for readers who ask for it, without disabling functional state (Task 10). */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
@@ -118,8 +105,6 @@ textarea { line-height: var(--leading-body); }
   }
 }
 
-/* Forced-colors (Windows High Contrast): keep links underlined and focus rings
-   visible using system colours instead of the graphite palette (Task 10). */
 @media (forced-colors: active) {
   a { text-decoration-line: underline; }
   :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

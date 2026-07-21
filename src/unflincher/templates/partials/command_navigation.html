@@ -1,8 +1,7 @@
 {# partials/command_navigation.html #}
-{# Below 700px, every page except Timeline itself swaps the pill nav for a single compact
-   "back to X" link (Timeline, or the chat list for a chat session) -- matching the mobile
-   Entry/Report mockups, which show that light link rather than the full row of pills. Desktop
-   always shows the full pill nav; nothing is hidden there. #}
+{# Desktop uses a persistent navigation rail. Below 700px, every page except Timeline swaps
+   that rail for one compact contextual back link; Timeline keeps the horizontally scrollable
+   primary navigation because it has no parent page. #}
 {% set mobile_back_href = "/chat" if page_id == "chat-session" else "/" %}
 {% set mobile_back_label = t("nav.chat") if page_id == "chat-session" else t("nav.timeline") %}
 {% set topbar_class = "app-topbar has-mobile-back" if page_id != "timeline" else "app-topbar" %}
@@ -12,10 +11,25 @@
     <a class="topbar-mobile-back" href="{{ mobile_back_href }}"><span aria-hidden="true">&lsaquo;</span> {{ mobile_back_label }}</a>
   {% endif %}
   <nav class="primary-nav" aria-label="{{ t('nav.menu') }}">
-    <a href="/" data-nav="timeline" {% if active_nav == "timeline" %}aria-current="page"{% endif %}>{{ t("nav.timeline") }}</a>
-    <a href="/report" data-nav="report" {% if active_nav == "report" %}aria-current="page"{% endif %}>{{ t("nav.report") }}</a>
-    <a href="/chat" data-nav="chat" {% if active_nav == "chat" %}aria-current="page"{% endif %}>{{ t("nav.chat") }}</a>
-    <a href="/new" data-nav="new_entry" {% if active_nav == "new_entry" %}aria-current="page"{% endif %}>{{ t("nav.new_entry") }}</a>
-    <a href="/workshop" data-nav="workshop" {% if active_nav == "workshop" %}aria-current="page"{% endif %}>{{ t("nav.workshop") }}</a>
+    <a href="/" data-nav="timeline" {% if active_nav == "timeline" %}aria-current="page"{% endif %}>
+      <svg class="icon" aria-hidden="true"><use href="#icon-timeline"></use></svg>
+      <span>{{ t("nav.timeline") }}</span>
+    </a>
+    <a href="/report" data-nav="report" {% if active_nav == "report" %}aria-current="page"{% endif %}>
+      <svg class="icon" aria-hidden="true"><use href="#icon-report"></use></svg>
+      <span>{{ t("nav.report") }}</span>
+    </a>
+    <a href="/chat" data-nav="chat" {% if active_nav == "chat" %}aria-current="page"{% endif %}>
+      <svg class="icon" aria-hidden="true"><use href="#icon-chat"></use></svg>
+      <span>{{ t("nav.chat") }}</span>
+    </a>
+    <a href="/new" data-nav="new_entry" {% if active_nav == "new_entry" %}aria-current="page"{% endif %}>
+      <svg class="icon" aria-hidden="true"><use href="#icon-write"></use></svg>
+      <span>{{ t("nav.new_entry") }}</span>
+    </a>
+    <a href="/workshop" data-nav="workshop" {% if active_nav == "workshop" %}aria-current="page"{% endif %}>
+      <svg class="icon" aria-hidden="true"><use href="#icon-workshop"></use></svg>
+      <span>{{ t("nav.workshop") }}</span>
+    </a>
   </nav>
 </header>

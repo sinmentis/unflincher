@@ -37,8 +37,7 @@ def test_report_page_uses_balanced_report_structure(client):
 
 
 def test_report_page_has_mobile_report_history_tabs(client):
-    """Mobile-only sticky tab strip (Structured Studio): "Report" and "History" jump to the
-    document and rail, mirroring Entry Detail's Body/Reflection/Conversation tabs."""
+    """The mobile-only sticky tabs jump between the report document and history rail."""
     body = client.get("/report").text
     assert 'class="report-mobile-tabs"' in body
     assert 'href="#report-document"' in body

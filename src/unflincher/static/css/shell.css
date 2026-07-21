@@ -1,5 +1,10 @@
 /* src/unflincher/static/css/shell.css */
-.page-shell { width: min(100%, var(--content-max)); max-width: none; margin-inline: auto; padding: var(--space-7) var(--space-6) var(--space-8); }
+.page-shell {
+  width: auto;
+  min-height: 100dvh;
+  margin-left: var(--rail-width);
+  padding: var(--space-6) var(--space-7) var(--space-8);
+}
 
 .svg-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 .svg-sprite symbol, .icon { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
@@ -8,83 +13,120 @@
   position: fixed;
   z-index: var(--layer-overlay);
   top: var(--space-3);
-  left: var(--space-3);
+  left: calc(var(--rail-width) + var(--space-3));
   padding: var(--space-3) var(--space-4);
   transform: translateY(-200%);
+  border-radius: var(--radius-sm);
   background: var(--text);
   color: var(--bg);
   text-decoration: none;
 }
 .skip-link:focus { transform: translateY(0); }
 
-/* Structured Studio top bar: brand on its own row, a persistent pill nav wrapping on the row
-   below -- always visible at desktop widths, never hidden behind a menu. Below 700px, every
-   page except Timeline itself swaps that row for a single compact "back to X" link instead
-   (see .topbar-mobile-back below): five wrapped pills cost two full lines of chrome on a phone,
-   which the mobile Entry/Report mockups avoid by going back to one contextual link, matching
-   how deep pages already behaved before this redesign. */
 .app-topbar {
-  position: sticky;
+  position: fixed;
   z-index: var(--layer-header);
-  top: 0;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: var(--rail-width);
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-5) var(--space-4);
+  background: var(--chrome);
+  border-right: 1px solid var(--rule);
+}
+
+.brand-lockup {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding-inline: var(--space-3);
+  color: var(--text);
+  text-decoration: none;
+}
+.brand-wordmark {
+  font-size: 0.8125rem;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+}
+
+.primary-nav {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.4rem;
-  min-height: var(--bar-height);
-  padding: var(--space-3) max(var(--space-5), calc((100vw - var(--content-max)) / 2));
-  background: var(--chrome);
-  border-bottom: 1px solid var(--rule);
+  gap: var(--space-1);
+  margin-top: var(--space-7);
 }
-
-.brand-lockup { display: inline-flex; align-items: center; color: var(--text); text-decoration: none; }
-.brand-wordmark { font-weight: 700; letter-spacing: 0.18em; font-size: var(--text-sm); }
-
-.primary-nav { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .primary-nav a {
-  display: inline-flex;
+  display: grid;
+  min-height: 2.75rem;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
   align-items: center;
-  padding: 0.24rem 0.55rem;
-  border-radius: var(--radius-pill);
-  color: var(--label);
-  font-size: 0.64rem;
+  gap: var(--space-3);
+  padding: 0.625rem var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--tertiary);
+  font-size: 0.8125rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
   text-decoration: none;
   white-space: nowrap;
+  transition: color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
 }
-.primary-nav a:hover { color: var(--text); }
-.primary-nav a:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.primary-nav a .icon { width: 1rem; height: 1rem; stroke-width: 1.75; }
+.primary-nav a:focus-visible { outline-offset: 1px; }
+.primary-nav a:active { transform: scale(0.98); }
 .primary-nav a[aria-current="page"] { background: var(--accent-teal-soft); color: var(--accent-teal-text); }
 
 .topbar-mobile-back {
   display: none;
+  min-height: 2.75rem;
   align-items: center;
-  gap: 0.2rem;
-  color: var(--label);
-  font-size: 0.7rem;
+  gap: var(--space-2);
+  padding-inline: var(--space-3);
+  color: var(--tertiary);
+  font-size: var(--text-sm);
   font-weight: 600;
   text-decoration: none;
 }
-.topbar-mobile-back:hover { color: var(--text); }
-.topbar-mobile-back:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
-.error-document { max-width: 48rem; padding-block: var(--space-8); }
-.error-document > .brand-lockup { margin-bottom: var(--space-7); }
+.error-document { max-width: 42rem; padding-block: var(--space-8); }
+.error-document > .brand-lockup { margin-bottom: var(--space-7); padding-inline: 0; }
 .error-document .page-eyebrow { color: var(--prose); font-variant-numeric: tabular-nums; letter-spacing: 0.1em; }
 .error-document h1 { margin-bottom: var(--space-5); }
 .error-document > p:not(.page-eyebrow) { max-width: 48ch; color: var(--prose); font-size: var(--text-lg); line-height: var(--leading-body); }
 
-/* At 700px and below, tighten the bar's padding, and on every page but Timeline, replace the
-   pill nav with the single mobile back-link rendered alongside it (see command_navigation.html).
-   Timeline keeps the full nav (it has nowhere to "back" to) but wrapping five pills costs two
-   full lines on a phone, so it scrolls horizontally on one line instead, the same idiom the
-   Timeline year-chip strip itself uses. */
+@media (hover: hover) and (pointer: fine) {
+  .primary-nav a:hover { background: var(--soft-surface); color: var(--text); }
+  .primary-nav a[aria-current="page"]:hover { background: var(--accent-teal-soft); color: var(--accent-teal-text); }
+  .topbar-mobile-back:hover { color: var(--text); }
+}
+
 @media (max-width: 43.75rem) {
-  .app-topbar { padding: var(--space-3) var(--space-4); }
+  .page-shell {
+    margin-left: 0;
+    padding: var(--space-5) var(--space-4) var(--space-7);
+  }
+  .skip-link { left: var(--space-3); }
+  .app-topbar {
+    position: sticky;
+    inset: auto;
+    width: auto;
+    min-height: var(--bar-height);
+    padding: var(--space-3) var(--space-4);
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .brand-lockup { padding-inline: 0; }
   .brand-wordmark { letter-spacing: 0.12em; }
+  .primary-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    margin-top: var(--space-2);
+  }
+  .primary-nav a {
+    display: inline-flex;
+    flex: none;
+    min-height: 2.5rem;
+  }
   .has-mobile-back .primary-nav { display: none; }
-  .has-mobile-back .topbar-mobile-back { display: inline-flex; }
-  .primary-nav { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
-  .page-shell { padding: var(--space-6) var(--space-4) var(--space-7); }
+  .has-mobile-back .topbar-mobile-back { display: inline-flex; padding-inline: 0; }
 }

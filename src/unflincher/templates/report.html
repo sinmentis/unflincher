@@ -10,7 +10,7 @@
     <header class="page-heading report-heading">
       <div class="report-heading-row">
         <h1>{{ t("report.heading") }}</h1>
-        <button id="run-report" class="button" type="button">{{ t("report.generate_button") if has_any_successful_report else t("report.generate_first_button") }}</button>
+        <button id="run-report" class="button button--accent" type="button">{{ t("report.generate_button") if has_any_successful_report else t("report.generate_first_button") }}</button>
       </div>
       {% if report_html %}
       <p class="page-metadata">{{ t("report.coverage", count=covered_count, range=(covered_from or "")[:10] ~ " — " ~ (covered_to or "")[:10], behind=behind_count) }}</p>

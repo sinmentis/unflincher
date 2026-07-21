@@ -2,7 +2,7 @@
 {% block title %}{{ entry.title }}{% endblock %}
 {% block content %}
 <div class="entry-layout" data-role="primary-task" data-entry-source="{{ entry.source }}">
-  <article class="entry-record">
+  <aside class="entry-context">
     {% if prev_entry or next_entry %}
     <nav class="entry-adjacent-nav" aria-label="{{ t('entry.adjacent_nav_aria') }}">
       {% if prev_entry %}
@@ -17,10 +17,6 @@
       {% endif %}
     </nav>
     {% endif %}
-
-    {% with heading=entry.title %}
-      {% include "partials/page_heading.html" %}
-    {% endwith %}
     <p class="record-metadata">
       <time datetime="{{ entry.entry_date[:10] }}">{{ entry.entry_date[:10] }}</time>
       <span aria-hidden="true">·</span>
@@ -28,7 +24,12 @@
       <span aria-hidden="true">·</span>
       <span>{{ t("entry.word_count_label", count=word_count) }}</span>
     </p>
+  </aside>
 
+  <article class="entry-record">
+    {% with heading=entry.title %}
+      {% include "partials/page_heading.html" %}
+    {% endwith %}
     <div class="entry-segmented" role="tablist" aria-label="{{ t('entry.segmented_aria') }}">
       <div class="entry-segmented-thumb" aria-hidden="true"></div>
       <button class="entry-segmented-tab" role="tab" aria-selected="true" aria-controls="panel-body"

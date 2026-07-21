@@ -1,45 +1,53 @@
-/* src/unflincher/static/css/components.css
-   Balanced Graphite shared components: flat, stateful surfaces built from the graphite tokens.
-   No shadows or gradients; interactive edges use --muted or stronger, never --rule. */
+/* src/unflincher/static/css/components.css */
 
-/* Icons */
 .icon { width: 1.125rem; height: 1.125rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
 
-/* Page heading: compact eyebrow, moderate <h1>, optional metadata line. */
-.page-heading { display: grid; gap: var(--space-3); margin-bottom: var(--space-7); padding-bottom: var(--space-5); border-bottom: 1px solid var(--rule); }
-.page-eyebrow { margin: 0; color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.18em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.page-heading {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+.page-eyebrow {
+  margin: 0;
+  color: var(--label);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
 .page-heading h1 { font-size: var(--text-xl); }
-.page-metadata { margin: 0; color: var(--prose); font-size: var(--text-sm); }
+.page-metadata { margin: 0; color: var(--tertiary); font-size: var(--text-sm); }
 
-/* Buttons: primary emphasis is light text on a graphite surface with a --prose boundary, never a
-   coloured fill; destructive intent reads from its label and a muted-or-stronger border. */
 .button {
-  min-height: 2.75rem;
+  min-height: 2.625rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: 0.625rem 0.875rem;
   border: 1px solid var(--muted);
-  border-radius: var(--radius-sm);
-  background: transparent;
+  border-radius: var(--radius-md);
+  background: var(--commentary-plane);
   color: var(--text);
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: 650;
   text-decoration: none;
   cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
 }
-.button:hover { border-color: var(--text); background: var(--soft-surface); }
-.button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-.button:active { transform: translateY(1px); }
-.button:disabled { color: var(--prose); border-color: var(--muted); background: transparent; cursor: not-allowed; }
-.button--accent { border-color: var(--prose); background: var(--soft-surface); color: var(--text); }
-.button--accent:hover { border-color: var(--text); }
-.button--danger { border-color: var(--muted); color: var(--text); }
-.button--danger:hover { border-color: var(--text); background: var(--soft-surface); }
+.button:focus-visible { outline-offset: 2px; }
+.button:active { transform: scale(0.98); }
+.button:disabled { color: var(--label); border-color: var(--muted); background: transparent; cursor: not-allowed; opacity: 0.72; }
+.button--accent { border-color: var(--accent-teal); background: var(--accent-teal); color: var(--bg); }
+.button--danger { border-color: var(--danger-border); color: var(--danger-text); background: var(--danger-soft); }
 
-/* Icon-only buttons (session rename/delete). Layout sizing is set per-page; here they gain a
-   quiet resting state plus visible hover and focus. */
 .session-action {
   display: inline-flex;
   align-items: center;
@@ -47,114 +55,209 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--prose);
+  color: var(--label);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
 }
-.session-action:hover { background: var(--soft-surface); color: var(--text); }
-.session-action:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.session-action:focus-visible { outline-offset: -2px; }
+.session-action:active { transform: scale(0.94); }
 
-/* Fields: base control chrome lives in base.css; focus lifts the boundary to full strength. */
-input:focus-visible, textarea:focus-visible, select:focus-visible { border-color: var(--text); outline: 2px solid var(--text); outline-offset: 2px; }
-.field-error { color: var(--text); font-size: var(--text-xs); }
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  border-color: var(--accent-teal);
+  outline: 2px solid var(--accent-teal);
+  outline-offset: 2px;
+}
+.field-error { color: var(--danger-text); font-size: var(--text-xs); }
 
-/* Notices: editorial left-rule blocks. States separate by weight, not by a bright accent. */
-.notice { padding: var(--space-4); border-left: 3px solid var(--muted); background: var(--soft-surface); color: var(--prose); font-size: var(--text-sm); }
-.notice[data-tone="busy"] { border-left-color: var(--prose); color: var(--text); }
-.notice[data-tone="saved"] { border-left-color: var(--text); color: var(--text); }
-.notice[data-tone="failed"], .notice--failed { border-left-color: var(--text); color: var(--text); }
-/* The context_too_large actions line renders as its own paragraph directly after .notice--failed
-   (see streamInto in app.js), also carrying the base .notice class -- just tighten the spacing and
-   drop the font size a step so it reads as a suggestion, not a repeat of the failure itself. */
+.notice {
+  padding: var(--space-4);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--muted);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--commentary-plane);
+  color: var(--prose);
+  font-size: var(--text-sm);
+}
+.notice[data-tone="busy"] { border-left-color: var(--warn); color: var(--text); }
+.notice[data-tone="saved"] { border-left-color: var(--accent-teal); color: var(--text); }
+.notice[data-tone="failed"], .notice--failed { border-left-color: var(--danger-text); color: var(--text); }
 .notice--failed-actions { margin-top: var(--space-2); font-size: var(--text-xs); }
 
-/* States: empty / loading / generation share typography and spacing, not card chrome. */
-.empty-state { display: grid; gap: var(--space-4); max-width: 40rem; padding-block: var(--space-8); }
-.empty-state h2 { max-width: 24ch; font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: 500; line-height: var(--leading-tight); }
-.empty-state p { max-width: 52ch; color: var(--prose); }
+.empty-state {
+  display: grid;
+  gap: var(--space-4);
+  width: min(100%, 38rem);
+  padding: var(--space-6);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--entry-plane);
+}
+.empty-state h2 { max-width: 26ch; margin: 0; font-size: 1.375rem; font-weight: 600; line-height: var(--leading-tight); }
+.empty-state p { max-width: 52ch; margin: 0; color: var(--prose); }
 .empty-state-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
 
 .loading-state { display: grid; gap: var(--space-4); }
 .loading-state [aria-hidden="true"] { display: grid; gap: var(--space-3); }
-.skeleton-line { display: block; width: 100%; height: 0.75rem; background: var(--soft-surface); animation: skeleton-pulse 1.2s ease-in-out infinite; }
+.skeleton-line { display: block; width: 100%; height: 0.75rem; border-radius: var(--radius-pill); background: var(--soft-surface); animation: skeleton-pulse 1.2s ease-in-out infinite; }
 .skeleton-line:nth-child(2) { width: 82%; }
 .skeleton-line:nth-child(3) { width: 64%; }
 
-/* Generation / streaming are AI states: quiet, secondary, marked by a left rule. */
-.generation-state { display: grid; gap: var(--space-3); padding: var(--space-5); border-left: 3px solid var(--muted); background: var(--soft-surface); }
-.generation-state h3 { color: var(--text); }
-.generation-state p { color: var(--prose); }
-.generation-state[data-state="failed"] { border-left-color: var(--text); }
+.generation-state {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--warn);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--commentary-plane);
+}
+.generation-state h3 { margin: 0; color: var(--text); }
+.generation-state p { margin: 0; color: var(--prose); }
+.generation-state[data-state="failed"] { border-left-color: var(--danger-text); }
 
-.stream-surface { margin-top: var(--space-4); padding-left: var(--space-4); border-left: 2px solid var(--muted); color: var(--prose); white-space: pre-wrap; }
-.stream-surface[data-streaming="1"]::after { content: "\258D"; margin-left: 0.15em; color: var(--prose); animation: status-pulse 0.8s steps(2, end) infinite; }
-.stream-surface[data-stream-state="failed"] { border-left-color: var(--text); }
+.stream-surface {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border-left: 2px solid var(--accent-teal);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--commentary-plane);
+  color: var(--prose);
+  white-space: pre-wrap;
+}
+.stream-surface[data-streaming="1"]::after { content: "\258D"; margin-left: 0.15em; color: var(--accent-teal-text); animation: status-pulse 0.8s steps(2, end) infinite; }
+.stream-surface[data-stream-state="failed"] { border-left-color: var(--danger-text); }
 
-/* Composer: the reply field docked under a thread. */
-.conversation-composer { display: grid; grid-template-columns: minmax(0, 1fr) 3.25rem; gap: var(--space-2); padding-top: var(--space-4); border-top: 1px solid var(--rule); background: var(--bg); }
-.conversation-composer textarea { min-height: 3rem; max-height: 12rem; overflow-y: auto; resize: vertical; }
+.conversation-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.75rem;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--muted);
+  border-radius: var(--radius-md);
+  background: var(--entry-plane);
+}
+.conversation-composer textarea {
+  min-height: 2.75rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  resize: vertical;
+  border: 0;
+  background: transparent;
+}
+.conversation-composer textarea:focus-visible { outline-offset: -1px; }
+.conversation-composer .button { width: 2.75rem; padding-inline: 0; }
 
-/* Confirmation dialog: an inline editorial prompt, not a modal card. */
-.confirmation-dialog { display: grid; gap: var(--space-3); padding: var(--space-5); border-left: 3px solid var(--muted); background: var(--soft-surface); }
-.confirmation-dialog h3 { color: var(--text); }
-.confirmation-dialog p { color: var(--prose); }
-.confirmation-dialog:not([hidden]) { animation: panel-enter var(--duration-default) ease-out both; }
+.confirmation-dialog {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--danger-border);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--commentary-plane);
+}
+.confirmation-dialog h3 { margin: 0; color: var(--text); }
+.confirmation-dialog p { margin: 0; color: var(--prose); }
+.confirmation-dialog:not([hidden]) { animation: panel-enter var(--duration-default) var(--ease-out) both; }
 .confirmation-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.session-row .confirmation-dialog { grid-column: 1 / -1; border-top: 1px solid var(--rule); }
+.session-row .confirmation-dialog { grid-column: 1 / -1; }
 
-/* Status marks: a small dot plus label, not a badge. The dot color is a semantic accent
-   (teal/amber/danger) matching Structured Studio's status language across Timeline, Workshop,
-   and Life Report; the label text stays the single source of truth, never color alone. */
-.status-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
-.status-glyph { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--muted); }
+.status-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--tertiary);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.status-glyph { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--muted); }
 .status-mark[data-status="done"] .status-glyph { background: var(--accent-teal); }
 .status-mark[data-status="generating"] .status-glyph { background: var(--warn); animation: status-pulse 1.2s ease-in-out infinite; }
 .status-mark[data-status="failed"] .status-glyph { background: var(--danger-text); }
 
-/* Session rows: a flat ledger of links with rename/delete controls. */
-.session-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; border-bottom: 1px solid var(--rule); }
-.session-row.is-active { background: var(--soft-surface); }
-.session-link { min-width: 0; padding: var(--space-4); color: var(--prose); text-decoration: none; }
-.session-link:hover { color: var(--text); background: var(--soft-surface); }
+.session-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  margin-bottom: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+.session-row.is-active { border-color: var(--accent-teal); background: var(--accent-teal-soft); }
+.session-link {
+  min-width: 0;
+  padding: var(--space-3);
+  color: var(--prose);
+  text-decoration: none;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
 .session-row.is-active .session-link { color: var(--text); }
 .session-link span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.session-link time { display: block; margin-top: var(--space-1); color: var(--prose); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
-.session-link .session-meta { display: flex; flex-direction: column; gap: var(--space-1); }
+.session-link time { display: block; margin-top: var(--space-1); color: var(--label); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.session-link .session-meta { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .session-link .session-meta time { margin-top: 0; }
-.session-message-count { color: var(--prose); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.session-message-count { color: var(--tertiary); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 
-/* Conversation messages: editorial turns, never chat bubbles. The user reads louder; the
-   assistant stays quiet behind a left rule. */
-.conversation-message { display: grid; grid-template-columns: 6rem minmax(0, var(--reading-max)); gap: var(--space-5); padding: var(--space-5) 0; border-top: 1px solid var(--rule); }
-.message-stamp { display: flex; flex-direction: column; gap: var(--space-1); color: var(--prose); font-size: var(--text-xs); letter-spacing: 0.06em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
-.message-stamp time { letter-spacing: normal; text-transform: none; opacity: 0.7; }
-.message-copy { min-width: 0; color: var(--prose); line-height: var(--leading-body); }
+.conversation-message {
+  display: grid;
+  grid-template-columns: 5.25rem minmax(0, var(--measure));
+  gap: var(--space-5);
+  width: min(100%, 54rem);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--rule);
+}
+.message-stamp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--label);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.message-stamp time { letter-spacing: normal; text-transform: none; opacity: 0.82; }
+.message-copy { min-width: 0; color: var(--prose); line-height: var(--leading-reading); }
 .message-copy > :first-child { margin-top: 0; }
 .message-copy > :last-child { margin-bottom: 0; }
 .conversation-message.is-user .message-copy { color: var(--text); }
-.conversation-message.is-assistant { padding-left: var(--space-4); border-left: 2px solid var(--rule); }
+.conversation-message.is-assistant {
+  margin-block: var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent-teal);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--entry-plane);
+}
 
-/* Active/historical Perspective indicator: shared by Entry Reflection, Life Report, and
-   Conversation composer surfaces (see partials/perspective_indicator.html). Quiet, not a badge. */
-.perspective-indicator { margin: 0 0 var(--space-4); color: var(--text); font-size: var(--text-sm); font-weight: 600; }
+.perspective-indicator {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0 0 var(--space-4);
+  padding: 0.35rem 0.625rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-teal-soft);
+  color: var(--accent-teal-text);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
 
-/* Markdown rendered inside a message. */
 .message-copy p { margin: 0 0 0.9em; }
 .message-copy :is(h2, h3, h4) { margin: 1.4em 0 0.5em; color: var(--text); }
 .message-copy ul, .message-copy ol { margin: 0 0 0.9em; padding-left: 1.4em; }
 .message-copy li { margin: 0.2em 0; }
-.message-copy a { color: var(--text); text-decoration-color: var(--muted); }
-.message-copy a:hover { text-decoration-color: var(--text); }
+.message-copy a { color: var(--text); text-decoration-color: var(--label); }
 .message-copy code { padding: 0.1em 0.35em; border-radius: var(--radius-sm); background: var(--soft-surface); font-size: 0.9em; }
-.message-copy pre { margin: 0 0 0.9em; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--soft-surface); overflow-x: auto; }
+.message-copy pre { margin: 0 0 0.9em; padding: var(--space-3); border-radius: var(--radius-md); background: var(--soft-surface); overflow-x: auto; }
 .message-copy pre code { padding: 0; background: none; }
 .message-copy blockquote { margin: 0.9em 0; padding-left: var(--space-4); border-left: 2px solid var(--muted); color: var(--prose); }
 
-/* Progress: a thin filled track with a tokenised bucket width and a failures list. */
 .progress-rail { display: grid; gap: var(--space-3); }
 .progress-summary { display: flex; justify-content: space-between; gap: var(--space-4); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
-.progress-track { height: 3px; background: var(--rule); }
-.progress-track span { display: block; width: 0; height: 100%; background: var(--text); transition: width var(--transition-fast); }
+.progress-track { height: 3px; border-radius: var(--radius-pill); background: var(--rule); overflow: hidden; }
+.progress-track span { display: block; width: 0; height: 100%; background: var(--accent-teal); transition: width var(--transition-fast); }
 .progress-track[data-progress-bucket="1"] span { width: 10%; }
 .progress-track[data-progress-bucket="2"] span { width: 20%; }
 .progress-track[data-progress-bucket="3"] span { width: 30%; }
@@ -168,33 +271,29 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { border-color
 .progress-failures { display: grid; gap: var(--space-2); margin: var(--space-4) 0 0; padding: 0; list-style: none; }
 .progress-failures li { display: flex; justify-content: space-between; gap: var(--space-4); }
 
-/* The .visually-hidden utility is defined once in base.css. */
+@media (hover: hover) and (pointer: fine) {
+  .button:hover { border-color: var(--text); background: var(--soft-surface); }
+  .button--accent:hover { border-color: var(--accent-teal-text); background: var(--accent-teal-text); color: var(--bg); }
+  .button--danger:hover { border-color: var(--danger-text); background: var(--danger-soft); }
+  .session-action:hover { background: var(--soft-surface); color: var(--text); }
+  .session-link:hover { color: var(--text); }
+}
 
 @keyframes status-pulse { 50% { opacity: 0.35; } }
 @keyframes skeleton-pulse { 50% { opacity: 0.45; } }
 @keyframes panel-enter {
-  from { opacity: 0; transform: translateY(0.5rem); }
+  from { opacity: 0; transform: translateY(0.35rem); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Forced-colors (Windows High Contrast): let the meaningful accent surfaces keep their fill, and
-   give the color-only active nav state a non-color outline so "current page" survives (Task 10). */
 @media (forced-colors: active) {
-  .button--accent, .status-glyph, .progress-track span {
-    forced-color-adjust: auto;
-  }
+  .button--accent, .status-glyph, .progress-track span { forced-color-adjust: auto; }
   .primary-nav a[aria-current="page"] {
     outline: 2px solid currentColor;
     outline-offset: -2px;
   }
 }
 
-/* Coarse pointer (touch): guarantee a 44px (2.75rem) minimum target on every interactive control,
-   including the compact ledger/version links that are otherwise sized for a mouse (Task 10). The
-   persistent nav pills and year-filter chips are deliberately compact (Structured Studio's
-   dense-chip language); nav pills are plain links so the generic `button` rule below never
-   touches them, but `.year-chip` is a real <button>, so it needs an explicit override to opt back
-   out of the 44px floor. */
 @media (pointer: coarse) {
   .brand-lockup, .topbar-mobile-back,
   .session-link, .session-action,

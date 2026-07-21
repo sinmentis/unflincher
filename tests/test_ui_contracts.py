@@ -108,9 +108,7 @@ def test_timeline_archive_no_longer_depends_on_sequence_numbers():
 
 
 def test_archive_row_hover_has_no_horizontal_motion():
-    """The Balanced Graphite design prohibits decorative horizontal row translation. The
-    `.archive-row:hover` rule may keep its quiet background tint but must not translate the row
-    or declare a transform transition."""
+    """Archive rows may change background but must not shift horizontally on hover."""
     css = PAGES_CSS.read_text()
     hover_body = _rule_body(css, ".archive-row:hover")
     assert "transform" not in hover_body, f".archive-row:hover must not translate the row: {hover_body!r}"
@@ -125,7 +123,7 @@ def test_report_history_follows_report_body_in_source_order():
     )
 
 
-def test_report_generation_action_sits_beside_the_page_title():
+def test_report_generation_action_sits_beside_the_page_title_as_the_primary_action():
     source = (TEMPLATES / "report.html").read_text()
     heading_row = re.search(
         r'<div class="report-heading-row">(.*?)</div>',
@@ -141,7 +139,7 @@ def test_report_generation_action_sits_beside_the_page_title():
         re.IGNORECASE,
     )
     assert button is not None
-    assert "button--accent" not in button.group(0)
+    assert "button--accent" in button.group(0)
     heading_row_css = _rule_body(PAGES_CSS.read_text(), ".report-heading-row")
     assert "display: flex" in heading_row_css
     assert "justify-content: space-between" in heading_row_css
@@ -185,37 +183,65 @@ def test_entry_commentary_generation_uses_quiet_buttons():
 def test_new_entry_title_uses_moderate_editorial_scale():
     css = PAGES_CSS.read_text()
     title = _rule_body(css, ".writing-title")
-    assert "font: 500 clamp(1.875rem, 4vw, 3.125rem)" in title
+    assert "font: 600 clamp(2rem, 3vw, 2.25rem)" in title
     for theatrical_size in ("6rem", "15vw", "4.5rem"):
-        assert theatrical_size not in css
+        assert theatrical_size not in title
 
 
-def test_page_titles_keep_balanced_graphite_hierarchy():
+def test_page_titles_use_a_compact_shared_hierarchy():
     base = (STATIC_JS / "css" / "base.css").read_text()
     components = (STATIC_JS / "css" / "components.css").read_text()
     pages = PAGES_CSS.read_text()
 
     base_h1 = re.search(r"(?m)^h1\s*\{([^}]*)\}", base)
     assert base_h1 is not None
-    assert "font-weight: 500" in base_h1.group(1)
+    assert "font-weight: 600" in base_h1.group(1)
     entry_heading = _rule_body(pages, ".entry-record .page-heading")
-    assert "margin-bottom: var(--space-3)" in entry_heading
+    assert "margin-bottom: var(--space-2)" in entry_heading
     assert "border-bottom: 0" in entry_heading
-    assert "clamp(1.875rem, 4vw, 3.25rem)" in _rule_body(
+    assert "clamp(2rem, 3vw, 2.25rem)" in _rule_body(
         pages, ".entry-record .page-heading h1"
     )
-    assert "clamp(1.375rem, 2.4vw, 1.875rem)" in _rule_body(
+    assert "font-size: 2rem" in _rule_body(
         pages, ".timeline-document .page-heading h1"
     )
-    assert "clamp(1.375rem, 2.6vw, 1.75rem)" in _rule_body(
+    assert "font-size: 2rem" in _rule_body(
         pages, ".report-document .page-heading h1"
     )
-    assert "clamp(1.375rem, 2.6vw, 1.75rem)" in _rule_body(
+    assert "font-size: 2rem" in _rule_body(
         pages, ".conversation-heading h1"
     )
     empty_title = _rule_body(components, ".empty-state h2")
-    assert "clamp(1.375rem, 2.6vw, 1.75rem)" in empty_title
-    assert "font-weight: 500" in empty_title
+    assert "font-size: 1.375rem" in empty_title
+    assert "font-weight: 600" in empty_title
+
+
+def test_reading_surfaces_keep_a_comfortable_measure():
+    tokens = (STATIC_JS / "css" / "tokens.css").read_text()
+    pages = PAGES_CSS.read_text()
+    components = (STATIC_JS / "css" / "components.css").read_text()
+
+    assert "--reading-max: 48rem" in tokens
+    assert "--measure: 46rem" in tokens
+    assert "--leading-reading: 1.82" in tokens
+    assert "max-width: var(--measure)" in _rule_body(pages, ".diary-prose")
+    assert "max-width: var(--measure)" in _rule_body(pages, ".report-prose")
+    assert "minmax(0, var(--measure))" in _rule_body(components, ".conversation-message")
+
+
+def test_interaction_motion_is_targeted_and_keyboard_navigation_is_instant():
+    css = "\n".join(
+        path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))
+    )
+    entry_js = (STATIC_JS / "js" / "entry.js").read_text()
+
+    assert "transition: all" not in css
+    assert "scale(0)" not in css
+    assert "animation: page-enter" not in css
+    assert "cubic-bezier(0.23, 1, 0.32, 1)" in css
+    assert "transform: scale(0.98)" in css
+    assert 'thumb.style.transitionDuration = "0ms"' in entry_js
+    assert "activate(target, {focus: true, instant: true})" in entry_js
 
 
 def test_primary_page_titles_do_not_repeat_matching_eyebrows():
@@ -226,7 +252,7 @@ def test_primary_page_titles_do_not_repeat_matching_eyebrows():
     ).read_text()
 
 
-def test_balanced_graphite_page_roles_exist():
+def test_desktop_workspace_page_roles_exist():
     source = _template_source()
     for role in (
         "primary-task",
@@ -282,22 +308,25 @@ def test_mobile_layouts_collapse_in_source_order():
         assert not re.search(r"(?m)^\s*order\s*:", body)
 
 
-def test_timeline_layout_is_a_single_column_at_every_width():
-    """Timeline dropped its sidebar/document two-column grid entirely (Structured Studio's dense
-    archive table has nothing to collapse at mobile width -- the year-chip strip and the archive
-    are already stacked, single-column content at every viewport)."""
+def test_timeline_layout_uses_a_desktop_filter_rail_and_collapses_on_mobile():
     css = PAGES_CSS.read_text()
     body = _rule_body(css, ".timeline-layout")
-    assert "display: block" in body
+    assert "display: grid" in body
+    assert "grid-template-columns: 12rem minmax(0, 1fr)" in body
+    mobile = _media_block(css, MOBILE_QUERY)
+    mobile_body = _rule_body(mobile, ".timeline-layout")
+    assert "grid-template-columns: 1fr" in mobile_body
 
 
-def test_entry_layout_is_a_single_column_at_every_width():
-    """Entry Detail's segmented control (Body/Reflection/Conversation) swaps panels in place
-    instead of collapsing a sidebar rail, so .entry-layout is a single block column at every
-    width, same as .timeline-layout -- nothing to collapse in the mobile media query."""
+def test_entry_layout_uses_a_desktop_context_rail_and_collapses_on_mobile():
     css = PAGES_CSS.read_text()
     body = _rule_body(css, ".entry-layout")
-    assert "display: block" in body
+    assert "display: grid" in body
+    assert "grid-template-columns: 12rem minmax(0, var(--reading-max))" in body
+    assert "max-width: 66rem" in body
+    mobile = _media_block(css, MOBILE_QUERY)
+    mobile_body = _rule_body(mobile, ".entry-layout")
+    assert "grid-template-columns: 1fr" in mobile_body
 
 
 def test_report_mobile_tabs_mirror_entry_sticky_tab_pattern():
@@ -389,12 +418,12 @@ def _contrast_ratio(first: str, second: str) -> float:
 
 
 def test_approved_text_and_control_pairings_meet_wcag_aa():
-    surfaces = ("#17191c", "#1a1d20", "#1d2024", "#14161a")
-    for foreground in ("#e4e7ea", "#c7cbce"):
+    surfaces = ("#111210", "#171815", "#1a1b18", "#1e201c", "#242620")
+    for foreground in ("#f2f0e9", "#cbc8bf"):
         for background in surfaces:
             assert _contrast_ratio(foreground, background) >= 4.5
     for background in surfaces:
-        assert _contrast_ratio("#868d94", background) >= 3.0
+        assert _contrast_ratio("#92958e", background) >= 3.0
 
     css = "\n".join(
         path.read_text() for path in sorted((STATIC_JS / "css").glob("*.css"))
@@ -509,7 +538,7 @@ def test_perspective_indicator_is_one_shared_partial_reused_by_all_three_surface
     )
     assert ".perspective-indicator" in css
     # Declared exactly once -- one shared rule, not per-surface duplicates.
-    assert css.count(".perspective-indicator {") == 1
+    assert len(re.findall(r"(?m)^\.perspective-indicator\s*\{", css)) == 1
 
 
 def test_conversation_messages_never_carry_per_turn_perspective_badges():

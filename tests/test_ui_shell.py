@@ -38,9 +38,9 @@ def test_get_ui_state(path, active_nav, page_id):
     assert get_ui_state(path) == (active_nav, page_id)
 
 
-def test_base_document_has_structured_studio_metadata_and_landmarks(client):
+def test_base_document_has_desktop_workspace_metadata_and_landmarks(client):
     body = client.get("/").text
-    assert '<meta name="theme-color" content="#17191c">' in body
+    assert '<meta name="theme-color" content="#111210">' in body
     assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in body
     assert 'class="skip-link" href="#main-content"' in body
     assert 'class="app-topbar"' in body
@@ -82,10 +82,8 @@ def test_primary_nav_exposes_each_destination_once(client):
 
 
 def test_mobile_back_link_targets_the_right_hub_on_every_non_timeline_page(client):
-    # Below 700px, every page but Timeline swaps the pill nav for one contextual link (CSS
-    # handles the swap; both elements always render server-side). Chat sessions point back to
-    # the chat list, everything else points to Timeline -- the same two targets the old
-    # per-page back link used, just CSS-scoped to mobile now instead of removed outright.
+    # Below 700px, every page but Timeline swaps the desktop rail for one contextual link.
+    # Chat sessions point back to the chat list; everything else points to Timeline.
     timeline_body = client.get("/").text
     assert "topbar-back" not in timeline_body
     assert "topbar-mobile-back" not in timeline_body
@@ -106,7 +104,7 @@ def test_mobile_back_link_targets_the_right_hub_on_every_non_timeline_page(clien
             assert f'data-nav="{key}"' in body
 
 
-def test_app_topbar_stacks_brand_above_a_wrapping_pill_nav():
+def test_app_shell_uses_a_persistent_vertical_navigation_rail():
     css = SHELL_CSS.read_text()
 
     def declarations(selector):
@@ -115,9 +113,14 @@ def test_app_topbar_stacks_brand_above_a_wrapping_pill_nav():
         return match.group("body")
 
     topbar = declarations(".app-topbar")
+    assert "position: fixed" in topbar
+    assert "width: var(--rail-width)" in topbar
     assert "flex-direction: column" in topbar
     nav = declarations(".primary-nav")
-    assert "flex-wrap: wrap" in nav
+    assert "flex-direction: column" in nav
+    link = declarations(".primary-nav a")
+    assert "grid-template-columns: 1.25rem minmax(0, 1fr)" in link
+    assert "white-space: nowrap" in link
 
 
 def test_html_404_is_branded_but_json_404_keeps_api_shape(client):

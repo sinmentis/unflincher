@@ -140,6 +140,20 @@ def test_chat_session_has_editorial_messages_and_multiline_composer(client):
     assert 'class="mobile-chat-back"' not in body
 
 
+def test_chat_stream_lives_inside_the_scrollable_thread(client):
+    from bs4 import BeautifulSoup
+
+    body = client.get("/chat/new").text
+    soup = BeautifulSoup(body, "html.parser")
+    thread = soup.find(id="chat-thread")
+    stream = soup.find(id="chat-stream")
+
+    assert thread is not None
+    assert thread.has_attr("data-stream-scroll")
+    assert stream is not None
+    assert stream.parent == thread
+
+
 def test_chat_sidebar_uses_inline_rename_and_delete_controls(client):
     db = client.app.state.db
     session_id = db.execute("INSERT INTO chat_session (title) VALUES ('Old title')").lastrowid

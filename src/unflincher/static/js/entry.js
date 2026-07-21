@@ -58,12 +58,23 @@ function initEntryPage(doc = document) {
   if (tabs.length && thumb) {
     const panelFor = (tab) => doc.getElementById(tab.getAttribute("aria-controls"));
 
-    const positionThumb = (tab) => {
+    const positionThumb = (tab, {instant = false} = {}) => {
+      if (instant) thumb.style.transitionDuration = "0ms";
       thumb.style.width = `${tab.offsetWidth}px`;
       thumb.style.transform = `translateX(${tab.offsetLeft}px)`;
+      if (instant) {
+        const restoreTransition = () => {
+          thumb.style.transitionDuration = "";
+        };
+        if (typeof window !== "undefined" && "requestAnimationFrame" in window) {
+          window.requestAnimationFrame(restoreTransition);
+        } else {
+          restoreTransition();
+        }
+      }
     };
 
-    const activate = (tab, {focus = false} = {}) => {
+    const activate = (tab, {focus = false, instant = false} = {}) => {
       tabs.forEach((other) => {
         const isActive = other === tab;
         other.setAttribute("aria-selected", String(isActive));
@@ -72,7 +83,7 @@ function initEntryPage(doc = document) {
         if (panel) panel.hidden = !isActive;
         panel?.classList.toggle("is-active", isActive);
       });
-      positionThumb(tab);
+      positionThumb(tab, {instant});
       if (focus) tab.focus();
     };
 
@@ -87,7 +98,7 @@ function initEntryPage(doc = document) {
         else if (event.key === "End") target = tabs[tabs.length - 1];
         if (!target) return;
         event.preventDefault();
-        activate(target, {focus: true});
+        activate(target, {focus: true, instant: true});
       });
     });
 

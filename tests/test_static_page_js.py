@@ -580,8 +580,7 @@ function snapshot() {
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
 def test_entry_segmented_control_click_switches_active_panel():
-    """Clicking a tab must select it, hide the other two panels, mark only its own panel
-    is-active (drives the page-enter fade), and slide the thumb under it."""
+    """Clicking a tab selects it, hides the other panels, and moves the thumb under it."""
     output = subprocess.run(
         [
             "node", "-e",

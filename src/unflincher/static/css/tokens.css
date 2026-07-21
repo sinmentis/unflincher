@@ -1,30 +1,25 @@
 /* src/unflincher/static/css/tokens.css */
 :root {
   color-scheme: dark;
-  --bg: #17191c;
-  --chrome: #17191c;
-  --entry-plane: #1a1d20;
-  --commentary-plane: #1d2024;
-  --text: #e4e7ea;
-  --prose: #c7cbce;
-  --tertiary: #b7bcc1;
-  --label: #868d94;
-  --muted: #868d94;
-  --rule: #2c3136;
-  --soft-surface: #1a1d20;
+  --bg: #111210;
+  --chrome: #171815;
+  --entry-plane: #1a1b18;
+  --commentary-plane: #1e201c;
+  --text: #f2f0e9;
+  --prose: #cbc8bf;
+  --tertiary: #aaa79e;
+  --label: #92958e;
+  --muted: #777b74;
+  --rule: #2c2f2a;
+  --soft-surface: #242620;
 
-  /* Structured Studio accent: a single teal used sparingly for "current"/active state --
-     nav, year/version chips, status-done dots, focus rings on those elements. Never a general
-     button fill. */
-  --accent-teal: #4fb3ab;
-  --accent-teal-text: #7fd6cd;
-  --accent-teal-soft: rgba(79, 179, 171, 0.16);
-  /* Pending/generating state. */
-  --warn: #d9a468;
-  --warn-soft: rgba(217, 164, 104, 0.16);
-  /* Destructive intent (apply-and-regenerate-all, delete). */
-  --danger-text: #e0958a;
-  --danger-border: #6b3d38;
+  --accent-teal: #7fc7b8;
+  --accent-teal-text: #a4ded1;
+  --accent-teal-soft: rgba(127, 199, 184, 0.13);
+  --warn: #d8ad72;
+  --warn-soft: rgba(216, 173, 114, 0.14);
+  --danger-text: #e6a39a;
+  --danger-border: #85524b;
   --danger-soft: rgba(190, 90, 74, 0.14);
 
   --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -32,13 +27,15 @@
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.125rem;
-  --text-xl: clamp(1.5rem, 3vw, 2.25rem);
-  --leading-tight: 1.2;
-  --leading-body: 1.75;
-  --content-max: 80rem;
-  --reading-max: 68rem;
-  --measure: var(--reading-max);
-  --bar-height: 5.1rem;
+  --text-xl: clamp(1.75rem, 2.4vw, 2.25rem);
+  --leading-tight: 1.22;
+  --leading-body: 1.68;
+  --leading-reading: 1.82;
+  --content-max: 96rem;
+  --reading-max: 48rem;
+  --measure: 46rem;
+  --rail-width: 14rem;
+  --bar-height: 4.5rem;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -46,15 +43,18 @@
   --space-4: 1rem;
   --space-5: 1.5rem;
   --space-6: 2rem;
-  --space-7: 3rem;
-  --space-8: 4.5rem;
+  --space-7: 2.5rem;
+  --space-8: 3.5rem;
 
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
   --radius-pill: 999px;
   --duration-fast: 140ms;
-  --duration-default: 200ms;
-  --transition-fast: var(--duration-fast) ease;
+  --duration-default: 180ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --transition-fast: var(--duration-fast) var(--ease-out);
   --layer-base: 0;
   --layer-sticky: 10;
   --layer-header: 20;

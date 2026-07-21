@@ -25,6 +25,33 @@ _NODE_HARNESS = (
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_keepStreamVisible_follows_the_tail_without_fighting_manual_scroll():
+    script = """
+    globalThis.document = { body: { addEventListener() {} }, cookie: '' };
+    const {keepStreamVisible} = require(process.argv[1]);
+    const container = {scrollHeight: 500, scrollTop: 350, clientHeight: 100};
+    const target = {closest() { return container; }};
+
+    keepStreamVisible(target);
+    const followed = container.scrollTop;
+    container.scrollTop = 100;
+    keepStreamVisible(target);
+    const preserved = container.scrollTop;
+    keepStreamVisible(target, {force: true});
+
+    process.stdout.write(JSON.stringify({followed, preserved, forced: container.scrollTop}));
+    """
+    output = subprocess.run(
+        ["node", "-e", script, str(APP_JS)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+    assert json.loads(output) == {"followed": 500, "preserved": 100, "forced": 500}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
 def test_app_js_parseSseFrame_rejoins_multiline_data_from_real_server_frame():
     token = "第一行\n第二行\n\n列表：\n- 项目一"
     # The exact wire frame sse-starlette emits: embedded newlines become multiple `data: ` lines.
