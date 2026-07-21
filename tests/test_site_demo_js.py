@@ -34,6 +34,7 @@ def test_normalize_view_maps_known_and_unknown_views():
         "process.stdout.write(JSON.stringify({"
         "  report: normalizeView('report'),"
         "  upper: normalizeView('WORKSHOP'),"
+        "  write: normalizeView('WRITE'),"
         "  unknown: normalizeView('nope'),"
         "  empty: normalizeView('')"
         "}));"
@@ -41,6 +42,7 @@ def test_normalize_view_maps_known_and_unknown_views():
     assert json.loads(output) == {
         "report": "report",
         "upper": "workshop",
+        "write": "write",
         "unknown": "timeline",
         "empty": "timeline",
     }
@@ -84,18 +86,21 @@ def test_render_view_escapes_fixture_strings_and_labels_timeline():
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
-def test_entry_view_is_named_entry_reflection_and_announces_lock_before_the_button():
+def test_entry_view_matches_the_current_segmented_reflection_surface():
     output = _run_node(
         "const {renderView} = require(process.argv[1]);"
         "const data = {entries:[{id:'e1',date:'2022-06-27',title:'One more spreadsheet',body:'b',reflection:'This is the generated reading.'}]};"
         "process.stdout.write(renderView('entry', data, 'e1'));"
     )
-    assert output.count("Entry Reflection") >= 1
+    assert "One more spreadsheet" in output
+    assert "Wellbeing 78/100" in output
+    assert 'data-entry-tab="body"' in output
+    assert 'data-entry-tab="reflection"' in output
+    assert 'data-entry-tab="conversation"' in output
     assert "This is the generated reading." in output
-    assert "Entry and commentary" not in output
     assert "Self-hosted app only." in output
     notice_index = output.index('id="demo-locked-entry"')
-    button_index = output.index("<button")
+    button_index = output.index('aria-describedby="demo-locked-entry"')
     assert notice_index < button_index, "the lock notice must appear before the disabled button"
     assert 'aria-describedby="demo-locked-entry"' in output
     assert 'disabled aria-disabled="true"' in output
@@ -108,7 +113,19 @@ def test_conversation_view_explains_that_live_chat_is_disabled():
         "const data = {conversation:{title:'Conversation',messages:[{role:'user',text:'Hello'}]}};"
         "process.stdout.write(renderView('conversation', data, null));"
     )
-    assert "Continue conversation" in output
+    assert "Ask a follow-up question" in output
+    assert "Send" in output
+    assert "Self-hosted app only." in output
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node runtime not available")
+def test_write_view_is_present_but_read_only():
+    output = _run_node(
+        "const {renderView} = require(process.argv[1]);"
+        "process.stdout.write(renderView('write', {entries:[]}, null));"
+    )
+    assert "What do you want to remember?" in output
+    assert "Save entry" in output
     assert "Self-hosted app only." in output
 
 
@@ -192,23 +209,31 @@ def test_demo_js_never_persists_state():
         assert forbidden not in source
 
 
-def test_demo_page_states_sample_data_and_five_views():
+def test_demo_page_states_sample_data_and_six_views():
     html = (ROOT / "site" / "demo" / "index.html").read_text(encoding="utf-8")
     assert 'lang="en"' in html
     assert "Sample data" in html
-    assert "<h2>Explore five views</h2>" in html
+    assert "<h2>Explore six views</h2>" in html
     assert "GitHub Pages" in html
     assert "platform logging and privacy practices" in html
     assert "data-static-fallback" in html
     assert "<noscript>" not in html
-    for label in ("Timeline", "Entry Reflection", "Life Report", "Conversation", "Prompt Workshop"):
+    for label in (
+        "Timeline",
+        "Entry Reflection",
+        "Life Report",
+        "Conversation",
+        "Write",
+        "Prompt Workshop",
+    ):
         assert label in html
-    assert html.count('data-view="') == 5
+    assert html.count('data-view="') == 6
     for image in (
         "demo-timeline.png",
         "demo-entry.png",
         "demo-report.png",
         "demo-conversation.png",
+        "demo-write.png",
         "demo-workshop.png",
     ):
         assert image in html

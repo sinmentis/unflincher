@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 BASE = "https://sinmentis.github.io/unflincher/"
 LLMS = SITE / "llms.txt"
-SOCIAL_ALT = "Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL."
+SOCIAL_ALT = "Dark Unflincher social card with a fictional Life Report preview and the message See the patterns that one journal entry cannot show."
 EXPECTED_FEATURES = (
     "Cross-year pattern reflection across a Journal Archive",
     "Entry Reflections grounded in journal context",

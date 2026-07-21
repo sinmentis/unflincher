@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Unflincher">
-  <rect width="64" height="64" fill="#0e100f"/>
-  <rect x="6" y="6" width="52" height="52" fill="none" stroke="#41433e" stroke-width="2"/>
-  <text x="32" y="45" fill="#c8ad78" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-weight="400" text-anchor="middle">U</text>
+  <rect width="64" height="64" rx="12" fill="#171815"/>
+  <rect x="6" y="6" width="52" height="52" rx="8" fill="none" stroke="#2c2f2a" stroke-width="2"/>
+  <text x="32" y="44" fill="#a4ded1" font-family="system-ui, sans-serif" font-size="34" font-weight="750" text-anchor="middle">U</text>
 </svg>

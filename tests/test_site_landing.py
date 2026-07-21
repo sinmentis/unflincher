@@ -159,10 +159,17 @@ def test_landing_faq_is_immediately_before_the_final_action():
 
 def test_landing_perspectives_and_proof_use_real_demo_views():
     html = INDEX.read_text(encoding="utf-8")
+    assert "Switch between six current product views" in html
+    assert 'data-view="write"' in html
     assert 'href="demo/?view=report"' in html
     assert 'href="demo/?view=conversation"' in html
     assert 'href="demo/?view=workshop"' in html
-    for image in ("demo-report.png", "demo-conversation.png", "demo-workshop.png"):
+    for image in (
+        "demo-report.png",
+        "demo-conversation.png",
+        "demo-write.png",
+        "demo-workshop.png",
+    ):
         assert f'src="assets/images/{image}"' in html
     assert "Choose the stance you need." in html
     assert "globally active" in html

@@ -13,12 +13,12 @@
   <meta property="og:image" content="https://sinmentis.github.io/unflincher/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
-  <meta property="og:image:alt" content="Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL.">
+  <meta property="og:image:alt" content="Dark Unflincher social card with a fictional Life Report preview and the message See the patterns that one journal entry cannot show.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Unflincher: an AI reflection partner for your journal">
   <meta name="twitter:description" content="Find recurring patterns across years of journal entries, trace them to dated entries, and challenge the reading in conversation.">
   <meta name="twitter:image" content="https://sinmentis.github.io/unflincher/assets/images/social-preview.png">
-  <meta name="twitter:image:alt" content="Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL.">
+  <meta name="twitter:image:alt" content="Dark Unflincher social card with a fictional Life Report preview and the message See the patterns that one journal entry cannot show.">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -184,31 +184,35 @@
       <div class="section-lede">
         <p class="eyebrow">Fictional proof</p>
         <h2>Try the product before you host it.</h2>
-        <p>Switch between five real product views using fictional data. The static demo performs no model call and stores nothing in your browser.</p>
+        <p>Switch between six current product views using fictional data. The static demo performs no model call and stores nothing in your browser.</p>
       </div>
       <div class="demo-embed">
         <div class="demo-heading">
           <span class="demo-badge">Sample data</span>
           <p class="demo-reassurance">No account and no model call in the demo.</p>
         </div>
-        <div class="demo-shell" data-demo-root data-initial-view="timeline" data-fixture="data/sample-journal.json">
-          <nav class="demo-nav" aria-label="Demo views">
+        <div class="demo-experience" data-demo-root data-initial-view="timeline" data-fixture="data/sample-journal.json">
+          <nav class="demo-viewbar" aria-label="Demo views">
             <button type="button" data-view="timeline">Timeline</button>
             <button type="button" data-view="entry">Entry Reflection</button>
             <button type="button" data-view="report">Life Report</button>
             <button type="button" data-view="conversation">Conversation</button>
+            <button type="button" data-view="write">Write</button>
             <button type="button" data-view="workshop">Prompt Workshop</button>
           </nav>
-          <div class="demo-stage" data-demo-stage aria-live="polite">
-            <div class="demo-static-fallback" data-static-fallback>
-              <ul class="demo-fallback">
-                <li><img src="assets/images/demo-timeline.png" alt="Timeline view listing dated entries from the sample journal." width="1440" height="900"></li>
-                <li><img src="assets/images/demo-entry.png" alt="Entry Reflection view of one sample entry with its generated reading." width="1440" height="900"></li>
-                <li><img src="assets/images/demo-report.png" alt="Life Report view with sections and dated evidence." width="1440" height="900"></li>
-                <li><img src="assets/images/demo-conversation.png" alt="Conversation view where the reflection is challenged rather than accepted." width="1440" height="900"></li>
-                <li><img src="assets/images/demo-workshop.png" alt="Prompt Workshop view showing the same sample entry read by the Companion, Coach, Challenger, Analyst, and Custom Perspectives." width="1440" height="900"></li>
-              </ul>
-              <p>The interactive demo needs JavaScript. The screenshots above show the five views, and you can view the source on <a href="https://github.com/sinmentis/unflincher">GitHub</a>.</p>
+          <div class="demo-shell">
+            <div class="demo-stage" data-demo-stage aria-live="polite">
+              <div class="demo-static-fallback" data-static-fallback>
+                <ul class="demo-fallback">
+                  <li><img src="assets/images/demo-timeline.png" alt="Current desktop Timeline with year-count nodes and a full-width fictional journal table." width="1440" height="900"></li>
+                  <li><img src="assets/images/demo-entry.png" alt="Current desktop Entry Reflection with metadata, wellbeing score, and segmented reading tabs." width="1440" height="900"></li>
+                  <li><img src="assets/images/demo-report.png" alt="Current desktop Life Report with a wide reading surface and report history rail." width="1440" height="900"></li>
+                  <li><img src="assets/images/demo-conversation.png" alt="Current desktop Conversation with wrapped session titles and a full fictional thread." width="1440" height="900"></li>
+                  <li><img src="assets/images/demo-write.png" alt="Current desktop Write page with a metadata ledger and wide journal editor." width="1440" height="900"></li>
+                  <li><img src="assets/images/demo-workshop.png" alt="Current desktop Prompt Workshop with Perspective settings, draft instructions, and a fictional preview." width="1440" height="900"></li>
+                </ul>
+                <p>The interactive demo needs JavaScript. The screenshots above show the six views, and you can view the source on <a href="https://github.com/sinmentis/unflincher">GitHub</a>.</p>
+              </div>
             </div>
           </div>
         </div>

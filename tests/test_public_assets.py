@@ -50,7 +50,8 @@ def test_site_css_uses_midnight_manuscript_tokens():
     assert "box-shadow" not in css
 
 
-def test_public_favicon_is_english_and_amber():
+def test_public_favicon_matches_the_current_teal_product_mark():
     svg = (ROOT / "site" / "assets" / "images" / "favicon.svg").read_text(encoding="utf-8")
-    assert "#c8ad78" in svg
+    assert "#a4ded1" in svg
+    assert "#171815" in svg
     assert ">U<" in svg

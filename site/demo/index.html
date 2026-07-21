@@ -13,12 +13,12 @@
   <meta property="og:image" content="https://sinmentis.github.io/unflincher/assets/images/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
-  <meta property="og:image:alt" content="Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL.">
+  <meta property="og:image:alt" content="Dark Unflincher social card with a fictional Life Report preview and the message See the patterns that one journal entry cannot show.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Unflincher interactive demo">
   <meta name="twitter:description" content="Try Unflincher on fictional sample data. No account, no model call, and no journal content is sent to a backend or model.">
   <meta name="twitter:image" content="https://sinmentis.github.io/unflincher/assets/images/social-preview.png">
-  <meta name="twitter:image:alt" content="Dark social card with the text AI reflection partner, the promise An outside perspective on years of your journal, and the Unflincher repository URL.">
+  <meta name="twitter:image:alt" content="Dark Unflincher social card with a fictional Life Report preview and the message See the patterns that one journal entry cannot show.">
   <link rel="icon" href="../assets/images/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../assets/css/site.css">
   <link rel="stylesheet" href="../assets/css/demo.css">
@@ -36,28 +36,32 @@
       <h1>Interactive demo</h1>
       <span class="demo-badge">Sample data</span>
     </div>
-    <p class="demo-note">The interactive logic runs in your browser on fictional data. After the page assets load, it requests only the committed sample file. It performs no model calls, tracking, cookies, storage, or writable operations. Writing, generation, and live conversations are available only in the self-hosted app. The public site is hosted on GitHub Pages and is subject to GitHub's platform logging and privacy practices.</p>
-    <h2>Explore five views</h2>
-    <section class="demo-shell" data-demo-root data-initial-view="timeline" data-fixture="../data/sample-journal.json">
-      <nav class="demo-nav" aria-label="Demo views">
+    <p class="demo-note">The interactive logic runs in your browser on fictional data. After the page assets load, it requests only the committed sample file. It performs no model calls, tracking, cookies, storage, or writable operations. Saving, generation, and live conversations are available only in the self-hosted app. The public site is hosted on GitHub Pages and is subject to GitHub's platform logging and privacy practices.</p>
+    <h2>Explore six views</h2>
+    <section class="demo-experience" data-demo-root data-initial-view="timeline" data-fixture="../data/sample-journal.json">
+      <nav class="demo-viewbar" aria-label="Demo views">
         <button type="button" data-view="timeline">Timeline</button>
         <button type="button" data-view="entry">Entry Reflection</button>
         <button type="button" data-view="report">Life Report</button>
         <button type="button" data-view="conversation">Conversation</button>
+        <button type="button" data-view="write">Write</button>
         <button type="button" data-view="workshop">Prompt Workshop</button>
       </nav>
-      <div class="demo-stage" data-demo-stage aria-live="polite">
-        <div class="demo-static-fallback" data-static-fallback>
-          <ul class="demo-fallback">
-            <li><img src="../assets/images/demo-timeline.png" alt="Timeline view listing dated entries from the fictional sample journal." width="1440" height="900"></li>
-            <li><img src="../assets/images/demo-entry.png" alt="Entry Reflection view of one fictional sample entry with its generated reading." width="1440" height="900"></li>
-            <li><img src="../assets/images/demo-report.png" alt="Life Report view with sections and dated evidence from fictional entries." width="1440" height="900"></li>
-            <li><img src="../assets/images/demo-conversation.png" alt="Conversation view where the fictional reflection is challenged with a follow-up question." width="1440" height="900"></li>
-            <li><img src="../assets/images/demo-workshop.png" alt="Prompt Workshop view showing the same fictional entry read by the Companion, Coach, Challenger, Analyst, and Custom Perspectives." width="1440" height="900"></li>
-          </ul>
-          <p>The interactive controls need JavaScript. The screenshots above show the five views.</p>
-          <p>The self-hosted app stores journal data in your local SQLite database. Depending on the feature, generation can send either the full Journal Archive or an as-of entry context containing the target and earlier entries, plus the active prompt or draft instructions, Conversation history, and the current message through GitHub Copilot. Read the exact transmission list on the <a href="../#privacy">home page</a>.</p>
-          <p>Read the product story on the <a href="../">home page</a> or view the source on <a href="https://github.com/sinmentis/unflincher">GitHub</a>.</p>
+      <div class="demo-shell">
+        <div class="demo-stage" data-demo-stage aria-live="polite">
+          <div class="demo-static-fallback" data-static-fallback>
+            <ul class="demo-fallback">
+              <li><img src="../assets/images/demo-timeline.png" alt="Current desktop Timeline with year-count nodes and a full-width fictional journal table." width="1440" height="900"></li>
+              <li><img src="../assets/images/demo-entry.png" alt="Current desktop Entry Reflection with metadata, wellbeing score, and segmented reading tabs." width="1440" height="900"></li>
+              <li><img src="../assets/images/demo-report.png" alt="Current desktop Life Report with a wide reading surface and report history rail." width="1440" height="900"></li>
+              <li><img src="../assets/images/demo-conversation.png" alt="Current desktop Conversation with wrapped session titles and a full fictional thread." width="1440" height="900"></li>
+              <li><img src="../assets/images/demo-write.png" alt="Current desktop Write page with a metadata ledger and wide journal editor." width="1440" height="900"></li>
+              <li><img src="../assets/images/demo-workshop.png" alt="Current desktop Prompt Workshop with Perspective settings, draft instructions, and a fictional preview." width="1440" height="900"></li>
+            </ul>
+            <p>The interactive controls need JavaScript. The screenshots above show the six views.</p>
+            <p>The self-hosted app stores journal data in your local SQLite database. Depending on the feature, generation can send either the full Journal Archive or an as-of entry context containing the target and earlier entries, plus the active prompt or draft instructions, Conversation history, and the current message through GitHub Copilot. Read the exact transmission list on the <a href="../#privacy">home page</a>.</p>
+            <p>Read the product story on the <a href="../">home page</a> or view the source on <a href="https://github.com/sinmentis/unflincher">GitHub</a>.</p>
+          </div>
         </div>
       </div>
     </section>

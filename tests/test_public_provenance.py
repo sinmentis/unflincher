@@ -257,6 +257,7 @@ def test_committed_provenance_matches_committed_images():
         "demo-entry.png",
         "demo-report.png",
         "demo-conversation.png",
+        "demo-write.png",
         "demo-workshop.png",
     ):
         assert name in declared
@@ -270,6 +271,7 @@ def test_committed_demo_screenshots_declare_approved_history_and_capture_metadat
         "demo-entry.png",
         "demo-report.png",
         "demo-conversation.png",
+        "demo-write.png",
         "demo-workshop.png",
     ):
         entry = by_file[name]

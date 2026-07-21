@@ -2,20 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="../../site/assets/css/site.css">
   <style>
-    html, body { margin: 0; }
-    .card { width: 1280px; height: 640px; box-sizing: border-box; padding: 96px; display: flex; flex-direction: column; justify-content: space-between; background: var(--night); border: 2px solid var(--line); }
-    .card h1 { font-size: 76px; margin: 0; max-width: 20ch; }
-    .card .kicker { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent); font-size: 22px; }
-    .card .foot { font-family: var(--font-mono); color: var(--muted); font-size: 24px; }
+    * { box-sizing: border-box; }
+    html, body { width: 1280px; height: 640px; margin: 0; overflow: hidden; background: #111210; color: #f2f0e9; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .card { display: grid; width: 1280px; height: 640px; grid-template-columns: 1fr 470px; gap: 64px; padding: 72px; border: 2px solid #2c2f2a; background: #111210; }
+    .copy { display: flex; min-width: 0; flex-direction: column; justify-content: space-between; }
+    .wordmark { margin: 0; font-size: 18px; font-weight: 750; letter-spacing: 0.18em; }
+    .kicker { margin: 0 0 20px; color: #a4ded1; font-size: 16px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    h1 { max-width: 720px; margin: 0; font-size: 58px; font-weight: 600; line-height: 1.08; letter-spacing: -0.035em; }
+    .foot { margin: 0; color: #aaa79e; font-size: 21px; }
+    .preview { align-self: center; padding: 28px; border: 1px solid #2c2f2a; border-radius: 18px; background: #1a1b18; }
+    .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid #2c2f2a; }
+    .preview-head strong { font-size: 24px; }
+    .preview-head span { color: #aaa79e; font-size: 14px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 20px 0; border-bottom: 1px solid #2c2f2a; }
+    .stats div { display: flex; flex-direction: column; gap: 5px; }
+    .stats strong { font-size: 22px; }
+    .stats span { color: #92958e; font-size: 11px; text-transform: uppercase; }
+    .pill { display: inline-flex; margin: 22px 0 18px; padding: 7px 11px; border-radius: 999px; background: rgba(127, 199, 184, 0.13); color: #a4ded1; font-size: 12px; font-weight: 700; }
+    .section + .section { margin-top: 18px; }
+    .section strong { display: block; margin-bottom: 7px; font-size: 16px; }
+    .section p { margin: 0; color: #cbc8bf; font-size: 14px; line-height: 1.55; }
   </style>
 </head>
 <body>
   <div class="card">
-    <p class="kicker">AI reflection partner</p>
-    <h1>An outside perspective on years of your journal.</h1>
-    <p class="foot">github.com/sinmentis/unflincher</p>
+    <div class="copy">
+      <p class="wordmark">UNFLINCHER</p>
+      <div>
+        <p class="kicker">AI reflection partner</p>
+        <h1>See the patterns that one journal entry cannot show.</h1>
+      </div>
+      <p class="foot">github.com/sinmentis/unflincher</p>
+    </div>
+    <div class="preview">
+      <div class="preview-head"><strong>Life Report</strong><span>Fictional archive</span></div>
+      <div class="stats">
+        <div><strong>83</strong><span>Entries</span></div>
+        <div><strong>3</strong><span>Reports</span></div>
+        <div><strong>0</strong><span>Behind</span></div>
+      </div>
+      <span class="pill">Perspective: Analyst</span>
+      <div class="section"><strong>A recurring pattern of delay</strong><p>The reason changes while the waiting stays constant.</p></div>
+      <div class="section"><strong>The turn toward reversible steps</strong><p>Smaller commitments finally produce movement.</p></div>
+    </div>
   </div>
 </body>
 </html>

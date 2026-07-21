@@ -6,10 +6,27 @@ dated entries, and lets you challenge the reading in Conversation.
 
 Source available for noncommercial use.
 
-![Life Report showing a recurring pattern supported by dated Entry References from a fictional Journal Archive.](site/assets/images/demo-report.png)
+![Current wide Life Report with a fictional archive, report history, and dated Entry References.](site/assets/images/demo-report.png)
 
-- Explore the fictional demo: https://sinmentis.github.io/unflincher/demo/
+- Explore the six-view fictional demo: https://sinmentis.github.io/unflincher/demo/
 - Install Unflincher: [docs/deployment.md](docs/deployment.md)
+
+<details>
+<summary>More current UI screenshots</summary>
+
+| Timeline | Entry Reflection |
+| --- | --- |
+| ![Timeline with year-count nodes and the fictional archive table.](site/assets/images/demo-timeline.png) | ![Entry Reflection with a wellbeing score and segmented reading tabs.](site/assets/images/demo-entry.png) |
+
+| Conversation | Write |
+| --- | --- |
+| ![Conversation with wrapped session titles and a full fictional thread.](site/assets/images/demo-conversation.png) | ![Write page with a metadata ledger and wide journal editor.](site/assets/images/demo-write.png) |
+
+| Prompt Workshop |
+| --- |
+| ![Prompt Workshop with Perspective settings and a fictional preview.](site/assets/images/demo-workshop.png) |
+
+</details>
 
 ## What this is
 
