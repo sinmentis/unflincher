@@ -224,7 +224,7 @@ def test_reading_surfaces_keep_a_comfortable_measure():
     assert "--reading-max: 48rem" in tokens
     assert "--measure: 46rem" in tokens
     assert "--leading-reading: 1.82" in tokens
-    assert "max-width: 64rem" in _rule_body(pages, ".diary-prose")
+    assert "max-width: 80rem" in _rule_body(pages, ".diary-prose")
     assert "max-width: var(--measure)" in _rule_body(pages, ".report-prose")
     assert "minmax(0, var(--measure))" in _rule_body(components, ".conversation-message")
 
@@ -311,7 +311,9 @@ def test_mobile_layouts_collapse_in_source_order():
 def test_timeline_layout_returns_full_width_to_the_archive():
     css = PAGES_CSS.read_text()
     body = _rule_body(css, ".timeline-layout")
-    assert "max-width: 96rem" in body
+    assert "width: 100%" in body
+    assert "max-width" not in body
+    assert "margin-inline" not in body
     assert "grid-template-columns" not in body
     track = _rule_body(css, ".timeline-year-track")
     assert "grid-auto-columns: minmax(3.75rem, 1fr)" in track
@@ -322,8 +324,11 @@ def test_timeline_layout_returns_full_width_to_the_archive():
 def test_entry_layout_uses_the_removed_rail_space_for_reading():
     css = PAGES_CSS.read_text()
     body = _rule_body(css, ".entry-layout")
-    assert "max-width: 80rem" in body
+    assert "width: 100%" in body
+    assert "max-width" not in body
+    assert "margin-inline" not in body
     assert "grid-template-columns" not in body
+    assert "max-width: 80rem" in _rule_body(css, ".diary-prose")
     source = (TEMPLATES / "entry_detail.html").read_text()
     assert "entry-context" not in source
     assert "entry-adjacent" not in source
