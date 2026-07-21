@@ -181,11 +181,11 @@ def test_landing_describes_only_supported_archive_paths():
 def test_landing_discloses_each_generation_payload_and_context_limit():
     html = _flat(INDEX.read_text(encoding="utf-8"))
     required = (
-        "Entry Reflection sends the full Journal Archive, the active prompt, and the selected-entry focus.",
+        "Entry Reflection sends the target entry, entries earlier in canonical chronology, and the active prompt. It never sends later entries.",
         "Life Report sends the full Journal Archive and the active prompt.",
         "General Conversation sends the full Journal Archive, the active prompt, the complete current-session history, and the current message.",
         "Entry Conversation sends the selected entry, its latest reflection when present, the complete thread history, the active prompt, and the current message.",
-        "Prompt Workshop preview sends the full Journal Archive, the selected-entry focus, the draft instructions, and the selected model without persisting the output.",
+        "Prompt Workshop preview sends the target entry, entries earlier in canonical chronology, the draft instructions, and the selected model without persisting the output. It never sends later entries.",
         "first message of a new general Conversation",
         "separate model",
         "date title remains",

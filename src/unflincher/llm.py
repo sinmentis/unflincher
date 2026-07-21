@@ -187,6 +187,9 @@ async def shutdown_client() -> None:
 PER_ENTRY_TASK = """Focus on this entry while using other dated entries only when they support a
 recurring pattern.
 
+Treat the target entry as the present moment. Use only the target entry and earlier entries supplied
+in this request. Never infer, mention, or use later events or later diary entries.
+
 End every Entry Reflection with this exact metadata line:
 [wellbeing-score]: # "NN"
 
@@ -387,6 +390,18 @@ def _build_corpus(all_entries: list[dict]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+def _entries_through_target(entry: dict, all_entries: list[dict]) -> list[dict]:
+    chronology = [(candidate["entry_date"], candidate["id"]) for candidate in all_entries]
+    if chronology != sorted(chronology):
+        raise ValueError(
+            "journal archive must use canonical chronology (entry_date ASC, id ASC)"
+        )
+    for index, candidate in enumerate(all_entries):
+        if candidate["id"] == entry["id"]:
+            return all_entries[: index + 1]
+    raise ValueError(f"entry {entry['id']} is not in the supplied journal archive")
+
+
 # ---------------------------------------------------------------------------
 # Request assembly (pure, no I/O) — the ONE place system/user content is built for each
 # generation path. Every generate_*/chat_* convenience wrapper AND every prepare_*_request
@@ -396,11 +411,14 @@ def _build_corpus(all_entries: list[dict]) -> str:
 
 def commentary_content(entry: dict, all_entries: list[dict], persona_text: str) -> tuple[str, str]:
     system = f"{persona_text}\n\n{PER_ENTRY_TASK}"
-    corpus = _build_corpus(all_entries)
-    target_index = next(i for i, e in enumerate(all_entries, start=1) if e["id"] == entry["id"])
+    historical_entries = _entries_through_target(entry, all_entries)
+    corpus = _build_corpus(historical_entries)
+    target_index = len(historical_entries)
     user_content = (
-        f"全部日记（供跨篇参考）：\n\n{corpus}\n\n---\n\n"
-        f"现在请针对第 {target_index} 篇写锐评：{entry['title']}"
+        "Journal entries available as of the target entry, in canonical chronological order. "
+        f"Later entries are intentionally excluded:\n\n{corpus}\n\n---\n\n"
+        f"Write the Entry Reflection for entry {target_index}: {entry['title']}. "
+        "Respond in the language used by the target entry."
     )
     return system, user_content
 

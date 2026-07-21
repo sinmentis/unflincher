@@ -38,7 +38,7 @@ EXPECTED_FAQ = (
     ),
     (
         "What leaves my host during generation?",
-        "Entries, prompts, generated output, and Conversation history stay in local SQLite. GitHub Copilot is the only model integration. Depending on the feature, it receives the full Journal Archive or selected entry context, active or draft instructions, applicable Conversation history, and the current message. A separate model may receive the first general Conversation message once to generate a short title. The complete request must fit the selected model's context window, and Unflincher fails clearly instead of silently dropping older content.",
+        "Entries, prompts, generated output, and Conversation history stay in local SQLite. GitHub Copilot is the only model integration. Depending on the feature, it receives the full Journal Archive or an as-of entry context containing only the target entry and entries earlier in canonical chronology, plus active or draft instructions, applicable Conversation history, and the current message. A separate model may receive the first general Conversation message once to generate a short title. The complete request must fit the selected model's context window, and Unflincher fails clearly instead of silently dropping older content.",
     ),
     (
         "How is Unflincher licensed?",
@@ -183,11 +183,11 @@ def test_llms_txt_matches_canonical_public_facts():
     required = (
         "Unflincher is an evidence-grounded AI reflection partner for people with years of journal entries.",
         "Companion, Coach, Challenger, Analyst, and Custom",
-        "Entry Reflection sends the full Journal Archive, the active prompt, and the selected-entry focus.",
+        "Entry Reflection sends the target entry, entries earlier in canonical chronology, and the active prompt. It never sends later entries.",
         "Life Report sends the full Journal Archive and the active prompt.",
         "General Conversation sends the full Journal Archive, the active prompt, the complete current-session history, and the current message.",
         "Entry Conversation sends the selected entry, its latest reflection when present, the complete thread history, the active prompt, and the current message.",
-        "Prompt Workshop preview sends the full Journal Archive, the selected-entry focus, the draft instructions, and the selected model without persisting the output.",
+        "Prompt Workshop preview sends the target entry, entries earlier in canonical chronology, the draft instructions, and the selected model without persisting the output. It never sends later entries.",
         "first message of a new general Conversation",
         "selected model's context window",
         "fails clearly instead of silently dropping",

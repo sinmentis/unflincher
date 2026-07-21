@@ -194,7 +194,7 @@ def test_test_run_done_event_carries_rendered_markdown_html(client, monkeypatch)
     assert "**重点" not in done_frame
 
 
-def test_test_run_uses_full_corpus_same_as_real_generation(client, monkeypatch):
+def test_test_run_excludes_entries_written_after_the_target(client, monkeypatch):
     captured = {}
 
     async def fake_stream(envelope):
@@ -208,9 +208,9 @@ def test_test_run_uses_full_corpus_same_as_real_generation(client, monkeypatch):
 
     client.post("/workshop/test-run", json={"draft_prompt": "草稿", "entry_id": entry_ids[0]})
 
-    # Both seeded entries are in context, not just the 1 selected entry.
+    # Preview must use the same as-of context as persisted Entry Reflections.
     assert "日记0" in captured["user_content"]
-    assert "日记1" in captured["user_content"]
+    assert "日记1" not in captured["user_content"]
     assert captured["system_content"].startswith("草稿")
 
 

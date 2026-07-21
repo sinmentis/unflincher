@@ -86,11 +86,12 @@ def test_readme_describes_perspectives_supported_import_and_boundaries():
 def test_readme_privacy_discloses_each_generation_path():
     text = _flat(README.read_text(encoding="utf-8"))
     for phrase in (
-        "Entry Reflection sends the full Journal Archive",
+        "Entry Reflection sends the target entry, entries earlier in canonical chronology",
+        "It never sends later entries",
         "Life Report sends the full Journal Archive",
         "General Conversation sends the full Journal Archive",
         "Entry Conversation sends the selected entry",
-        "Prompt Workshop preview sends the full Journal Archive",
+        "Prompt Workshop preview sends the target entry, entries earlier in canonical chronology",
         "first message of a new general Conversation",
         "date title remains",
     ):

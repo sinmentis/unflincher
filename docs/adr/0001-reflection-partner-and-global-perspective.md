@@ -24,6 +24,10 @@ uses one globally active Perspective for future Entry Reflections, Life Reports,
 New installations start with Analyst. An existing active prompt remains byte-for-byte unchanged and
 is classified as Custom during migration.
 
+Entry Reflections preserve the point-in-time view available at the target entry. Their model
+context contains the target entry plus entries earlier in canonical chronology, never later writing.
+Life Reports and Journal Archive Conversations may use the complete archive.
+
 Prompt Workshop remains the control surface. Selecting or editing a Perspective affects only future
 generation. Apply remains save-only. Apply and regenerate all remains explicit and confirmed.
 
@@ -39,11 +43,13 @@ professional, medical tool, or substitute relationship.
 - The assistant speaker label becomes Unflincher rather than AI Mentor.
 - Perspective is a global setting, so changing it affects the next response in an existing
   Conversation without relabeling prior messages.
+- Entry Reflections and their wellbeing scores cannot use knowledge from entries written after the
+  target entry.
 - Existing generated content is preserved and is not regenerated automatically.
 - Public copy must describe dated entry references accurately without claiming independently
   verified or structured citations.
-- Full-archive generation is limited by the selected model's context window and must fail clearly
-  rather than silently omit entries.
+- Full-archive Life Reports and Journal Archive Conversations are limited by the selected model's
+  context window and must fail clearly rather than silently omit entries.
 
 ## Rejected alternatives
 

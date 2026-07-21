@@ -160,20 +160,29 @@ async def test_generate_commentary_streams_and_never_writes_db(fake_stream):
     system, user_content, model = fake_stream.calls[0]
     assert "人设" in system
     assert model == "test-model"
-    # both entries are in context, not just the target one (rubber-duck fix: same context
-    # for real generation and test-run preview)
+    # An Entry Reflection is an as-of reading: the first entry cannot see later writing.
     assert "第一篇" in user_content
-    assert "第二篇" in user_content
+    assert "第二篇" not in user_content
     assert '[wellbeing-score]: # "NN"' in system
     assert "never present the score as therapy, diagnosis, or a clinical assessment" in system
 
 
-async def test_generate_commentary_for_second_entry_still_sees_full_corpus(fake_stream):
+async def test_generate_commentary_for_second_entry_sees_only_prior_and_target_entries(fake_stream):
     async for _ in generate_commentary(ENTRIES[1], ENTRIES, "人设", "test-model"):
         pass
     _, user_content, _ = fake_stream.calls[0]
     assert "第一篇" in user_content
     assert "第二篇" in user_content
+
+
+async def test_generate_commentary_rejects_noncanonical_archive_order(fake_stream):
+    with pytest.raises(ValueError, match="canonical chronology"):
+        async for _ in generate_commentary(
+            ENTRIES[0], list(reversed(ENTRIES)), "人设", "test-model"
+        ):
+            pass
+
+    assert fake_stream.calls == []
 
 
 async def test_generate_report_includes_all_entries(fake_stream):

@@ -104,8 +104,8 @@ async def entry_detail(request: Request, entry_id: int):
 @router.post("/entry/{entry_id}/commentary")
 async def trigger_entry_commentary(request: Request, entry_id: int, background_tasks: BackgroundTasks):
     """Fire-and-forget: prepares and preflights the exact Entry Reflection request this entry
-    would generate (full-archive context, exactly like a real generation), then atomically
-    compares the archive snapshot, acquires this entry's exclusive lease, and writes a
+    would generate (target-bounded historical context, exactly like a real generation), then
+    atomically compares the archive snapshot, acquires this entry's exclusive lease, and writes a
     single-item snapshot-backed job -- see regen_enqueue.enqueue_single_entry_job. Returns
     immediately so the caller (the browser) can navigate away without losing the result."""
     db = request.app.state.db

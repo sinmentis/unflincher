@@ -56,8 +56,8 @@ def _target_from_prepared(target_type: str, entry_id: int | None, prepared: llm.
 async def enqueue_single_entry_job(
     conn, *, entry_id: int, prompt_version_id: int, persona_text: str, model: str, owner_token: str,
 ) -> int:
-    """Prepare+preflight ONE entry_commentary target (with full-archive context, exactly like a
-    real generation would see) and atomically enqueue a single-item snapshot-backed job for it.
+    """Prepare+preflight ONE entry_commentary target with the target-bounded historical context a
+    real generation would see, then atomically enqueue a single-item snapshot-backed job for it.
     Raises context_budget.ContextTooLargeError / ModelLimitsUnavailableError (before any write),
     db.MaintenanceLockedError, db.TargetBusyError, or (after exhausting rebuild attempts)
     db.ArchiveChangedError."""

@@ -216,14 +216,13 @@ async def workshop_test_run(request: Request, body: TestRunRequest):
     db.new_request_lease_key), so a preview counts as maintenance-aware admitted work the deploy
     drain can observe -- even though it persists nothing. It then prepares and preflights the
     EXACT same request llm.build_commentary_envelope/prepare_commentary_request would build for a
-    real per-entry trigger, with the exact same full-corpus context (in canonical (entry_date
-    ASC, id ASC) order -- see db.get_ordered_entry_ids). Only then does the preview faithfully
-    predict the real output AND correctly enforce the same capacity contract before ever opening
-    the SSE stream. The single picked entry is the focus, but the model still sees every entry
-    for cross-entry pattern matching — passing just the one entry here would make the preview
-    lie about what the real generation produces. The lease is released on every path: preflight
-    failure, SSE success, SSE failure/disconnect, and even a disconnect that races the SSE
-    response before its body ever starts iterating (see routes/sse.py's sse_response).
+    real per-entry trigger, with the same target-bounded context derived from canonical
+    (entry_date ASC, id ASC) order (see db.get_ordered_entry_ids). The selected entry sees itself
+    and earlier entries, never later writing. Only then does the preview faithfully predict the
+    real output AND correctly enforce the same capacity contract before ever opening the SSE
+    stream. The lease is released on every path: preflight failure, SSE success, SSE
+    failure/disconnect, and even a disconnect that races the SSE response before its body ever
+    starts iterating (see routes/sse.py's sse_response).
 
     An explicit `model` in the body lets the owner trial a model different from the saved active
     one without committing to it (this route still writes nothing); absent that, it falls back to

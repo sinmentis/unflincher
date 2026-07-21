@@ -217,6 +217,7 @@ def test_demo_page_states_sample_data_and_five_views():
     assert "active prompt" in html
     assert "no model calls, tracking, cookies, storage, or writable operations" in html
     assert "full Journal Archive" in html
+    assert "target and earlier entries" in html
     assert 'href="../#privacy"' in html
     assert "live chat" not in html.lower()
     assert 'href="/' not in html

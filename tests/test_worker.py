@@ -99,6 +99,32 @@ async def test_run_job_generates_commentary_for_every_entry_and_the_report(monke
     assert job["status"] == "done"
 
 
+async def test_run_job_entry_reflections_exclude_later_snapshot_entries(monkeypatch, conn):
+    seen_by_entry = {}
+
+    async def fake_stream(envelope):
+        if envelope.target_kind == "entry_commentary":
+            seen_by_entry[int(envelope.target_id)] = envelope.user_content
+            yield 'Temporal reflection.\n\n[wellbeing-score]: # "73"'
+        else:
+            yield "Report"
+
+    monkeypatch.setattr(llm_module, "stream_completion_envelope", fake_stream)
+    entry_ids = _seed_entries(conn, 3)
+    job_id, _ = _enqueue_full_job(conn, entry_ids)
+
+    await BatchWorker(conn, concurrency=2).run_job(job_id)
+
+    first, second, third = entry_ids
+    assert "日记0" in seen_by_entry[first]
+    assert "日记1" not in seen_by_entry[first]
+    assert "日记2" not in seen_by_entry[first]
+    assert "日记0" in seen_by_entry[second]
+    assert "日记1" in seen_by_entry[second]
+    assert "日记2" not in seen_by_entry[second]
+    assert all(f"日记{i}" in seen_by_entry[third] for i in range(3))
+
+
 async def test_run_job_releases_every_target_lease_on_success(monkeypatch, conn):
     from unflincher.db import entry_target_key, get_lease_by_target, report_target_key
 

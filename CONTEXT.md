@@ -6,7 +6,8 @@ journal history and keeps that reading open to challenge in conversation.
 **Journal Archive**: The complete set of imported and manually written entries available to
 Unflincher.
 
-**Entry Reflection**: A generated reading attached to one journal entry.
+**Entry Reflection**: An as-of generated reading attached to one journal entry. Its model context
+ends at that entry in canonical chronology, so later entries are never visible.
 
 **Life Report**: A cross-year synthesis of recurring patterns, changes, contradictions, and goals.
 
