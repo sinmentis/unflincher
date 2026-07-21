@@ -266,17 +266,22 @@ def test_committed_provenance_matches_committed_images():
 def test_committed_demo_screenshots_declare_approved_history_and_capture_metadata():
     manifest = json.loads((IMAGES / "provenance.json").read_text(encoding="utf-8"))
     by_file = {entry["file"]: entry for entry in manifest}
-    for name in (
+    all_screenshots = (
         "demo-timeline.png",
         "demo-entry.png",
         "demo-report.png",
         "demo-conversation.png",
         "demo-write.png",
         "demo-workshop.png",
-    ):
+    )
+    # demo-write.png is a brand-new view with no previously captured version, so unlike
+    # the other five it has nothing to record in approved_historical_sha256 yet.
+    previously_captured = {name for name in all_screenshots if name != "demo-write.png"}
+    for name in all_screenshots:
         entry = by_file[name]
-        assert entry["approved_historical_sha256"], f"{name} must record prior approved digests"
-        assert entry["sha256"] not in entry["approved_historical_sha256"]
+        if name in previously_captured:
+            assert entry["approved_historical_sha256"], f"{name} must record prior approved digests"
+            assert entry["sha256"] not in entry["approved_historical_sha256"]
         assert len(entry["fixture_sha256"]) == 64
         assert entry["capture_command"]
         assert entry["runtime"]
